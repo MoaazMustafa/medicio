@@ -2,13 +2,35 @@
 
 import { Button } from "@heroui/react";
 import NextLink from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Logo } from "@/components/icons";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { siteConfig } from "@/config/site";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch((err) => console.error("Error fetching session: ", err));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
+      window.location.reload();
+    } catch (err) {
+      console.error("Logout error: ", err);
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border-custom bg-background-custom/70 backdrop-blur-lg">
@@ -38,14 +60,32 @@ export const Navbar = () => {
         <div className="flex items-center gap-4">
           <ThemeSwitch />
           
-          <NextLink href="#">
-            <Button
-              variant="outline"
-              className="hidden sm:inline-flex text-sm font-semibold text-text-primary hover:text-primary"
-            >
-              Portal Login
-            </Button>
-          </NextLink>
+          {user ? (
+            <div className="hidden sm:flex items-center gap-3">
+              <span className="text-[10px] font-semibold text-text-secondary font-mono bg-border-custom/50 px-2 py-0.5 rounded uppercase">
+                {user.role}
+              </span>
+              <span className="text-sm font-semibold text-text-primary">
+                {user.name}
+              </span>
+              <Button
+                variant="outline"
+                className="text-xs font-semibold text-danger hover:text-danger/80"
+                onPress={handleLogout}
+              >
+                Logout
+              </Button>
+            </div>
+          ) : (
+            <NextLink href="/login">
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex text-sm font-semibold text-text-primary hover:text-primary"
+              >
+                Portal Login
+              </Button>
+            </NextLink>
+          )}
 
           {/* Mobile menu toggle */}
           <Button
@@ -95,14 +135,30 @@ export const Navbar = () => {
                 {item.label}
               </NextLink>
             ))}
-            <NextLink href="#">
-              <Button
-                variant="primary"
-                className="w-full mt-2 font-semibold"
-              >
-                Portal Login
-              </Button>
-            </NextLink>
+            {user ? (
+              <div className="flex flex-col gap-2 border-t border-border-custom pt-3 mt-1">
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="font-semibold text-text-primary">{user.name}</span>
+                  <span className="font-mono text-text-secondary uppercase">{user.role}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full mt-2 font-semibold text-danger"
+                  onPress={handleLogout}
+                >
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <NextLink href="/login" onClick={() => setIsMenuOpen(false)}>
+                <Button
+                  variant="primary"
+                  className="w-full mt-2 font-semibold"
+                >
+                  Portal Login
+                </Button>
+              </NextLink>
+            )}
           </div>
         </div>
       )}
