@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/crypto";
-import { signJwt } from "@/lib/jwt";
+import { signJwt, verifyJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
 import { UserRole } from "@prisma/client";
 
@@ -23,6 +23,34 @@ export async function POST(request: NextRequest) {
         { error: "Invalid role selected." },
         { status: 400 }
       );
+    }
+
+    // Restricted roles check: only SUPER_ADMIN or ADMIN can create administrative/manager roles
+    const restrictedRoles: UserRole[] = [
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+      UserRole.PHARMACY_ADMIN,
+      UserRole.LAB_ADMIN,
+      UserRole.HOSPITAL_ADMIN,
+    ];
+
+    if (restrictedRoles.includes(role as UserRole)) {
+      const cookieStore = await cookies();
+      const sessionCookie = cookieStore.get("medicio_session");
+      if (!sessionCookie || !sessionCookie.value) {
+        return NextResponse.json(
+          { error: "Access denied. Only administrators can register manager or administrative account roles." },
+          { status: 403 }
+        );
+      }
+
+      const payload = verifyJwt(sessionCookie.value);
+      if (!payload || (payload.role !== UserRole.SUPER_ADMIN && payload.role !== UserRole.ADMIN)) {
+        return NextResponse.json(
+          { error: "Access denied. Only administrators can register manager or administrative account roles." },
+          { status: 403 }
+        );
+      }
     }
 
     const existingUser = await prisma.user.findUnique({

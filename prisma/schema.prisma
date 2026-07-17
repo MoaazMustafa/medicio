@@ -193,3 +193,13 @@ model AIConversation {
 
   @@map("ai_conversations")
 }
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("verification_tokens")
+}

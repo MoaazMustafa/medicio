@@ -122,16 +122,10 @@ export default function RegisterPage() {
               <label className="text-xs font-semibold text-text-secondary">Account Role Type</label>
               <div className="grid grid-cols-2 gap-3 mt-1 text-sm">
                 <Radio value="PATIENT" className="text-xs text-text-primary">
-                  Patient seeker
+                  Patient Seeker
                 </Radio>
                 <Radio value="DOCTOR" className="text-xs text-text-primary">
-                  Practitioner
-                </Radio>
-                <Radio value="PHARMACY_ADMIN" className="text-xs text-text-primary">
-                  Pharmacy Admin
-                </Radio>
-                <Radio value="LAB_ADMIN" className="text-xs text-text-primary">
-                  Lab Technician
+                  Medical Practitioner
                 </Radio>
               </div>
             </RadioGroup>
