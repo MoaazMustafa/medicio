@@ -45,6 +45,12 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+*::selection {
+  background-color: var(--primary);
+  color: var(--surface);
+  border-radius: 24px;
+}
+
 /* View transitions circular animation overrides */
 ::view-transition-old(root),
 ::view-transition-new(root) {

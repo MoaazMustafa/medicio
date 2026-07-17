@@ -3,17 +3,21 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/crypto";
 import { signJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
+import { loginSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const result = loginSchema.safeParse(body);
 
-    if (!email || !password) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Email and password are required fields." },
+        { error: result.error.issues[0].message },
         { status: 400 }
       );
     }
+
+    const { email, password } = result.data;
 
     const user = await prisma.user.findUnique({
       where: { email },

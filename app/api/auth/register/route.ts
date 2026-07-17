@@ -4,26 +4,21 @@ import { hashPassword } from "@/lib/crypto";
 import { signJwt, verifyJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
 import { UserRole } from "@prisma/client";
+import { registerSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name, role } = await request.json();
-
-    if (!email || !password || !name || !role) {
+    const body = await request.json();
+    const result = registerSchema.safeParse(body);
+    
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Missing required registration parameters." },
+        { error: result.error.issues[0].message },
         { status: 400 }
       );
     }
 
-    // Check if role is valid
-    const validRoles = Object.values(UserRole);
-    if (!validRoles.includes(role as UserRole)) {
-      return NextResponse.json(
-        { error: "Invalid role selected." },
-        { status: 400 }
-      );
-    }
+    const { email, password, name, role } = result.data;
 
     // Restricted roles check: only SUPER_ADMIN or ADMIN can create administrative/manager roles
     const restrictedRoles: UserRole[] = [

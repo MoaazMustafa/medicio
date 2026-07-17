@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendOtpEmail } from "@/lib/email";
+import { forgotPasswordSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const body = await request.json();
+    const result = forgotPasswordSchema.safeParse(body);
 
-    if (!email) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Email address is required." },
+        { error: result.error.issues[0].message },
         { status: 400 }
       );
     }
+
+    const { email } = result.data;
 
     const user = await prisma.user.findUnique({
       where: { email },

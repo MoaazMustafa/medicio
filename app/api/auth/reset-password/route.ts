@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/crypto";
+import { resetPasswordSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, otp, newPassword } = await request.json();
+    const body = await request.json();
+    const result = resetPasswordSchema.safeParse(body);
 
-    if (!email || !otp || !newPassword) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Email, verification OTP code, and new password are required fields." },
+        { error: result.error.issues[0].message },
         { status: 400 }
       );
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters long." },
-        { status: 400 }
-      );
-    }
+    const { email, otp, newPassword } = result.data;
 
     // Find the verification token in DB
     const verificationRecord = await prisma.verificationToken.findFirst({
