@@ -1,0 +1,195 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  HOSPITAL_ADMIN
+  LAB_ADMIN
+  PHARMACY_ADMIN
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         UserRole      @default(PATIENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  doctorProfile           Doctor?
+  hospitalProfile         Hospital?
+  pharmacyProfile         Pharmacy?
+  labProfile              Lab?
+  appointments            Appointment[]
+  medicineTrackerEntries  MedicineTrackerEntry[]
+  reports                 LabReport[]
+  aiConversations         AIConversation[]
+
+  @@map("users")
+}
+
+model Doctor {
+  id            String      @id @default(cuid())
+  userId        String      @unique
+  specialty     String
+  education     String
+  experience    Int
+  licenseNumber String
+  isVerified    Boolean     @default(false)
+  availability  String?     // JSON representation of working slots
+  hospitalId    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospital     Hospital?    @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  @@map("doctors")
+}
+
+model Hospital {
+  id         String   @id @default(cuid())
+  userId     String?  @unique
+  name       String
+  location   String
+  facilities String
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  doctors Doctor[]
+  labs    Lab[]
+  pharmacies Pharmacy[]
+
+  @@map("hospitals")
+}
+
+model Pharmacy {
+  id         String   @id @default(cuid())
+  userId     String?  @unique
+  hospitalId String?
+  name       String
+  location   String
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  hospital Hospital?              @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+  inventory PharmacyInventoryItem[]
+
+  @@map("pharmacies")
+}
+
+model PharmacyInventoryItem {
+  id         String   @id @default(cuid())
+  pharmacyId String
+  name       String
+  price      Float
+  stock      Int
+  lastSync   DateTime @default(now())
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@map("pharmacy_inventory_items")
+}
+
+model Lab {
+  id         String   @id @default(cuid())
+  userId     String?  @unique
+  hospitalId String?
+  name       String
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  hospital Hospital?   @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+  reports  LabReport[]
+
+  @@map("labs")
+}
+
+model LabReport {
+  id         String   @id @default(cuid())
+  patientId  String
+  labId      String
+  testName   String
+  resultData String   // JSON or text findings
+  fileUrl    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  lab     Lab  @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@map("lab_reports")
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  patientId String
+  doctorId  String
+  dateTime  DateTime
+  status    String   // PENDING, CONFIRMED, CANCELLED, COMPLETED
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient User   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model MedicineTrackerEntry {
+  id           String    @id @default(cuid())
+  userId       String
+  medicineName String
+  dosage       String
+  frequency    String
+  startDate    DateTime
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("medicine_tracker_entries")
+}
+
+model ScrapedRecord {
+  id          String   @id @default(cuid())
+  entityType  String   // DOCTOR, HOSPITAL, PHARMACY, LAB
+  name        String
+  contactInfo String?
+  location    String?
+  rawDetails  String   // JSON metadata dump
+  lastScraped DateTime @default(now())
+
+  @@map("scraped_records")
+}
+
+model AIConversation {
+  id               String   @id @default(cuid())
+  userId           String?
+  conversationType String   // SYMPTOM_CHECKER, SPECIALTY_AGENT
+  messages         String   // JSON message list
+  createdAt        DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("ai_conversations")
+}

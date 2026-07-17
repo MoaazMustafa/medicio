@@ -1,42 +1,102 @@
-import { FC, useEffect, useState } from "react";
-import { useTheme } from "next-themes";
-import clsx from "clsx";
+"use client";
 
-import { SunFilledIcon, MoonFilledIcon } from "@/components/icons";
+import clsx from "clsx";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import type { FC} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 export interface ThemeSwitchProps {
   className?: string;
+  duration?: number;
 }
 
-export const ThemeSwitch: FC<ThemeSwitchProps> = ({ className }) => {
-  const [isMounted, setIsMounted] = useState(false);
-  const { setTheme, resolvedTheme } = useTheme();
+export const ThemeSwitch: FC<ThemeSwitchProps> = ({
+  className,
+  duration = 700,
+}) => {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const isLight = resolvedTheme === "light";
+  useEffect(() => setMounted(true), []);
 
-  const handleToggle = () => {
-    setTheme(isLight ? "dark" : "light");
-  };
+  const isDark = resolvedTheme === "dark";
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const toggleTheme = useCallback(async () => {
+    if (!buttonRef.current) return;
 
+    const newTheme = isDark ? "light" : "dark";
 
-  if (!isMounted) return <div aria-hidden className="w-6 h-6" />;
+    // Fallback if view transitions are not supported
+    // @ts-ignore
+    if (!document.startViewTransition) {
+      setTheme(newTheme);
+      return;
+    }
+
+    // @ts-ignore
+    await document.startViewTransition(() => {
+      flushSync(() => {
+        setTheme(newTheme);
+      });
+    }).ready;
+
+    const { top, left, width, height } =
+      buttonRef.current.getBoundingClientRect();
+    const x = left + width / 2;
+    const y = top + height / 2;
+    const maxRadius = Math.hypot(
+      Math.max(left, window.innerWidth - left),
+      Math.max(top, window.innerHeight - top),
+    );
+
+    document.documentElement.animate(
+      {
+        clipPath: [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${maxRadius}px at ${x}px ${y}px)`,
+        ],
+      },
+      {
+        duration,
+        easing: "ease-in-out",
+        pseudoElement: "::view-transition-new(root)",
+      }
+    );
+  }, [isDark, setTheme, duration]);
+
+  if (!mounted) {
+    return (
+      <button
+        aria-label="Toggle theme"
+        className={clsx(
+          "px-px transition-opacity hover:opacity-80 cursor-pointer",
+          "inline-flex items-center justify-center",
+          "w-8 h-8 bg-transparent rounded-lg text-muted",
+          className
+        )}
+      >
+        <Moon className="w-5 h-5 text-current" />
+      </button>
+    );
+  }
 
   return (
     <button
-      aria-label={`Switch to ${isLight ? "dark" : "light"} mode`}
+      ref={buttonRef}
+      onClick={toggleTheme}
+      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
       className={clsx(
         "px-px transition-opacity hover:opacity-80 cursor-pointer",
         "inline-flex items-center justify-center",
-        "w-auto h-auto bg-transparent rounded-lg text-muted",
-        className,
+        "w-8 h-8 bg-transparent rounded-lg text-current",
+        className
       )}
-      onClick={handleToggle}
+      title={`Current: ${isDark ? "Dark" : "Light"} theme`}
     >
-      {isLight ? <SunFilledIcon size={22} /> : <MoonFilledIcon size={22} />}
+      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
     </button>
   );
 };

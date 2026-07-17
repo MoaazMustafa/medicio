@@ -4,6 +4,50 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-	--font-sans: "font", sans-serif;
-	--font-mono: "monospace", monospace;
+  --font-sans: "font", sans-serif;
+  --font-mono: "monospace", monospace;
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-background-custom: var(--background-custom);
+  --color-surface: var(--surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-border-custom: var(--border-custom);
+}
+
+:root {
+  --primary: #0D9488;
+  --secondary: #F3F4F6;
+  --accent: #0F766E;
+  --background-custom: #F9FAFB;
+  --surface: #FFFFFF;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --border-custom: #E5E7EB;
+}
+
+.dark {
+  --primary: #2DD4BF;
+  --secondary: #191C21;
+  --accent: #14B8A6;
+  --background-custom: #030108;
+  --surface: #191C21;
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --border-custom: #27272A;
+}
+
+/* CSS reset mapped to design.md tokens */
+body {
+  background-color: var(--background-custom);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* View transitions circular animation overrides */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }

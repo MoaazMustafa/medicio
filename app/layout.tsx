@@ -1,12 +1,13 @@
 import "@/styles/globals.css";
-import { Metadata, Viewport } from "next";
 import clsx from "clsx";
+import type { Metadata, Viewport } from "next";
 
 import { Providers } from "./providers";
 
-import { siteConfig } from "@/config/site";
-import { fontSans } from "@/config/fonts";
+import { ClickSpark } from "@/components/click-spark";
 import { Navbar } from "@/components/navbar";
+import { fontSans } from "@/config/fonts";
+import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: {
@@ -41,23 +42,25 @@ export default function RootLayout({
         )}
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-          <div className="relative flex flex-col h-screen">
-            <Navbar />
-            <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
-              {children}
-            </main>
-            <footer className="w-full flex items-center justify-center py-3">
-              <a
-                className="flex items-center gap-1 text-current no-underline"
-                href="https://heroui.com?utm_source=next-app-template"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <span className="text-muted">Powered by</span>
-                <p className="text-accent">HeroUI</p>
-              </a>
-            </footer>
-          </div>
+          <ClickSpark sparkColor="var(--primary)" sparkSize={10} sparkRadius={15} sparkCount={8} duration={450}>
+            <div className="relative flex flex-col h-screen">
+              <Navbar />
+              <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
+                {children}
+              </main>
+              <footer className="w-full flex items-center justify-center py-3">
+                <a
+                  className="flex items-center gap-1 text-current no-underline"
+                  href="https://heroui.com?utm_source=next-app-template"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <span className="text-muted">Powered by</span>
+                  <p className="text-accent">HeroUI</p>
+                </a>
+              </footer>
+            </div>
+          </ClickSpark>
         </Providers>
       </body>
     </html>

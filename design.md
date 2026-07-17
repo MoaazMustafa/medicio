@@ -1,16 +1,26 @@
 ---
-version: "neuform-top-creators-featured"
-name: "Nexis Compute - Enterprise AI Infrastructure"
-description: "Nexis Compute Dashboard Section is designed for demonstrating application workflows and interface hierarchy. Key features include clear information density, modular panels, and interface rhythm. It is suitable for product showcases, admin panels, and analytics experiences."
+version: "medicio-v1-healthcare"
+name: "Medicio - AI-Powered Healthcare Access Platform"
+description: "Medicio is an AI-driven clinical portal connecting patients with verified doctors, hospitals, labs, and pharmacies. The design prioritizes visual clarity, clean data density, and reassuring clinical themes."
 colors:
-  primary: "#2DD4BF"
-  secondary: "#191C21"
-  accent: "#14B8A6"
-  background: "#030108"
-  surface: "#191C21"
-  text-primary: "#FFFFFF"
-  text-secondary: "#A1A1AA"
-  border: "#27272A"
+  dark:
+    primary: "#2DD4BF"
+    secondary: "#191C21"
+    accent: "#14B8A6"
+    background: "#030108"
+    surface: "#191C21"
+    text-primary: "#FFFFFF"
+    text-secondary: "#A1A1AA"
+    border: "#27272A"
+  light:
+    primary: "#0D9488"
+    secondary: "#F3F4F6"
+    accent: "#0F766E"
+    background: "#F9FAFB"
+    surface: "#FFFFFF"
+    text-primary: "#111827"
+    text-secondary: "#4B5563"
+    border: "#E5E7EB"
 typography:
   display-lg:
     fontFamily: "Inter"
@@ -45,18 +55,18 @@ components:
     background: "Use primary or accent colors for the main action"
     radius: "Use the control or pill radius based on the source HTML"
 ---
-# Nexis Compute - Enterprise AI Infrastructure
-Source: Neuform Featured templates from top creators. Author: Sourasith Phomhome (@madebysourasith). Views: 291; favorites: 13; remixes: 1.
-Tags: dashboard, animated, webgl, cta, bento, charts, billing, navigation.
+# Medicio - AI-Powered Healthcare Access Platform
+Source: Medicio Project Specifications. Prepared by Moaaz Mustafa. Version: 1.0.
+Tags: healthcare, ai-agents, symptom-checker, doctor-booking, bento, charts, clinical, nextjs, heroui.
 ## Overview
-Nexis Compute Dashboard Section is designed for demonstrating application workflows and interface hierarchy. Key features include clear information density, modular panels, and interface rhythm. It is suitable for product showcases, admin panels, and analytics experiences.
+Medicio is an AI-powered healthcare portal. It is designed to host a conversational symptom checker and patient intake flow, clinical dashboards for doctors, hospital affiliation managers, lab report trackers, and scraped public medical directories. Key user interfaces require reassuring aesthetics, high legibility, structured clinical data cards, and visual responsiveness.
 
-Nexis Compute Home Platform Compute Solutions Docs Deploy Now Next-Gen Architecture NEURAL CORE UNRESTRICTED SCALING INFINITE CAPABILITIES From early-stage startups to global enterprises, Nexis seamlessly scales your in…
-## Composition
-Use the attached HTML reference as the source of truth. Preserve the visible hierarchy, first-screen composition, section rhythm, density, and interaction tone before adapting copy or content.
-Key visible headings include: NEURAL CORE UNRESTRICTED SCALING INFINITE CAPABILITIES; Cluster Nexus-Alpha.
+Key visible sections include: Conversational AI Intake, Doctor Specializations list, Active Clinic Directory, Patient Health Records, and Lab Reports list.
 ## Colors
-Anchor the palette in primary #2DD4BF, secondary #191C21, accent #14B8A6, background #030108, surface #191C21, text-primary #FFFFFF. Keep background, surface, text, and border roles distinct so generated layouts retain the same contrast pattern as the source.
+Anchor the palette in:
+- Dark: primary #2DD4BF, secondary #191C21, accent #14B8A6, background #030108, surface #191C21, text-primary #FFFFFF, text-secondary #A1A1AA, border #27272A.
+- Light: primary #0D9488, secondary #F3F4F6, accent #0F766E, background #F9FAFB, surface #FFFFFF, text-primary #111827, text-secondary #4B5563, border #E5E7EB.
+Keep background, surface, text, and border roles distinct so generated layouts retain the same contrast pattern as the source.
 ## Typography
 Use Inter for display moments and Inter for body copy unless the HTML clearly demands a compatible fallback. Labels and technical metadata should use JetBrains Mono or an equivalent mono face.
 ## Layout

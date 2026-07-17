@@ -1,42 +1,46 @@
-# Next.js & HeroUI Template
+# Medicio - AI-Powered Healthcare Access Platform
 
-This is a template for creating applications using Next.js 16 (app directory) and HeroUI (v3).
+Medicio is a responsive web application designed to connect patients with verified healthcare professionals, hospitals, labs, and pharmacies, supplemented by interactive AI diagnostics.
 
-[Try it on CodeSandbox](https://githubbox.com/heroui-inc/heroui/next-app-template)
+## 🚀 Key Modules
+The system is divided into twelve core modules:
+1. **M1 — Authentication & Access Control (IAM / RBAC):** Strict role-based permissions (Super Admin, Doctor, Labs Admin, Patient, etc.).
+2. **M2 — AI Symptom Checker & Recommendation Engine:** Patient-facing conversational intake flow that triages severity and suggests local providers.
+3. **M3 — Specialty AI Agents:** Scoped conversational assistants bound to specific clinical entities and medical specialties.
+4. **M4 — Doctor Management:** Verified credentials, bidirectionally requested affiliations, and custom emergency-training profiles.
+5. **M5 — Hospital Management:** Facility profile configuration and affiliated provider search parameters.
+6. **M6 — Pharmacy Management:** POS-synced and manually managed pharmacy inventory tracking.
+7. **M7 — Lab Management:** Test diagnostic catalogues and report delivery into the Patient Portal.
+8. **M8 — Appointment Booking:** Time-slot discovery, confirmations, and cancellations.
+9. **M9 — Medicine Tracker:** Patient medicine intake tracking.
+10. **M10 — Patient Portal & Health Records:** Consolidates clinical records, diagnostics, and consultation history.
+11. **M11 — Data Aggregation & Scraper Engine:** Scrapes public medical directories for unverified listings.
+12. **M12 — Analytics & Monitoring:** Product analytics tracking via PostHog integration.
 
-## Technologies Used
+## 🛠️ Technology Stack
+- **Frontend Core:** Next.js 16 (App Router, Turbopack) & TypeScript
+- **UI Styling:** HeroUI (v3) & Tailwind CSS v4
+- **Database ORM:** Prisma ORM
+- **Database Engine:** PostgreSQL (Relational Data Store)
+- **State Management:** next-themes (Light/Dark mode transitions)
+- **Product Analytics:** PostHog Integration
 
-- [Next.js 16](https://nextjs.org/docs/getting-started)
-- [HeroUI v3](https://heroui.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Tailwind Variants](https://tailwind-variants.org)
-- [TypeScript](https://www.typescriptlang.org/)
-- [next-themes](https://github.com/pacocoursey/next-themes)
+## ⚙️ How to Use
 
-## How to Use
-
-### Use the template with create-next-app
-
-To create a new project based on this template using `create-next-app`, run the following command:
-
-```bash
-npx create-next-app -e https://github.com/heroui-inc/next-app-template
-```
-
-### Install dependencies
-
-You can use one of them `npm`, `yarn`, `pnpm`, `bun`, Example using `npm`:
-
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### Run the development server
+### 2. Generate Prisma Client
+```bash
+node node_modules/prisma/build/index.js generate
+```
 
+### 3. Run Development Server
 ```bash
 npm run dev
 ```
 
-## License
-
-Licensed under the [MIT license](https://github.com/heroui-inc/next-app-template/blob/main/LICENSE).
+---
+*Created by Moaaz Mustafa — Medicio Healthcare Solutions.*
