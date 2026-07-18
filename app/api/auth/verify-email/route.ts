@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { signJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
+
+import { signJwt } from "@/lib/jwt";
+import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAuthEvent } from "@/lib/logger";
 
 const verifyEmailSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
@@ -12,6 +16,20 @@ const verifyEmailSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // 1. Enforce Rate Limiting (5 requests per 5 minutes per IP or email)
+    const ip = getClientIp(request);
+    const ipKey = `rate_verify_ip_${ip}`;
+    const emailKey = `rate_verify_email_${body.email || ""}`;
+
+    if (rateLimit(ipKey, { limit: 10, windowMs: 5 * 60 * 1000 }) || 
+        (body.email && rateLimit(emailKey, { limit: 5, windowMs: 5 * 60 * 1000 }))) {
+      return NextResponse.json(
+        { error: "Too many verification attempts. Please wait 5 minutes before trying again." },
+        { status: 429 }
+      );
+    }
+
     const result = verifyEmailSchema.safeParse(body);
 
     if (!result.success) {
@@ -32,6 +50,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!verificationRecord) {
+      logAuthEvent("USER_EMAIL_VERIFICATION_FAILURE", { email, reason: "Invalid token or email" });
       return NextResponse.json(
         { error: "Invalid email or verification OTP code." },
         { status: 400 }
@@ -40,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Check if token has expired
     if (verificationRecord.expiresAt < new Date()) {
+      logAuthEvent("USER_EMAIL_VERIFICATION_FAILURE", { email, reason: "Expired token" });
       await prisma.verificationToken.delete({
         where: { id: verificationRecord.id },
       });
@@ -76,6 +96,8 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
+    logAuthEvent("USER_EMAIL_VERIFICATION_SUCCESS", { email: updatedUser.email, role: updatedUser.role });
+
     return NextResponse.json({
       success: true,
       user: {
@@ -86,6 +108,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    logAuthEvent("USER_EMAIL_VERIFICATION_EXCEPTION", { error: error.message || error });
     console.error("Email Verification Error: ", error);
     return NextResponse.json(
       { error: "An unexpected error occurred during email verification." },

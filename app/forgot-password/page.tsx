@@ -1,8 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import NextLink from "next/link";
 import {
   Card,
   CardHeader,
@@ -12,6 +9,9 @@ import {
   Input,
   Chip,
 } from "@heroui/react";
+import NextLink from "next/link";
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();

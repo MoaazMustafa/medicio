@@ -1,15 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/crypto";
-import { signJwt, verifyJwt } from "@/lib/jwt";
-import { cookies } from "next/headers";
 import { UserRole } from "@prisma/client";
-import { registerSchema } from "@/lib/validations/auth";
+import { cookies } from "next/headers";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
+import { hashPassword } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
+import { verifyJwt } from "@/lib/jwt";
+import { prisma } from "@/lib/prisma";
+import { registerSchema } from "@/lib/validations/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAuthEvent } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // 1. Enforce Rate Limiting (10 registrations per 10 minutes per IP)
+    const ip = getClientIp(request);
+    const ipKey = `rate_register_ip_${ip}`;
+
+    if (rateLimit(ipKey, { limit: 10, windowMs: 10 * 60 * 1000 })) {
+      return NextResponse.json(
+        { error: "Too many registration attempts from this IP. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const result = registerSchema.safeParse(body);
     
     if (!result.success) {
@@ -111,12 +127,16 @@ export async function POST(request: NextRequest) {
 
       await sendOtpEmail(newUser.email, otp, "Email Verification");
 
+      logAuthEvent("USER_REGISTER_PENDING_VERIFICATION", { email: newUser.email, role: newUser.role });
+
       return NextResponse.json({
         success: true,
         requiresVerification: true,
         email: newUser.email,
       });
     }
+
+    logAuthEvent("USER_REGISTER_SUCCESS_AUTO_VERIFIED", { email: newUser.email, role: newUser.role });
 
     return NextResponse.json({
       success: true,
@@ -129,6 +149,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    logAuthEvent("USER_REGISTER_FAILURE", { error: error.message || error });
     console.error("Registration Error: ", error);
     return NextResponse.json(
       { error: "An unexpected error occurred during registration." },

@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
 import {
   Card,
   CardHeader,
@@ -10,6 +9,7 @@ import {
   Input,
   Chip,
 } from "@heroui/react";
+import React, { useState } from "react";
 
 export default function ChatbotPage() {
   const [messages, setMessages] = useState<Array<{ sender: "user" | "bot"; text: string }>>([

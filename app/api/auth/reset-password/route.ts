@@ -1,11 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { hashPassword } from "@/lib/crypto";
+import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAuthEvent } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // 1. Enforce Rate Limiting (5 requests per 10 minutes per IP or email)
+    const ip = getClientIp(request);
+    const ipKey = `rate_reset_ip_${ip}`;
+    const emailKey = `rate_reset_email_${body.email || ""}`;
+
+    if (rateLimit(ipKey, { limit: 10, windowMs: 10 * 60 * 1000 }) || 
+        (body.email && rateLimit(emailKey, { limit: 5, windowMs: 10 * 60 * 1000 }))) {
+      return NextResponse.json(
+        { error: "Too many reset attempts. Please try again after 10 minutes." },
+        { status: 429 }
+      );
+    }
+
     const result = resetPasswordSchema.safeParse(body);
 
     if (!result.success) {
@@ -26,6 +44,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!verificationRecord) {
+      logAuthEvent("PASSWORD_RESET_FAILURE", { email, reason: "Invalid token or email" });
       return NextResponse.json(
         { error: "Invalid email or verification OTP code." },
         { status: 400 }
@@ -34,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Check if token has expired
     if (verificationRecord.expiresAt < new Date()) {
+      logAuthEvent("PASSWORD_RESET_FAILURE", { email, reason: "Expired token" });
       // Clean up the expired token
       await prisma.verificationToken.delete({
         where: { id: verificationRecord.id },
@@ -57,11 +77,14 @@ export async function POST(request: NextRequest) {
       where: { id: verificationRecord.id },
     });
 
+    logAuthEvent("PASSWORD_RESET_SUCCESS", { email });
+
     return NextResponse.json({
       success: true,
       message: "Your password has been successfully reset.",
     });
   } catch (error: any) {
+    logAuthEvent("PASSWORD_RESET_EXCEPTION", { error: error.message || error });
     console.error("Reset Password Error: ", error);
     return NextResponse.json(
       { error: "An unexpected error occurred while resetting password." },

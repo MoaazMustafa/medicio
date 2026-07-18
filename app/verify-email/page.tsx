@@ -1,8 +1,5 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import NextLink from "next/link";
 import {
   Card,
   CardHeader,
@@ -12,6 +9,9 @@ import {
   Input,
   Chip,
 } from "@heroui/react";
+import NextLink from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
 
 function VerifyEmailForm() {
   const router = useRouter();

@@ -21,7 +21,7 @@ async function main() {
   console.log("Cleared existing data.");
 
   // 2. Create Users
-  const superAdmin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: "admin@medicio.com",
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67", // mock hashed password

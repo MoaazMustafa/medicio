@@ -1,11 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { sendOtpEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAuthEvent } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // 1. Enforce Rate Limiting (3 requests per 10 minutes per IP or email)
+    const ip = getClientIp(request);
+    const ipKey = `rate_forgot_ip_${ip}`;
+    const emailKey = `rate_forgot_email_${body.email || ""}`;
+
+    if (rateLimit(ipKey, { limit: 5, windowMs: 10 * 60 * 1000 }) || 
+        (body.email && rateLimit(emailKey, { limit: 3, windowMs: 10 * 60 * 1000 }))) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait 10 minutes before requesting a new code." },
+        { status: 429 }
+      );
+    }
+
     const result = forgotPasswordSchema.safeParse(body);
 
     if (!result.success) {
@@ -22,6 +40,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (user) {
+      logAuthEvent("PASSWORD_RESET_REQUESTED_USER_FOUND", { email });
       // Generate a secure 6-digit numeric OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
@@ -42,6 +61,8 @@ export async function POST(request: NextRequest) {
 
       // Send the email with the OTP code
       await sendOtpEmail(email, otp, "Password Reset Request");
+    } else {
+      logAuthEvent("PASSWORD_RESET_REQUESTED_USER_NOT_FOUND", { email });
     }
 
     // Always return success to prevent account enumeration
@@ -50,6 +71,7 @@ export async function POST(request: NextRequest) {
       message: "If an account exists with this email, a verification OTP code has been dispatched.",
     });
   } catch (error: any) {
+    logAuthEvent("PASSWORD_RESET_REQUEST_EXCEPTION", { error: error.message || error });
     console.error("Forgot Password OTP Error: ", error);
     return NextResponse.json(
       { error: "An unexpected error occurred while requesting OTP." },

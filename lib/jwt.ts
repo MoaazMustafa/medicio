@@ -21,10 +21,14 @@ function base64UrlDecode(str: string): string {
 /**
  * Signs a JWT token with the local secret key.
  */
-export function signJwt(payload: object): string {
+export function signJwt(payload: object, expiresInDays: number = 7): string {
   const header = { alg: "HS256", typ: "JWT" };
   const base64UrlHeader = base64UrlEncode(JSON.stringify(header));
-  const base64UrlPayload = base64UrlEncode(JSON.stringify(payload));
+  
+  // Inject exp claim (expiration time in seconds)
+  const exp = Math.floor(Date.now() / 1000) + (expiresInDays * 24 * 60 * 60);
+  const enrichedPayload = { ...payload, exp };
+  const base64UrlPayload = base64UrlEncode(JSON.stringify(enrichedPayload));
   
   const signature = crypto
     .createHmac("sha256", JWT_SECRET)
@@ -49,7 +53,17 @@ export function verifyJwt(token: string): any {
       
     if (signature !== expectedSignature) return null;
     
-    return JSON.parse(base64UrlDecode(payloadStr));
+    const payload = JSON.parse(base64UrlDecode(payloadStr));
+    
+    // Check if token has expired
+    if (payload && typeof payload.exp === "number") {
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      if (currentTimestamp > payload.exp) {
+        return null;
+      }
+    }
+    
+    return payload;
   } catch {
     return null;
   }

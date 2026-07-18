@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+import { verifyJwt } from "@/lib/jwt";
 
 export async function GET() {
   try {

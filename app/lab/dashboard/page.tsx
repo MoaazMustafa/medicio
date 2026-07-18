@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import {
   Card,
   CardHeader,
@@ -8,6 +7,7 @@ import {
   Button,
   Chip,
 } from "@heroui/react";
+import React from "react";
 
 export default function LabDashboardPage() {
   return (

@@ -18,7 +18,13 @@ export function verifyPassword(password: string, storedValue: string): boolean {
     const [salt, key] = storedValue.split(":");
     if (!salt || !key) return false;
     const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-    return hash === key;
+    const buffer1 = Buffer.from(hash, "hex");
+    const buffer2 = Buffer.from(key, "hex");
+    if (buffer1.length !== buffer2.length) return false;
+    return crypto.timingSafeEqual(
+      new Uint8Array(buffer1),
+      new Uint8Array(buffer2)
+    );
   } catch {
     return false;
   }
