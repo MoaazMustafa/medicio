@@ -48,7 +48,17 @@ export default function LoginPage() {
       }
 
       // Successful login - refresh context and redirect
-      router.push("/");
+      const dashboards: Record<string, string> = {
+        PATIENT: "/chatbot",
+        DOCTOR: "/doctor/dashboard",
+        PHARMACY_ADMIN: "/pharmacy/dashboard",
+        LAB_ADMIN: "/lab/dashboard",
+        HOSPITAL_ADMIN: "/hospital/dashboard",
+        ADMIN: "/admin/dashboard",
+        SUPER_ADMIN: "/admin/dashboard",
+      };
+      const redirectPath = dashboards[data.user.role] || "/";
+      router.push(redirectPath);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
