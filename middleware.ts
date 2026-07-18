@@ -38,8 +38,12 @@ export function middleware(request: NextRequest) {
   const isLoggedIn = !!payload;
   const userRole = payload?.role;
 
-  // 1. Handle Guest Pages (/login, /register, /forgot-password)
-  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password";
+  // 1. Handle Guest Pages (/login, /register, /forgot-password, /verify-email)
+  const isAuthPage = 
+    pathname === "/login" || 
+    pathname === "/register" || 
+    pathname === "/forgot-password" || 
+    pathname === "/verify-email";
   if (isAuthPage) {
     if (isLoggedIn && userRole) {
       const targetDashboard = ROLE_DASHBOARDS[userRole] || "/";
@@ -82,6 +86,7 @@ export const config = {
     "/login",
     "/register",
     "/forgot-password",
+    "/verify-email",
     "/chatbot/:path*",
     "/admin/dashboard/:path*",
     "/doctor/dashboard/:path*",

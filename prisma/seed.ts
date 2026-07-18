@@ -27,6 +27,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67", // mock hashed password
       name: "Medicio Super Admin",
       role: UserRole.SUPER_ADMIN,
+      isVerified: true,
     },
   });
 
@@ -36,6 +37,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Jane Doe",
       role: UserRole.PATIENT,
+      isVerified: true,
     },
   });
 
@@ -45,6 +47,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Dr. Aisha Rahman",
       role: UserRole.DOCTOR,
+      isVerified: true,
     },
   });
 
@@ -54,6 +57,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "City Health Admin",
       role: UserRole.HOSPITAL_ADMIN,
+      isVerified: true,
     },
   });
 
@@ -63,6 +67,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Al-Shifa Pharmacy Admin",
       role: UserRole.PHARMACY_ADMIN,
+      isVerified: true,
     },
   });
 
@@ -72,6 +77,7 @@ async function main() {
       passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "BioLab Diagnostics Admin",
       role: UserRole.LAB_ADMIN,
+      isVerified: true,
     },
   });
 

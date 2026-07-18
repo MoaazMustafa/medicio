@@ -5,6 +5,7 @@ import { signJwt, verifyJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
 import { UserRole } from "@prisma/client";
 import { registerSchema } from "@/lib/validations/auth";
+import { sendOtpEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,12 +62,24 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = hashPassword(password);
 
+    // If registered by Admin, set isVerified: true, otherwise false
+    let isVerified = false;
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("medicio_session");
+    if (sessionCookie && sessionCookie.value) {
+      const payload = verifyJwt(sessionCookie.value);
+      if (payload && (payload.role === UserRole.SUPER_ADMIN || payload.role === UserRole.ADMIN)) {
+        isVerified = true;
+      }
+    }
+
     const newUser = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name,
         role: role as UserRole,
+        isVerified,
       },
     });
 
@@ -84,23 +97,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const token = signJwt({
-      userId: newUser.id,
-      email: newUser.email,
-      role: newUser.role,
-      name: newUser.name,
-    });
+    if (!isVerified) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    const cookieStore = await cookies();
-    cookieStore.set("medicio_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+      await prisma.verificationToken.create({
+        data: {
+          email: newUser.email,
+          token: otp,
+          expiresAt,
+        },
+      });
+
+      await sendOtpEmail(newUser.email, otp, "Email Verification");
+
+      return NextResponse.json({
+        success: true,
+        requiresVerification: true,
+        email: newUser.email,
+      });
+    }
 
     return NextResponse.json({
       success: true,
+      requiresVerification: false,
       user: {
         id: newUser.id,
         email: newUser.email,

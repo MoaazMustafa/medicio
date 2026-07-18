@@ -1,6 +1,20 @@
+import nodemailer from "nodemailer";
+
+const smtpConfig = {
+  host: process.env.SMTP_HOST || "localhost",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587/25
+  auth: {
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+  },
+};
+
+const transporter = nodemailer.createTransport(smtpConfig);
+
 /**
  * Medicio Email Sending Service
- * In development mode, drafts are logged to the console for testing.
+ * Dispatches verification emails utilizing Nodemailer and standard SMTP variables.
  */
 export async function sendOtpEmail(email: string, otp: string, purpose: string): Promise<boolean> {
   const html = `
@@ -31,20 +45,21 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
     </div>
   `;
 
-  // Log draft details directly to console for instant developer feedback
-  console.log(`
-[EMAIL SYSTEM INFO] Sending OTP mail to ${email} for "${purpose}".
---------------------------------------------------------------------------------
-Subject: [Medicio] Verification Code: ${otp}
-Recipient: ${email}
---------------------------------------------------------------------------------
-OTP: ${otp}
-Expires: 15 Minutes
---------------------------------------------------------------------------------
-HTML DRAFT:
-${html}
-================================================================================
-`);
+  // Fallback in case SMTP variables are not configured yet (e.g. testing dev resets)
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return true;
+  }
 
-  return true;
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || '"Medicio Portal" <noreply@medicio.com>',
+      to: email,
+      subject: `[Medicio] Verification Code: ${otp}`,
+      html: html,
+    });
+    return true;
+  } catch (error) {
+    console.error("Nodemailer SMTP Transporter Error: ", error);
+    return false;
+  }
 }

@@ -23,6 +23,7 @@ model User {
   passwordHash String
   name         String
   role         UserRole      @default(PATIENT)
+  isVerified   Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

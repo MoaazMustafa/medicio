@@ -47,9 +47,12 @@ export default function RegisterPage() {
         throw new Error(data.error || "An unexpected error occurred during signup.");
       }
 
-      // Successful registration - refresh context and redirect
-      router.push("/");
-      router.refresh();
+      if (data.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

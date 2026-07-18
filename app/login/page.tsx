@@ -40,6 +40,10 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 403 && data.requiresVerification) {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          return;
+        }
         throw new Error(data.error || "An unexpected error occurred during login.");
       }
 
