@@ -1,22 +1,27 @@
 import nodemailer from "nodemailer";
 
-const smtpConfig = {
-  host: process.env.SMTP_HOST || "localhost",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587/25
-  auth: {
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-  },
-};
-
-const transporter = nodemailer.createTransport(smtpConfig);
-
 /**
  * Medicio Email Sending Service
  * Dispatches verification emails utilizing Nodemailer and standard SMTP variables.
  */
 export async function sendOtpEmail(email: string, otp: string, purpose: string): Promise<boolean> {
+  // Fallback in case SMTP variables are not configured yet (e.g. testing dev resets)
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return true;
+  }
+
+  // Construct transporter dynamically so that runtime updates of .env parameters are read instantly
+  const smtpConfig = {
+    host: process.env.SMTP_HOST || "localhost",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587/25
+    auth: {
+      user: process.env.SMTP_USER || "",
+      pass: process.env.SMTP_PASS || "",
+    },
+  };
+
+  const transporter = nodemailer.createTransport(smtpConfig);
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
       <div style="text-align: center; margin-bottom: 30px;">
@@ -44,11 +49,6 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
       </p>
     </div>
   `;
-
-  // Fallback in case SMTP variables are not configured yet (e.g. testing dev resets)
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    return true;
-  }
 
   try {
     await transporter.sendMail({
