@@ -24,7 +24,7 @@ async function main() {
   const superAdmin = await prisma.user.create({
     data: {
       email: "admin@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6", // mock hashed password
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67", // mock hashed password
       name: "Medicio Super Admin",
       role: UserRole.SUPER_ADMIN,
     },
@@ -33,7 +33,7 @@ async function main() {
   const patient = await prisma.user.create({
     data: {
       email: "patient@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6",
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Jane Doe",
       role: UserRole.PATIENT,
     },
@@ -42,7 +42,7 @@ async function main() {
   const doctorUser = await prisma.user.create({
     data: {
       email: "doctor@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6",
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Dr. Aisha Rahman",
       role: UserRole.DOCTOR,
     },
@@ -51,7 +51,7 @@ async function main() {
   const hospitalUser = await prisma.user.create({
     data: {
       email: "hospital@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6",
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "City Health Admin",
       role: UserRole.HOSPITAL_ADMIN,
     },
@@ -60,7 +60,7 @@ async function main() {
   const pharmacyUser = await prisma.user.create({
     data: {
       email: "pharmacy@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6",
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "Al-Shifa Pharmacy Admin",
       role: UserRole.PHARMACY_ADMIN,
     },
@@ -69,7 +69,7 @@ async function main() {
   const labUser = await prisma.user.create({
     data: {
       email: "lab@medicio.com",
-      passwordHash: "$2b$10$EPzG2c.8PZ6wXh1M.ZfPceP9h/2ZzH2z437y8OqA26u2wG.uH27i6",
+      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
       name: "BioLab Diagnostics Admin",
       role: UserRole.LAB_ADMIN,
     },
