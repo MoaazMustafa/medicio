@@ -60,6 +60,7 @@ export const config = {
     "/forgot-password",
     "/verify-email",
     "/chatbot/:path*",
+    "/settings/:path*",
     "/admin/dashboard/:path*",
     "/doctor/dashboard/:path*",
     "/pharmacy/dashboard/:path*",

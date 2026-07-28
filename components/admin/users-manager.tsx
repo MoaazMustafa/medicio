@@ -1,6 +1,14 @@
 "use client";
 
-import { Button, Card, Chip, Input } from "@heroui/react";
+import {
+  Button,
+  Card,
+  Chip,
+  Input,
+  Label,
+  ListBox,
+  Select,
+} from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
 
 const ROLES = [
@@ -12,6 +20,8 @@ const ROLES = [
   "ADMIN",
   "SUPER_ADMIN",
 ] as const;
+
+const ALL_ROLES_KEY = "ALL";
 
 interface AdminUser {
   id: string;
@@ -102,9 +112,6 @@ export function UsersManager() {
     setQuery(search.trim());
   };
 
-  const selectClasses =
-    "px-2 py-1.5 border border-border-custom bg-background-custom/30 rounded-lg text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-primary";
-
   return (
     <Card className="w-full p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg">
       <div className="flex flex-col gap-1 mb-5">
@@ -126,22 +133,32 @@ export function UsersManager() {
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-full sm:max-w-xs"
         />
-        <select
+        <Select
           aria-label="Filter by role"
-          value={roleFilter}
-          onChange={(e) => {
+          className="w-full sm:w-52"
+          selectedKey={roleFilter || ALL_ROLES_KEY}
+          onSelectionChange={(key) => {
             setPage(1);
-            setRoleFilter(e.target.value);
+            setRoleFilter(key === ALL_ROLES_KEY ? "" : String(key ?? ""));
           }}
-          className={selectClasses}
         >
-          <option value="">All roles</option>
-          {ROLES.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id={ALL_ROLES_KEY} textValue="All roles">
+                <Label>All roles</Label>
+              </ListBox.Item>
+              {ROLES.map((role) => (
+                <ListBox.Item key={role} id={role} textValue={role}>
+                  <Label>{role.replace(/_/g, " ")}</Label>
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
         <Button type="submit" variant="primary" className="font-semibold px-5 text-xs">
           Search
         </Button>
@@ -189,19 +206,31 @@ export function UsersManager() {
                     <span className="text-text-secondary">{user.email}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <select
+                    <Select
                       aria-label={`Role for ${user.email}`}
-                      value={user.role}
-                      disabled={savingId === user.id}
-                      onChange={(e) => updateUser(user.id, { role: e.target.value })}
-                      className={selectClasses}
+                      className="w-44"
+                      isDisabled={savingId === user.id}
+                      selectedKey={user.role}
+                      onSelectionChange={(key) => {
+                        if (key && String(key) !== user.role) {
+                          updateUser(user.id, { role: String(key) });
+                        }
+                      }}
                     >
-                      {ROLES.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {ROLES.map((role) => (
+                            <ListBox.Item key={role} id={role} textValue={role}>
+                              <Label>{role.replace(/_/g, " ")}</Label>
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
                   </td>
                   <td className="px-4 py-3">
                     <span className="flex flex-col gap-1">

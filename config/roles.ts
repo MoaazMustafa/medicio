@@ -41,4 +41,16 @@ export const PROTECTED_ROUTES: ReadonlyArray<{
   { prefix: "/pharmacy/dashboard", allowedRoles: ["PHARMACY_ADMIN"] },
   { prefix: "/lab/dashboard", allowedRoles: ["LAB_ADMIN"] },
   { prefix: "/hospital/dashboard", allowedRoles: ["HOSPITAL_ADMIN"] },
+  {
+    prefix: "/settings",
+    allowedRoles: [
+      "PATIENT",
+      "DOCTOR",
+      "HOSPITAL_ADMIN",
+      "LAB_ADMIN",
+      "PHARMACY_ADMIN",
+      "ADMIN",
+      "SUPER_ADMIN",
+    ],
+  },
 ];
