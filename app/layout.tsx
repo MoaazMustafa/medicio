@@ -5,8 +5,6 @@ import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
 
 import { ClickSpark } from "@/components/click-spark";
-import { Footer } from "@/components/footer";
-import { Navbar } from "@/components/navbar";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
 
@@ -85,13 +83,7 @@ export default function RootLayout({
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           <ClickSpark sparkColor="var(--primary)" sparkSize={10} sparkRadius={15} sparkCount={8} duration={450}>
-            <div className="relative flex flex-col min-h-screen">
-              <Navbar />
-              <main className="flex-grow w-full">
-                {children}
-              </main>
-              <Footer />
-            </div>
+            {children}
           </ClickSpark>
         </Providers>
       </body>

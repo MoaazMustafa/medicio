@@ -2,10 +2,10 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/crypto";
-import { prisma } from "@/lib/prisma";
-import { resetPasswordSchema } from "@/lib/validations/auth";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { resetPasswordSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {

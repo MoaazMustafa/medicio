@@ -6,8 +6,8 @@ import {
   PROTECTED_ROUTES,
   dashboardForRole,
 } from "@/config/roles";
-import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { verifyJwt } from "@/lib/jwt";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

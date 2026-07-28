@@ -16,13 +16,13 @@ function sweep(now: number): void {
 
   lastSweepAt = now;
 
-  for (const [key, timestamps] of rateLimitMap) {
+  rateLimitMap.forEach((timestamps, key) => {
     const newest = timestamps[timestamps.length - 1];
 
     if (newest === undefined || now - newest > MAX_ENTRY_AGE_MS) {
       rateLimitMap.delete(key);
     }
-  }
+  });
 }
 
 export interface RateLimitOptions {

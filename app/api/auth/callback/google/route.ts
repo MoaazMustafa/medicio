@@ -121,6 +121,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (!user.isActive) {
+      logAuthEvent("OAUTH_GOOGLE_LOGIN_BLOCKED_DEACTIVATED", { email: user.email });
+
+      return NextResponse.redirect(
+        new URL("/login?error=This+account+has+been+deactivated", request.url),
+      );
+    }
+
     // 4. Issue the local session cookie
     await createSessionCookie({
       id: user.id,

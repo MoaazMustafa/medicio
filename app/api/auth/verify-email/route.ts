@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSessionCookie } from "@/lib/auth";
+import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { logAuthEvent } from "@/lib/logger";
 
 const verifyEmailSchema = z.object({
   email: z.string().email().trim().toLowerCase(),

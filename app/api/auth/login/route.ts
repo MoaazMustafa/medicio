@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 import { createSessionCookie } from "@/lib/auth";
 import { createOtp, verifyPassword } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
-import { loginSchema } from "@/lib/validations/auth";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { loginSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,6 +55,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
+      );
+    }
+
+    if (!user.isActive) {
+      logAuthEvent("USER_LOGIN_BLOCKED_DEACTIVATED", { email });
+      return NextResponse.json(
+        { error: "This account has been deactivated. Please contact support." },
+        { status: 403 }
       );
     }
 

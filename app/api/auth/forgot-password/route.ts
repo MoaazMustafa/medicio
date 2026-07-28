@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 
 import { createOtp } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
-import { forgotPasswordSchema } from "@/lib/validations/auth";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { forgotPasswordSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
   try {

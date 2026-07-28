@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 
 import { Button, Card, Chip } from "@heroui/react";
 import {
@@ -15,6 +14,7 @@ import {
   Sparkles,
   Stethoscope,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import NextLink from "next/link";
 

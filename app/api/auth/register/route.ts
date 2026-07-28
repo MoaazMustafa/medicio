@@ -5,10 +5,10 @@ import { NextResponse } from "next/server";
 import { getSession, hasRole } from "@/lib/auth";
 import { createOtp, hashPassword, randomToken } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
-import { registerSchema } from "@/lib/validations/auth";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { registerSchema } from "@/lib/validations/auth";
 
 // Roles that may only be provisioned by an existing administrator.
 const RESTRICTED_ROLES: UserRole[] = [
