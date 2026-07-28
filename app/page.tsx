@@ -1,169 +1,332 @@
-"use client";
+import type { Metadata } from "next";
 
+import { Button, Card, Chip } from "@heroui/react";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardFooter,
-  Button,
-  Input,
-  ProgressBar,
-  ProgressBarTrack,
-  ProgressBarFill,
-  Chip,
-} from "@heroui/react";
-import React, { useState } from "react";
+  Activity,
+  ArrowRight,
+  Bot,
+  Building2,
+  CalendarCheck,
+  FlaskConical,
+  FolderHeart,
+  MessageSquareText,
+  Pill,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+} from "lucide-react";
+import Image from "next/image";
+import NextLink from "next/link";
+
+import { BlurText } from "@/components/blur-text";
+import { HeroBackground } from "@/components/hero-background";
+import { Reveal } from "@/components/reveal";
+
+export const metadata: Metadata = {
+  title: "AI-Powered Healthcare Access",
+  description:
+    "Describe your symptoms, get an instant AI triage, and connect with verified doctors, hospitals, labs and pharmacies near you — all in one place.",
+};
+
+const HOW_IT_WORKS = [
+  {
+    icon: MessageSquareText,
+    step: "01",
+    title: "Describe your symptoms",
+    text: "A conversational intake collects your symptoms, duration, medicines tried and pre-existing conditions.",
+  },
+  {
+    icon: Activity,
+    step: "02",
+    title: "Get an instant triage",
+    text: "The AI assesses severity, lists possible conditions and tells you whether a doctor visit is warranted.",
+  },
+  {
+    icon: CalendarCheck,
+    step: "03",
+    title: "Book verified care nearby",
+    text: "See verified doctors, labs and pharmacies around you — always ranked above unverified listings.",
+  },
+] as const;
+
+const FEATURES = [
+  {
+    icon: Stethoscope,
+    title: "AI Symptom Checker",
+    text: "Conversational triage that turns 'what should I do?' into a clear severity level and next step — advisory only, always paired with a medical disclaimer.",
+  },
+  {
+    icon: Bot,
+    title: "Specialty AI Agents",
+    text: "Focused assistants scoped to a single doctor, hospital or lab — or to a specialty like dermatology — so answers stay on topic.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Verified Provider Network",
+    text: "Doctors pass credential verification before appearing as verified. Scraped public listings are always visually tagged as unverified.",
+  },
+  {
+    icon: CalendarCheck,
+    title: "Appointment Booking",
+    text: "Search by specialty, availability and proximity, then book directly against a doctor's published time slots.",
+  },
+  {
+    icon: Pill,
+    title: "Medicine Tracker",
+    text: "Log what you take with dosage and schedule. Your history feeds the symptom checker so advice accounts for it.",
+  },
+  {
+    icon: FolderHeart,
+    title: "Unified Health Records",
+    text: "Lab reports, medicine history, appointments and past consultations — consolidated in one patient portal you control.",
+  },
+] as const;
+
+const PROVIDER_ROLES = [
+  {
+    icon: Stethoscope,
+    title: "Doctors",
+    text: "Verified profiles, self-managed availability and a personal AI agent.",
+  },
+  {
+    icon: Building2,
+    title: "Hospitals",
+    text: "Facility profiles with affiliated doctors, labs and pharmacies.",
+  },
+  {
+    icon: FlaskConical,
+    title: "Labs",
+    text: "Test catalogues, pricing and report delivery straight to patients.",
+  },
+  {
+    icon: Pill,
+    title: "Pharmacies",
+    text: "POS-synced or manually managed inventory patients can find.",
+  },
+] as const;
 
 export default function Home() {
-  const [symptoms, setSymptoms] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<any>(null);
-
-  const startAnalysis = () => {
-    if (!symptoms.trim()) return;
-    setLoading(true);
-    setTimeout(() => {
-      const isCritical = symptoms.toLowerCase().includes("chest pain") || 
-                         symptoms.toLowerCase().includes("breathing") || 
-                         symptoms.toLowerCase().includes("severe");
-      
-      setReport({
-        severity: isCritical ? "Critical" : "Moderate",
-        severityValue: isCritical ? 90 : 45,
-        conditions: isCritical 
-          ? "Acute Cardiorespiratory Distress, Angina Pectoris"
-          : "Atypical Tension Headache, Mild Viral Intake",
-        visitRecommended: isCritical ? "Yes (Emergency Triage)" : "Yes (Schedule standard visit within 48h)",
-        precaution: isCritical 
-          ? "Cease all physical exertion. Seek immediate emergency help."
-          : "Maintain hydration. Take temperature readings every 4 hours.",
-      });
-      setLoading(false);
-    }, 1200);
-  };
-
   return (
-    <section className="flex flex-col items-center justify-center gap-10 py-12 md:py-20 max-w-4xl mx-auto px-4">
-      {/* Hero Header */}
-      <div className="flex flex-col items-center text-center gap-4 max-w-2xl">
-        <Chip
-          variant="primary"
-          color="accent"
-          className="px-4 py-1 text-xs font-semibold tracking-wider uppercase font-mono flex items-center gap-1.5"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          Medicio Platform Pre-Launch
-        </Chip>
-        
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-text-primary">
-          AI-Powered Healthcare Access
-        </h1>
-        
-        <p className="text-base text-text-secondary leading-relaxed">
-          Conversational symptom checkers, custom emergency provider bots, 
-          and POS-synced inventory networks. Experience the future of medical discovery.
-        </p>
-      </div>
+    <div className="flex flex-col w-full">
+      {/* ------------------------------ Hero ------------------------------ */}
+      <section className="relative w-full overflow-hidden">
+        <HeroBackground />
 
-      {/* Simplified Checker Card */}
-      <Card className="w-full max-w-xl p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg">
-        <CardHeader className="p-0 pb-4 flex flex-col gap-1 items-start">
-          <h3 className="text-xl font-bold text-text-primary">AI Symptom Checker Triage</h3>
-          <p className="text-xs text-text-secondary">
-            Enter your active symptoms for an immediate simulation analysis.
+        <div className="relative mx-auto max-w-6xl px-6 pt-24 pb-16 md:pt-32 md:pb-20 flex flex-col items-center text-center gap-6">
+          <Chip
+            variant="primary"
+            color="accent"
+            className="px-4 py-1 text-xs font-semibold tracking-wider uppercase font-mono flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3 h-3" />
+            AI-Powered Healthcare Access
+          </Chip>
+
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-text-primary max-w-3xl leading-tight">
+            <BlurText text="From symptom to the" />{" "}
+            <BlurText
+              text="right care,"
+              className="text-gradient-primary"
+              delay={280}
+            />{" "}
+            <BlurText text="in minutes." delay={420} />
+          </h1>
+
+          <p className="text-base md:text-lg text-text-secondary leading-relaxed max-w-2xl blur-in-word [animation-delay:600ms]">
+            Medicio&apos;s AI symptom checker triages your concern, then connects
+            you to verified doctors, hospitals, labs and pharmacies near you —
+            with your health records in one place.
           </p>
-        </CardHeader>
-        
-        <CardContent className="p-0 pb-4 flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-end">
-            <div className="flex flex-col gap-1 w-full">
-              <label className="text-xs font-semibold text-text-secondary">Describe symptoms</label>
-              <Input
-                placeholder="e.g., headache behind the eyes, mild fever"
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-                className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-full"
-              />
-            </div>
-            <Button 
-              variant="primary" 
-              isDisabled={loading || !symptoms.trim()}
-              onPress={startAnalysis}
-              className="w-full sm:w-auto h-10 font-semibold px-6 shadow-md"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Analyzing...
-                </span>
-              ) : (
-                "Analyze"
-              )}
-            </Button>
+
+          <div className="flex flex-col sm:flex-row gap-3 mt-2 ">
+            <NextLink href="/register">
+              <Button
+                variant="primary"
+                className="font-semibold h-12 px-8 shadow-lg text-sm flex items-center gap-2"
+              >
+                Get Started
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </NextLink>
+            <NextLink href="/login">
+              <Button
+                variant="outline"
+                className="font-semibold h-12 px-8 text-sm text-text-primary border-border-custom"
+              >
+                Sign In
+              </Button>
+            </NextLink>
           </div>
 
-          {report && (
-            <div className="mt-4 p-4 border border-border-custom bg-background-custom/20 rounded-lg flex flex-col gap-4 text-xs text-text-secondary">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between font-semibold">
-                  <span className="text-text-primary">Triage Severity: {report.severity}</span>
-                  <span className={report.severity === "Critical" ? "text-danger" : "text-warning"}>
-                    {report.severityValue}%
+          <p className="text-[10px] text-text-secondary uppercase tracking-wider font-mono mt-2">
+            Advisory only — Medicio never replaces a professional clinical
+            diagnosis.
+          </p>
+
+          {/* Product preview */}
+          <Reveal className="w-full max-w-4xl mt-8">
+            <div className="rounded-2xl border border-border-custom bg-surface/50 backdrop-blur-md shadow-2xl p-2">
+              <Image
+                src="/images/app-preview.svg"
+                alt="Preview of the Medicio patient dashboard"
+                width={1200}
+                height={630}
+                priority
+                className="rounded-xl w-full h-auto"
+              />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* --------------------------- How it works -------------------------- */}
+      <section
+        aria-labelledby="how-it-works-heading"
+        className="mx-auto max-w-6xl px-6 py-16 w-full"
+      >
+        <Reveal className="flex flex-col items-center text-center gap-3 mb-10">
+          <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-primary">
+            How it works
+          </span>
+          <h2
+            id="how-it-works-heading"
+            className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary"
+          >
+            Three steps between you and the right care
+          </h2>
+        </Reveal>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {HOW_IT_WORKS.map((item, index) => (
+            <Reveal key={item.step} delay={index * 120}>
+              <Card className="p-6 h-full border border-border-custom bg-surface/40 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+                    <item.icon className="w-5 h-5 text-primary" />
+                  </span>
+                  <span className="text-3xl font-extrabold font-mono text-border-custom">
+                    {item.step}
                   </span>
                 </div>
-                <ProgressBar value={report.severityValue} className="w-full">
-                  <ProgressBarTrack className="h-2 w-full bg-border-custom rounded-full overflow-hidden">
-                    <ProgressBarFill className={report.severity === "Critical" ? "bg-danger h-full" : "bg-warning h-full"} />
-                  </ProgressBarTrack>
-                </ProgressBar>
-              </div>
+                <h3 className="text-base font-bold text-text-primary">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {item.text}
+                </p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </section>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-                <div>
-                  <span className="text-[10px] uppercase font-mono block text-text-secondary">Conditions</span>
-                  <span className="font-semibold text-text-primary">{report.conditions}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-mono block text-text-secondary">Recommendation</span>
-                  <span className="font-semibold text-text-primary">{report.visitRecommended}</span>
-                </div>
-              </div>
+      {/* ----------------------------- Features ---------------------------- */}
+      <section
+        aria-labelledby="features-heading"
+        className="w-full border-y border-border-custom bg-surface/20"
+      >
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <Reveal className="flex flex-col items-center text-center gap-3 mb-10">
+            <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-primary">
+              Platform
+            </span>
+            <h2
+              id="features-heading"
+              className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary"
+            >
+              Everything your health journey needs
+            </h2>
+            <p className="text-sm text-text-secondary max-w-xl">
+              One account connects triage, booking, medicines and records —
+              built on a strictly role-guarded platform.
+            </p>
+          </Reveal>
 
-              <div className="border-t border-border-custom/50 pt-2 text-[11px] leading-relaxed">
-                <strong className="text-text-primary mr-1">Precautionary Instruction:</strong>
-                {report.precaution}
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((feature, index) => (
+              <Reveal key={feature.title} delay={(index % 3) * 120}>
+                <Card className="p-6 h-full border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-3 hover:border-primary/40 transition-colors">
+                  <span className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+                    <feature.icon className="w-5 h-5 text-primary" />
+                  </span>
+                  <h3 className="text-base font-bold text-text-primary">
+                    {feature.title}
+                  </h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    {feature.text}
+                  </p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------- For providers ------------------------- */}
+      <section
+        aria-labelledby="providers-heading"
+        className="mx-auto max-w-6xl px-6 py-16 w-full"
+      >
+        <Reveal className="flex flex-col items-center text-center gap-3 mb-10">
+          <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-primary">
+            For providers
+          </span>
+          <h2
+            id="providers-heading"
+            className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary"
+          >
+            Built for the whole care network
+          </h2>
+        </Reveal>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {PROVIDER_ROLES.map((role, index) => (
+            <Reveal key={role.title} delay={index * 100}>
+              <Card className="p-5 h-full border border-border-custom bg-surface/40 flex flex-col gap-2">
+                <role.icon className="w-5 h-5 text-primary" />
+                <h3 className="text-sm font-bold text-text-primary">
+                  {role.title}
+                </h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {role.text}
+                </p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------- CTA ------------------------------- */}
+      <section className="mx-auto max-w-6xl px-6 pb-8 w-full">
+        <Reveal>
+          <Card className="relative overflow-hidden border border-border-custom bg-surface/50 backdrop-blur-md p-10 md:p-14 flex flex-col items-center text-center gap-5">
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none opacity-40"
+            >
+              <div className="aurora-blob aurora-1" style={{ opacity: 0.25 }} />
+              <div className="aurora-blob aurora-2" style={{ opacity: 0.2 }} />
             </div>
-          )}
-        </CardContent>
 
-        <hr className="border-t border-border-custom my-4" />
-        
-        <CardFooter className="p-0 text-center flex flex-col">
-          <p className="text-[10px] text-text-secondary leading-relaxed uppercase tracking-wider">
-            Disclaimer: Medicio AI triage is informational and does not replace a professional clinical diagnosis.
-          </p>
-        </CardFooter>
-      </Card>
-
-      {/* Telemetry Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl mt-4">
-        <Card className="p-5 border border-border-custom bg-surface/30">
-          <span className="text-[10px] font-bold font-mono text-text-secondary uppercase">Verified Doctor Nodes</span>
-          <h2 className="text-3xl font-extrabold text-primary mt-1">142</h2>
-          <p className="text-[10px] text-text-secondary mt-0.5">52 scraped directory listings cached.</p>
-        </Card>
-        <Card className="p-5 border border-border-custom bg-surface/30">
-          <span className="text-[10px] font-bold font-mono text-text-secondary uppercase">POS Sync Cadence</span>
-          <h2 className="text-3xl font-extrabold text-primary mt-1">99.2%</h2>
-          <p className="text-[10px] text-text-secondary mt-0.5">Real-time pharmacy inventory connection rate.</p>
-        </Card>
-        <Card className="p-5 border border-border-custom bg-surface/30">
-          <span className="text-[10px] font-bold font-mono text-text-secondary uppercase">Specialty AI Latency</span>
-          <h2 className="text-3xl font-extrabold text-primary mt-1">&lt; 1.8s</h2>
-          <p className="text-[10px] text-text-secondary mt-0.5">Optimized NLP triage model callback time.</p>
-        </Card>
-      </div>
-    </section>
+            <h2 className="relative text-2xl md:text-3xl font-bold tracking-tight text-text-primary max-w-lg">
+              Ready to take control of your health?
+            </h2>
+            <p className="relative text-sm text-text-secondary max-w-md">
+              Create a free account and let Medicio guide your next step — from
+              first symptom to booked appointment.
+            </p>
+            <NextLink href="/register" className="relative">
+              <Button
+                variant="primary"
+                className="font-semibold h-12 px-8 shadow-lg text-sm flex items-center gap-2"
+              >
+                Create Your Free Account
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </NextLink>
+          </Card>
+        </Reveal>
+      </section>
+    </div>
   );
 }

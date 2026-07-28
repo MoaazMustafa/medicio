@@ -1,27 +1,26 @@
 import nodemailer from "nodemailer";
 
 /**
- * Medicio Email Sending Service
- * Dispatches verification emails utilizing Nodemailer and standard SMTP variables.
+ * Medicio Email Sending Service (Gmail)
+ * Dispatches verification emails through Gmail using Nodemailer.
+ * Requires a Google App Password (myaccount.google.com/apppasswords) —
+ * regular Gmail passwords will not work.
  */
 export async function sendOtpEmail(email: string, otp: string, purpose: string): Promise<boolean> {
-  // Fallback in case SMTP variables are not configured yet (e.g. testing dev resets)
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  // Fallback in case Gmail variables are not configured yet (e.g. testing dev resets)
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.warn("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping OTP email dispatch.");
     return true;
   }
 
   // Construct transporter dynamically so that runtime updates of .env parameters are read instantly
-  const smtpConfig = {
-    host: process.env.SMTP_HOST || "localhost",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587/25
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
     auth: {
-      user: process.env.SMTP_USER || "",
-      pass: process.env.SMTP_PASS || "",
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
     },
-  };
-
-  const transporter = nodemailer.createTransport(smtpConfig);
+  });
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
       <div style="text-align: center; margin-bottom: 30px;">
@@ -52,14 +51,14 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Medicio Portal" <noreply@medicio.com>',
+      from: process.env.GMAIL_FROM || `"Medicio Portal" <${process.env.GMAIL_USER}>`,
       to: email,
       subject: `[Medicio] Verification Code: ${otp}`,
       html: html,
     });
     return true;
   } catch (error) {
-    console.error("Nodemailer SMTP Transporter Error: ", error);
+    console.error("Nodemailer Gmail Transporter Error: ", error);
     return false;
   }
 }

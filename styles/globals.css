@@ -57,3 +57,125 @@ body {
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* ---------------------------------------------------------------------------
+   Landing page animation utilities (ReactBits-style aurora / blur-in / reveal)
+--------------------------------------------------------------------------- */
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(60px, -40px) scale(1.15);
+  }
+  66% {
+    transform: translate(-40px, 50px) scale(0.95);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.35;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.aurora-1 {
+  width: 480px;
+  height: 480px;
+  background: var(--primary);
+  top: -140px;
+  left: -100px;
+  animation: aurora-drift 18s ease-in-out infinite;
+}
+
+.aurora-2 {
+  width: 420px;
+  height: 420px;
+  background: var(--accent);
+  top: -60px;
+  right: -120px;
+  animation: aurora-drift 22s ease-in-out infinite reverse;
+}
+
+.aurora-3 {
+  width: 380px;
+  height: 380px;
+  background: var(--primary);
+  bottom: -180px;
+  left: 35%;
+  opacity: 0.22;
+  animation: aurora-drift 26s ease-in-out infinite;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--border-custom) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-custom) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.35;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 35%, black 30%, transparent 75%);
+  pointer-events: none;
+}
+
+@keyframes blur-in {
+  from {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.blur-in-word {
+  display: inline-block;
+  opacity: 0;
+  animation: blur-in 0.7s ease forwards;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.text-gradient-primary {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob {
+    animation: none;
+  }
+  .blur-in-word {
+    animation: none;
+    opacity: 1;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

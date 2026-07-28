@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 
 import { Logo } from "@/components/icons";
 import { ThemeSwitch } from "@/components/theme-switch";
+import { dashboardForRole } from "@/config/roles";
 import { siteConfig } from "@/config/site";
 
 export const Navbar = () => {
@@ -63,19 +64,15 @@ export const Navbar = () => {
           
           {user ? (
             <div className="hidden sm:flex items-center gap-3">
-              <span className="text-[10px] font-semibold text-text-secondary font-mono bg-border-custom/50 px-2 py-0.5 rounded uppercase">
-                {user.role}
-              </span>
-              <span className="text-sm font-semibold text-text-primary">
-                {user.name}
-              </span>
-              <Button
-                variant="outline"
-                className="text-xs font-semibold text-danger hover:text-danger/80"
-                onPress={handleLogout}
-              >
-                Logout
-              </Button>
+              <NextLink href={dashboardForRole(user.role)}>
+                <Button
+                  variant="primary"
+                  className="text-xs font-semibold"
+                >
+                  Dashboard
+                </Button>
+              </NextLink>
+              
             </div>
           ) : (
             <NextLink href="/login">
@@ -83,7 +80,7 @@ export const Navbar = () => {
                 variant="outline"
                 className="hidden sm:inline-flex text-sm font-semibold text-text-primary hover:text-primary"
               >
-                Portal Login
+                Login
               </Button>
             </NextLink>
           )}
@@ -142,9 +139,20 @@ export const Navbar = () => {
                   <span className="font-semibold text-text-primary">{user.name}</span>
                   <span className="font-mono text-text-secondary uppercase">{user.role}</span>
                 </div>
+                <NextLink
+                  href={dashboardForRole(user.role)}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Button
+                    variant="primary"
+                    className="w-full mt-1 font-semibold"
+                  >
+                    Go to Dashboard
+                  </Button>
+                </NextLink>
                 <Button
                   variant="outline"
-                  className="w-full mt-2 font-semibold text-danger"
+                  className="w-full mt-1 font-semibold text-danger"
                   onPress={handleLogout}
                 >
                   Logout
