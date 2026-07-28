@@ -1,11 +1,21 @@
 "use client";
 
-import { Button, Chip, Dropdown, Label } from "@heroui/react";
+import {
+  Button,
+  Chip,
+  Drawer,
+  ScrollShadow,
+  Separator,
+  Surface,
+  Tooltip,
+} from "@heroui/react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bot,
   Building2,
   CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   FlaskConical,
   FolderHeart,
@@ -18,26 +28,22 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  X,
 } from "lucide-react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import React, { useState } from "react";
 
 import { Logo } from "@/components/icons";
 
-/**
- * Single source of truth for in-app navigation (SRS §6 RBAC matrix).
- * Items without a live route yet are flagged `soon` and rendered disabled,
- * so the sidebar doubles as an honest roadmap per role.
- */
-
-interface NavItem {
+export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   soon?: boolean;
 }
 
-const ROLE_NAV: Record<string, NavItem[]> = {
+export const ROLE_NAV: Record<string, NavItem[]> = {
   PATIENT: [
     { label: "Symptom Checker", href: "/chatbot", icon: MessageSquareText },
     { label: "Appointments", href: "/appointments", icon: CalendarCheck, soon: true },
@@ -75,122 +81,282 @@ const ROLE_NAV: Record<string, NavItem[]> = {
   ],
 };
 
-function navForRole(role: string): NavItem[] {
+export function navForRole(role: string): NavItem[] {
   return ROLE_NAV[role] ?? ROLE_NAV.PATIENT;
 }
 
-/** Desktop sidebar rail — hidden below md. */
+/**
+ * Desktop Sidebar Rail — Built with HeroUI Surface, ScrollShadow, Tooltip, Button & Chip.
+ * Supports expand/collapse state with interactive mini-rail tooltips.
+ */
 export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const items = navForRole(role);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-border-custom bg-surface/40 backdrop-blur-lg sticky top-0 h-screen">
-      {/* Brand */}
-      <div className="flex items-center gap-2 h-16 px-5 border-b border-border-custom">
-        <NextLink className="flex items-center gap-2" href="/">
-          <Logo />
-          <span className="font-bold text-lg tracking-tight text-primary">
-            Medicio
-          </span>
-        </NextLink>
-      </div>
+    <aside
+      aria-label="Main sidebar"
+      className={`hidden md:flex flex-col sticky top-0 h-screen border-r border-border-custom bg-surface/60 backdrop-blur-xl transition-all duration-300 z-30 shrink-0 ${
+        isCollapsed ? "w-18" : "w-60"
+      }`}
+    >
+      <Surface className="flex flex-col h-full bg-transparent">
+        {/* Brand Header */}
+        <div className="flex items-center justify-between h-16 px-4 border-b border-border-custom shrink-0">
+          <NextLink
+            className="flex items-center gap-2.5 overflow-hidden focus:outline-none"
+            href="/"
+          >
+            <Logo />
+            {!isCollapsed && (
+              <span className="font-bold text-lg tracking-tight text-primary truncate">
+                Medicio
+              </span>
+            )}
+          </NextLink>
 
-      {/* Role nav */}
-      <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-4">
-        <span className="block px-2 pb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary">
-          Workspace
-        </span>
-        <ul className="flex flex-col gap-1">
-          {items.map((item) => {
-            const isActive = !item.soon && pathname.startsWith(item.href);
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onPress={() => setIsCollapsed(!isCollapsed)}
+            className="text-text-secondary hover:text-text-primary rounded-lg shrink-0"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
 
-            return (
-              <li key={item.label}>
-                {item.soon ? (
-                  <span
-                    aria-disabled
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary/60 cursor-not-allowed select-none"
-                  >
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    <Chip
-                      size="sm"
-                      className="text-[9px] font-mono uppercase px-1.5 py-0 h-4"
-                    >
-                      Soon
-                    </Chip>
-                  </span>
-                ) : (
-                  <NextLink
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-primary/10 text-primary border border-primary/30"
-                        : "text-text-secondary hover:text-text-primary hover:bg-border-custom/30"
+        {/* Scrollable Navigation */}
+        <ScrollShadow className="flex-1 px-3 py-4 space-y-4 overflow-x-hidden">
+          {!isCollapsed && (
+            <div className="px-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary">
+                Workspace
+              </span>
+            </div>
+          )}
+
+          <nav aria-label="Role Navigation" className="space-y-1">
+            {items.map((item) => {
+              const isActive = !item.soon && pathname.startsWith(item.href);
+
+              const navLink = item.soon ? (
+                <div
+                  key={item.label}
+                  aria-disabled
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary/50 cursor-not-allowed select-none transition-colors ${
+                    isCollapsed ? "justify-center px-0" : ""
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <Chip
+                        size="sm"
+                        className="text-[9px] font-mono uppercase px-1.5 py-0 h-4"
+                      >
+                        Soon
+                      </Chip>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <NextLink
+                  key={item.label}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                    isCollapsed ? "justify-center px-0" : ""
+                  } ${
+                    isActive
+                      ? "bg-primary/15 text-primary border border-primary/30 font-semibold shadow-sm"
+                      : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
+                  }`}
+                >
+                  <item.icon
+                    className={`w-5 h-5 shrink-0 ${
+                      isActive ? "text-primary" : "text-text-secondary"
                     }`}
-                    href={item.href}
-                  >
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                  </NextLink>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+                  />
+                  {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+                </NextLink>
+              );
 
-      {/* Bottom: settings */}
-      <div className="px-3 py-4 border-t border-border-custom">
-        <NextLink
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            pathname.startsWith("/settings")
-              ? "bg-primary/10 text-primary border border-primary/30"
-              : "text-text-secondary hover:text-text-primary hover:bg-border-custom/30"
-          }`}
-          href="/settings"
-        >
-          <Settings className="w-4 h-4 shrink-0" />
-          Settings
-        </NextLink>
-      </div>
+              if (isCollapsed) {
+                return (
+                  <Tooltip key={item.label} delay={100}>
+                    <Tooltip.Trigger className="w-full">
+                      {navLink}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content placement="right" className="text-xs font-semibold px-2.5 py-1">
+                      {item.label} {item.soon ? "(Soon)" : ""}
+                    </Tooltip.Content>
+                  </Tooltip>
+                );
+              }
+
+              return navLink;
+            })}
+          </nav>
+        </ScrollShadow>
+
+        <Separator className="bg-border-custom/60" />
+
+        {/* Footer: Settings Link */}
+        <div className="p-3 shrink-0">
+          {isCollapsed ? (
+            <Tooltip delay={100}>
+              <Tooltip.Trigger className="w-full">
+                <NextLink
+                  href="/settings"
+                  className={`flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all ${
+                    pathname.startsWith("/settings")
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
+                  }`}
+                >
+                  <Settings className="w-5 h-5 shrink-0" />
+                </NextLink>
+              </Tooltip.Trigger>
+              <Tooltip.Content placement="right" className="text-xs font-semibold px-2.5 py-1">
+                Settings
+              </Tooltip.Content>
+            </Tooltip>
+          ) : (
+            <NextLink
+              href="/settings"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                pathname.startsWith("/settings")
+                  ? "bg-primary/15 text-primary border border-primary/30 font-semibold shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
+              }`}
+            >
+              <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
+              <span className="flex-1 truncate">Settings</span>
+            </NextLink>
+          )}
+        </div>
+      </Surface>
     </aside>
   );
 }
 
-/** Mobile nav — same role map, rendered as a native HeroUI Dropdown. */
+/**
+ * Mobile Navigation — Replaced with HeroUI Drawer component end-to-end.
+ * Uses Drawer.Root, Drawer.Trigger, Drawer.Backdrop, Drawer.Content,
+ * Drawer.Dialog, Drawer.Header, Drawer.Body, Drawer.CloseTrigger.
+ */
 export function MobileNav({ role }: { role: string }) {
+  const pathname = usePathname();
   const router = useRouter();
   const items = navForRole(role);
-  const disabledKeys = items.filter((item) => item.soon).map((item) => item.href);
 
   return (
     <div className="md:hidden">
-      <Dropdown>
-        <Button isIconOnly aria-label="Open navigation" variant="ghost">
-          <MenuIcon className="w-5 h-5 text-text-primary" />
-        </Button>
-        <Dropdown.Popover className="min-w-[220px]">
-          <Dropdown.Menu
-            disabledKeys={disabledKeys}
-            onAction={(key) => router.push(String(key))}
-          >
-            {items.map((item) => (
-              <Dropdown.Item key={item.label} id={item.href} textValue={item.label}>
-                <item.icon className="w-4 h-4 shrink-0 text-text-secondary" />
-                <Label>
-                  {item.label}
-                  {item.soon ? " (soon)" : ""}
-                </Label>
-              </Dropdown.Item>
-            ))}
-            <Dropdown.Item id="/settings" textValue="Settings">
-              <Settings className="w-4 h-4 shrink-0 text-text-secondary" />
-              <Label>Settings</Label>
-            </Dropdown.Item>
-          </Dropdown.Menu>
-        </Dropdown.Popover>
-      </Dropdown>
+      <Drawer.Root>
+        <Drawer.Trigger>
+          <Button isIconOnly aria-label="Open Navigation Menu" variant="ghost">
+            <MenuIcon className="w-5 h-5 text-text-primary" />
+          </Button>
+        </Drawer.Trigger>
+
+        <Drawer.Backdrop isDismissable>
+          <Drawer.Content placement="left" className="w-[280px] sm:w-[320px] max-w-[85vw] h-full bg-surface border-r border-border-custom">
+            <Drawer.Dialog className="flex flex-col h-full outline-none">
+              {/* Header */}
+              <Drawer.Header className="flex items-center justify-between p-4 border-b border-border-custom">
+                <NextLink className="flex items-center gap-2" href="/">
+                  <Logo />
+                  <span className="font-bold text-lg tracking-tight text-primary">
+                    Medicio
+                  </span>
+                </NextLink>
+
+                <Drawer.CloseTrigger className="p-1 rounded-lg text-text-secondary hover:text-text-primary focus:outline-none">
+                  <X className="w-5 h-5" />
+                </Drawer.CloseTrigger>
+              </Drawer.Header>
+
+              {/* Body / Nav List */}
+              <Drawer.Body className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="px-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary">
+                    Navigation Menu
+                  </span>
+                </div>
+
+                <nav aria-label="Mobile Navigation" className="space-y-1">
+                  {items.map((item) => {
+                    const isActive = !item.soon && pathname.startsWith(item.href);
+
+                    if (item.soon) {
+                      return (
+                        <div
+                          key={item.label}
+                          aria-disabled
+                          className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-text-secondary/50 cursor-not-allowed select-none"
+                        >
+                          <item.icon className="w-5 h-5 shrink-0" />
+                          <span className="flex-1 truncate">{item.label}</span>
+                          <Chip
+                            size="sm"
+                            className="text-[9px] font-mono uppercase px-1.5 py-0 h-4"
+                          >
+                            Soon
+                          </Chip>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <Drawer.CloseTrigger key={item.label} className="w-full text-left">
+                        <Button
+                          variant="ghost"
+                          onPress={() => router.push(item.href)}
+                          className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${
+                            isActive
+                              ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
+                              : "text-text-secondary hover:text-text-primary"
+                          }`}
+                        >
+                          <item.icon className="w-5 h-5 shrink-0" />
+                          <span className="flex-1 truncate text-left">{item.label}</span>
+                        </Button>
+                      </Drawer.CloseTrigger>
+                    );
+                  })}
+                </nav>
+              </Drawer.Body>
+
+              <Separator className="bg-border-custom/60" />
+
+              {/* Footer / Settings */}
+              <div className="p-4">
+                <Drawer.CloseTrigger className="w-full text-left">
+                  <Button
+                    variant="ghost"
+                    onPress={() => router.push("/settings")}
+                    className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${
+                      pathname.startsWith("/settings")
+                        ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
+                    <span className="flex-1 truncate text-left">Settings</span>
+                  </Button>
+                </Drawer.CloseTrigger>
+              </div>
+            </Drawer.Dialog>
+          </Drawer.Content>
+        </Drawer.Backdrop>
+      </Drawer.Root>
     </div>
   );
 }
