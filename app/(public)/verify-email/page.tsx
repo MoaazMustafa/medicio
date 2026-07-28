@@ -7,13 +7,17 @@ import {
   CardFooter,
   Button,
   Input,
-  Chip,
 } from "@heroui/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { toast } from "sonner";
 
+import { OtpInput } from "@/components/otp-input";
 import { dashboardForRole } from "@/config/roles";
+
+/** Cooldown duration in seconds before the resend button re-enables. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -23,9 +27,10 @@ function VerifyEmailForm() {
   const [email, setEmail] = useState(emailParam);
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
+
+  // Resend cooldown timer state
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (emailParam) {
@@ -33,15 +38,35 @@ function VerifyEmailForm() {
     }
   }, [emailParam]);
 
+  // Countdown effect — fires every second while cooldown > 0
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const startCooldown = useCallback(() => {
+    setCooldown(RESEND_COOLDOWN_SECONDS);
+  }, []);
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !otp) {
-      setError("Please input your email and the 6-digit confirmation code.");
+      toast.error("Please input your email and the 6-digit confirmation code.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("/api/auth/verify-email", {
@@ -53,16 +78,21 @@ function VerifyEmailForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Verification failed.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "Verification failed.");
+        }
+        return;
       }
 
-      setSuccess("Account activated successfully! Logging you in...");
+      toast.success("Account activated successfully! Logging you in...");
       setTimeout(() => {
         router.push(dashboardForRole(data.user.role));
         router.refresh();
       }, 1500);
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -70,16 +100,14 @@ function VerifyEmailForm() {
 
   const handleResend = async () => {
     if (!email) {
-      setError("Please fill in your email address to request a new code.");
+      toast.error("Please fill in your email address to request a new code.");
       return;
     }
 
     setResendLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -88,16 +116,24 @@ function VerifyEmailForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to resend code.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "Failed to resend code.");
+        }
+        return;
       }
 
-      setSuccess("A fresh verification code has been sent!");
+      toast.success("A fresh verification code has been sent!");
+      startCooldown();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setResendLoading(false);
     }
   };
+
+  const isResendDisabled = resendLoading || cooldown > 0;
 
   return (
     <Card className="w-full max-w-md p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-xl">
@@ -110,17 +146,6 @@ function VerifyEmailForm() {
 
       <form onSubmit={handleVerify}>
         <CardContent className="flex flex-col gap-4 p-0 pb-4">
-          {error && (
-            <Chip color="danger" className="w-full text-xs font-semibold py-2 px-3 text-center">
-              {error}
-            </Chip>
-          )}
-          {success && (
-            <Chip color="success" className="w-full text-xs font-semibold py-2 px-3 text-center text-text-primary">
-              {success}
-            </Chip>
-          )}
-
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-text-secondary">Email address</label>
             <Input
@@ -133,17 +158,9 @@ function VerifyEmailForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-text-secondary">Verification Code (6-digit OTP)</label>
-            <Input
-              type="text"
-              placeholder="6-digit OTP code"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              maxLength={6}
-              required
-              className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-full tracking-widest font-mono text-center font-bold"
-            />
+            <OtpInput value={otp} onChange={setOtp} disabled={loading} />
           </div>
         </CardContent>
 
@@ -167,11 +184,15 @@ function VerifyEmailForm() {
           <Button
             type="button"
             variant="outline"
-            isDisabled={resendLoading}
+            isDisabled={isResendDisabled}
             onPress={handleResend}
             className="w-full text-xs font-semibold text-text-primary"
           >
-            {resendLoading ? "Resending..." : "Resend Verification Code"}
+            {resendLoading
+              ? "Resending..."
+              : cooldown > 0
+                ? `Resend in ${cooldown}s`
+                : "Resend Verification Code"}
           </Button>
         </div>
       </form>

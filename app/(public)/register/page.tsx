@@ -9,11 +9,11 @@ import {
   Input,
   RadioGroup,
   Radio,
-  Chip,
 } from "@heroui/react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import { toast } from "sonner";
 
 import { dashboardForRole } from "@/config/roles";
 
@@ -24,17 +24,15 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("PATIENT");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !password || !role) {
-      setError("Please complete all registration details.");
+      toast.error("Please complete all registration details.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -46,17 +44,30 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "An unexpected error occurred during signup.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else if (response.status === 403) {
+          toast.error(data.error || "Access denied. Only administrators can register this role.");
+        } else {
+          toast.error(data.error || "An unexpected error occurred during signup.");
+        }
+        return;
       }
 
       if (data.requiresVerification) {
+        if (data.emailSendFailed) {
+          toast.warning("Account created, but the verification email could not be sent. Please use 'Resend' on the next page.");
+        } else {
+          toast.success("Account created! Check your email for a verification code.");
+        }
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
+        toast.success("Account created and verified!");
         router.push(dashboardForRole(data.user.role));
         router.refresh();
       }
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -79,15 +90,6 @@ export default function RegisterPage() {
 
         <form onSubmit={handleRegister}>
           <CardContent className="flex flex-col gap-4 p-0 pb-4">
-            {error && (
-              <Chip
-                color="danger"
-                className="w-full text-xs font-semibold py-2 px-3 flex items-center justify-center max-w-full text-center"
-              >
-                {error}
-              </Chip>
-            )}
-
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-text-secondary">Full Name</label>
               <Input

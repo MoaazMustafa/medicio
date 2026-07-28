@@ -50,8 +50,16 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
   `;
 
   try {
+    // Build a clean RFC 5321 sender address.  GMAIL_FROM from .env may
+    // contain escaped quotes or stray backslashes that Gmail rejects with
+    // "555 5.5.2 Syntax error, cannot decode response".  Strip them out and
+    // fall back to a safe default built from GMAIL_USER.
+    const rawFrom = process.env.GMAIL_FROM || "";
+    const cleanFrom = rawFrom.replace(/\\"/g, "").replace(/"/g, "").trim();
+    const from = cleanFrom || `Medicio Portal <${process.env.GMAIL_USER}>`;
+
     await transporter.sendMail({
-      from: process.env.GMAIL_FROM || `"Medicio Portal" <${process.env.GMAIL_USER}>`,
+      from,
       to: email,
       subject: `[Medicio] Verification Code: ${otp}`,
       html: html,

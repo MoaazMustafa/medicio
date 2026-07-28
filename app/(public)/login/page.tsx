@@ -7,11 +7,11 @@ import {
   CardFooter,
   Button,
   Input,
-  Chip,
 } from "@heroui/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState, useEffect, Suspense } from "react";
+import { toast } from "sonner";
 
 import { dashboardForRole } from "@/config/roles";
 
@@ -24,23 +24,21 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (urlError) {
-      setError(decodeURIComponent(urlError));
+      toast.error(decodeURIComponent(urlError));
     }
   }, [urlError]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please fill in all credentials.");
+      toast.error("Please fill in all credentials.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -53,11 +51,19 @@ function LoginForm() {
 
       if (!response.ok) {
         if (response.status === 403 && data.requiresVerification) {
+          toast.info("Please verify your email. A verification code has been sent.");
           router.push(`/verify-email?email=${encodeURIComponent(email)}`);
           return;
         }
-        throw new Error(data.error || "An unexpected error occurred during login.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "An unexpected error occurred during login.");
+        }
+        return;
       }
+
+      toast.success("Signed in successfully!");
 
       // Successful login - refresh context and redirect
       const fallbackPath = dashboardForRole(data.user.role);
@@ -68,7 +74,7 @@ function LoginForm() {
       router.push(isSafeRedirect ? redirectTo : fallbackPath);
       router.refresh();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -90,15 +96,6 @@ function LoginForm() {
 
       <form onSubmit={handleLogin}>
         <CardContent className="flex flex-col gap-4 p-0 pb-4">
-          {error && (
-            <Chip
-              color="danger"
-              className="w-full text-xs font-semibold py-2 px-3 flex items-center justify-center max-w-full text-center"
-            >
-              {error}
-            </Chip>
-          )}
-
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-text-secondary">Email address</label>
             <Input

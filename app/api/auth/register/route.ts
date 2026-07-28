@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await sendOtpEmail(newUser.email, otp, "Email Verification");
+      const emailSent = await sendOtpEmail(newUser.email, otp, "Email Verification");
 
       logAuthEvent("USER_REGISTER_PENDING_VERIFICATION", { email: newUser.email, role: newUser.role });
 
@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
         success: true,
         requiresVerification: true,
         email: newUser.email,
+        emailSendFailed: !emailSent,
       });
     }
 

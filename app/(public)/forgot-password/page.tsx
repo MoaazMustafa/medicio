@@ -7,11 +7,16 @@ import {
   CardFooter,
   Button,
   Input,
-  Chip,
 } from "@heroui/react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+
+import { OtpInput } from "@/components/otp-input";
+
+/** Cooldown duration in seconds before the send/resend button re-enables. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -20,18 +25,39 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [step, setStep] = useState(1); // 1 = Request OTP, 2 = Verify OTP & Reset
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Resend cooldown timer state
+  const [cooldown, setCooldown] = useState(0);
+
+  // Countdown effect — fires every second while cooldown > 0
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const startCooldown = useCallback(() => {
+    setCooldown(RESEND_COOLDOWN_SECONDS);
+  }, []);
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      setError("Please fill in your email address.");
+      toast.error("Please fill in your email address.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("/api/auth/forgot-password", {
@@ -43,13 +69,54 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "An unexpected error occurred.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "An unexpected error occurred.");
+        }
+        return;
       }
 
-      setSuccessMessage("Verification code sent! Please check your console/email.");
+      toast.success("Verification code sent! Please check your email.");
+      startCooldown();
       setStep(2);
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!email) {
+      toast.error("Email address is required to resend the code.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "Failed to resend code.");
+        }
+        return;
+      }
+
+      toast.success("A fresh reset code has been sent!");
+      startCooldown();
+    } catch (err: any) {
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -58,12 +125,11 @@ export default function ForgotPasswordPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp || !newPassword) {
-      setError("Please fill in all verification details.");
+      toast.error("Please fill in all verification details.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("/api/auth/reset-password", {
@@ -75,19 +141,26 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "An unexpected error occurred during password reset.");
+        if (response.status === 429) {
+          toast.warning(data.error);
+        } else {
+          toast.error(data.error || "An unexpected error occurred during password reset.");
+        }
+        return;
       }
 
-      setSuccessMessage("Your password has been successfully reset! Redirecting to login...");
+      toast.success("Your password has been successfully reset! Redirecting to login...");
       setTimeout(() => {
         router.push("/login");
       }, 2000);
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message || "Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
+
+  const isSendDisabled = loading || cooldown > 0;
 
   return (
     <section className="flex items-center justify-center min-h-[75vh] px-4 py-12">
@@ -104,12 +177,6 @@ export default function ForgotPasswordPage() {
         {step === 1 ? (
           <form onSubmit={handleRequestOtp}>
             <CardContent className="flex flex-col gap-4 p-0 pb-4">
-              {error && (
-                <Chip color="danger" className="w-full text-xs font-semibold py-2 px-3 text-center">
-                  {error}
-                </Chip>
-              )}
-
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-text-secondary">Email address</label>
                 <Input
@@ -126,7 +193,7 @@ export default function ForgotPasswordPage() {
             <Button
               type="submit"
               variant="primary"
-              isDisabled={loading}
+              isDisabled={isSendDisabled}
               className="w-full font-semibold h-11 mt-4 shadow-md"
             >
               {loading ? (
@@ -134,6 +201,8 @@ export default function ForgotPasswordPage() {
                   <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   Sending Code...
                 </span>
+              ) : cooldown > 0 ? (
+                `Resend in ${cooldown}s`
               ) : (
                 "Send Verification Code"
               )}
@@ -142,28 +211,9 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleResetPassword}>
             <CardContent className="flex flex-col gap-4 p-0 pb-4">
-              {error && (
-                <Chip color="danger" className="w-full text-xs font-semibold py-2 px-3 text-center">
-                  {error}
-                </Chip>
-              )}
-              {successMessage && (
-                <Chip color="success" className="w-full text-xs font-semibold py-2 px-3 text-center text-text-primary">
-                  {successMessage}
-                </Chip>
-              )}
-
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-text-secondary">Verification Code (OTP)</label>
-                <Input
-                  type="text"
-                  placeholder="6-digit OTP code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  maxLength={6}
-                  required
-                  className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-full tracking-widest font-mono text-center font-bold"
-                />
+                <OtpInput value={otp} onChange={setOtp} disabled={loading} />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -179,21 +229,35 @@ export default function ForgotPasswordPage() {
               </div>
             </CardContent>
 
-            <Button
-              type="submit"
-              variant="primary"
-              isDisabled={loading}
-              className="w-full font-semibold h-11 mt-4 shadow-md"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Resetting Password...
-                </span>
-              ) : (
-                "Verify & Reset Password"
-              )}
-            </Button>
+            <div className="flex flex-col gap-3 mt-4">
+              <Button
+                type="submit"
+                variant="primary"
+                isDisabled={loading}
+                className="w-full font-semibold h-11 shadow-md"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Resetting Password...
+                  </span>
+                ) : (
+                  "Verify & Reset Password"
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                isDisabled={isSendDisabled}
+                onPress={handleResendOtp}
+                className="w-full text-xs font-semibold text-text-primary"
+              >
+                {cooldown > 0
+                  ? `Resend in ${cooldown}s`
+                  : "Resend Reset Code"}
+              </Button>
+            </div>
           </form>
         )}
 

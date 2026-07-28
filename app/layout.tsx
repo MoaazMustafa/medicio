@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import clsx from "clsx";
 import type { Metadata, Viewport } from "next";
+import { Toaster } from "sonner";
 
 import { Providers } from "./providers";
 
@@ -85,6 +86,16 @@ export default function RootLayout({
           <ClickSpark sparkColor="var(--primary)" sparkSize={10} sparkRadius={15} sparkCount={8} duration={450}>
             {children}
           </ClickSpark>
+          <Toaster
+            richColors
+            position="top-right"
+            theme="system"
+            toastOptions={{
+              style: {
+                fontFamily: "var(--font-sans)",
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>

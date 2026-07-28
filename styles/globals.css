@@ -66,12 +66,15 @@ body {
   0% {
     transform: translate(0, 0) scale(1);
   }
+
   33% {
     transform: translate(60px, -40px) scale(1.15);
   }
+
   66% {
     transform: translate(-40px, 50px) scale(0.95);
   }
+
   100% {
     transform: translate(0, 0) scale(1);
   }
@@ -132,6 +135,7 @@ body {
     filter: blur(12px);
     transform: translateY(14px);
   }
+
   to {
     opacity: 1;
     filter: blur(0);
@@ -169,13 +173,30 @@ body {
   .aurora-blob {
     animation: none;
   }
+
   .blur-in-word {
     animation: none;
     opacity: 1;
   }
+
   .reveal {
     opacity: 1;
     transform: none;
     transition: none;
   }
+}
+
+/* change scrollbar color to primary and hide its background */
+::-webkit-scrollbar {
+  width: 10;
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
 }

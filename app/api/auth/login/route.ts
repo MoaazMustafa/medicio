@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         { 
           error: "Please verify your email address. A fresh verification code has been sent.", 
           requiresVerification: true, 
-          email: user.email 
+          email: user.email,
         },
         { status: 403 }
       );
