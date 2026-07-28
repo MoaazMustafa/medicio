@@ -29,3 +29,23 @@ export function verifyPassword(password: string, storedValue: string): boolean {
     return false;
   }
 }
+
+/** Minutes a one-time verification code stays valid. */
+export const OTP_TTL_MINUTES = 15;
+
+/**
+ * Creates a cryptographically secure 6-digit one-time code and its expiry.
+ * `Math.random()` is never used here — it is predictable and unsuitable for
+ * account verification or password reset codes.
+ */
+export function createOtp(): { otp: string; expiresAt: Date } {
+  return {
+    otp: crypto.randomInt(0, 1_000_000).toString().padStart(6, "0"),
+    expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
+  };
+}
+
+/** Generates a URL-safe random token (used for OAuth state / placeholders). */
+export function randomToken(bytes: number = 32): string {
+  return crypto.randomBytes(bytes).toString("hex");
+}

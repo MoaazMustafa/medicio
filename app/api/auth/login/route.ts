@@ -1,10 +1,9 @@
-import { cookies } from "next/headers";
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
-import { verifyPassword } from "@/lib/crypto";
+import { createSessionCookie } from "@/lib/auth";
+import { createOtp, verifyPassword } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
-import { signJwt } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -60,8 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.isVerified) {
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const { otp, expiresAt } = createOtp();
 
       await prisma.verificationToken.deleteMany({
         where: { email: user.email },
@@ -89,23 +87,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = signJwt({
-      userId: user.id,
+    await createSessionCookie({
+      id: user.id,
       email: user.email,
-      role: user.role,
       name: user.name,
-    });
-
-    const cookieStore = await cookies();
-    cookieStore.set("medicio_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      role: user.role,
     });
 
     logAuthEvent("USER_LOGIN_SUCCESS", { email: user.email, role: user.role });
-
     return NextResponse.json({
       success: true,
       user: {

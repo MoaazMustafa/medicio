@@ -1,12 +1,12 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+
+import { clearSessionCookie } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/logger";
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    cookieStore.delete("medicio_session");
-    
+    await clearSessionCookie();
+
     logAuthEvent("USER_LOGOUT_SUCCESS", {});
 
     return NextResponse.json({

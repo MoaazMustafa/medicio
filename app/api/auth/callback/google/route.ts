@@ -3,32 +3,41 @@ import { cookies } from "next/headers";
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
-import { signJwt } from "@/lib/jwt";
+import { dashboardForRole } from "@/config/roles";
+import { createSessionCookie } from "@/lib/auth";
+import { logAuthEvent } from "@/lib/logger";
+import { OAUTH_ONLY_PASSWORD_HASH, OAUTH_STATE_COOKIE } from "@/lib/oauth";
 import { prisma } from "@/lib/prisma";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-const ROLE_DASHBOARDS: Record<string, string> = {
-  PATIENT: "/chatbot",
-  DOCTOR: "/doctor/dashboard",
-  PHARMACY_ADMIN: "/pharmacy/dashboard",
-  LAB_ADMIN: "/lab/dashboard",
-  HOSPITAL_ADMIN: "/hospital/dashboard",
-  ADMIN: "/admin/dashboard",
-  SUPER_ADMIN: "/admin/dashboard",
-};
 
 export async function GET(request: NextRequest) {
+  const cookieStore = await cookies();
+  const expectedState = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
+
+  // The state cookie is single-use regardless of the outcome below.
+  cookieStore.delete(OAUTH_STATE_COOKIE);
+
   try {
     const { searchParams } = request.nextUrl;
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
     const error = searchParams.get("error");
 
     if (error) {
-      console.error("Google OAuth error parameter:", error);
+      logAuthEvent("OAUTH_GOOGLE_PROVIDER_ERROR", { error });
+
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, request.url));
+    }
+
+    // CSRF protection: the callback must echo the state we issued.
+    if (!state || !expectedState || state !== expectedState) {
+      logAuthEvent("OAUTH_GOOGLE_STATE_MISMATCH", {});
+
+      return NextResponse.redirect(
+        new URL("/login?error=Invalid+or+expired+sign-in+request.+Please+try+again", request.url),
+      );
     }
 
     if (!code) {
@@ -36,9 +45,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-      console.error("Missing Google OAuth credentials in environmental variables.");
+      logAuthEvent("OAUTH_GOOGLE_NOT_CONFIGURED", {});
+
       return NextResponse.redirect(new URL("/login?error=Google+OAuth+is+not+configured+on+server", request.url));
     }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     // 1. Exchange authorization code for access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${APP_URL}/api/auth/callback/google`,
+        redirect_uri: `${appUrl}/api/auth/callback/google`,
         grant_type: "authorization_code",
       }),
     });
@@ -56,7 +68,8 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      console.error("Google token exchange error:", tokens);
+      logAuthEvent("OAUTH_GOOGLE_TOKEN_EXCHANGE_FAILURE", { status: tokenResponse.status });
+
       return NextResponse.redirect(new URL("/login?error=Failed+to+exchange+google+tokens", request.url));
     }
 
@@ -68,55 +81,61 @@ export async function GET(request: NextRequest) {
     const googleUser = await userinfoResponse.json();
 
     if (!userinfoResponse.ok) {
-      console.error("Google userinfo query error:", googleUser);
+      logAuthEvent("OAUTH_GOOGLE_USERINFO_FAILURE", { status: userinfoResponse.status });
+
       return NextResponse.redirect(new URL("/login?error=Failed+to+fetch+google+userinfo", request.url));
     }
 
-    const { email, name, sub } = googleUser;
+    const { email, name, email_verified: emailVerified } = googleUser;
 
     if (!email) {
       return NextResponse.redirect(new URL("/login?error=Google+profile+did+not+release+email+access", request.url));
     }
 
+    // Never trust an unverified provider email — it would allow account takeover.
+    if (emailVerified === false) {
+      logAuthEvent("OAUTH_GOOGLE_EMAIL_UNVERIFIED", { email });
+
+      return NextResponse.redirect(
+        new URL("/login?error=Your+Google+email+address+is+not+verified", request.url),
+      );
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     // 3. Find or create the user in local PostgreSQL
     let user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
-      // Create user (defaults to PATIENT, isVerified: true since Google verified their email!)
+      // Google already verified the address, so the account starts activated.
       user = await prisma.user.create({
         data: {
-          email,
-          name: name || email.split("@")[0],
-          passwordHash: `OAUTH_GOOGLE_${sub}_${Math.random().toString(36).slice(-8)}`, // placeholder hash
+          email: normalizedEmail,
+          name: name || normalizedEmail.split("@")[0],
+          passwordHash: OAUTH_ONLY_PASSWORD_HASH,
           role: UserRole.PATIENT,
           isVerified: true,
         },
       });
     }
 
-    // 4. Issue the local session JWT cookie
-    const localToken = signJwt({
-      userId: user.id,
+    // 4. Issue the local session cookie
+    await createSessionCookie({
+      id: user.id,
       email: user.email,
-      role: user.role,
       name: user.name,
+      role: user.role,
     });
 
-    const cookieStore = await cookies();
-    cookieStore.set("medicio_session", localToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+    logAuthEvent("OAUTH_GOOGLE_LOGIN_SUCCESS", { email: user.email, role: user.role });
 
     // 5. Redirect the user directly to their role dashboard
-    const targetDashboard = ROLE_DASHBOARDS[user.role] || "/";
-    return NextResponse.redirect(new URL(targetDashboard, request.url));
+    return NextResponse.redirect(new URL(dashboardForRole(user.role), request.url));
   } catch (err: any) {
-    console.error("Google OAuth callback exception:", err);
+    logAuthEvent("OAUTH_GOOGLE_CALLBACK_EXCEPTION", { error: err?.message || String(err) });
+
     return NextResponse.redirect(new URL("/login?error=Unexpected+oauth+callback+error", request.url));
   }
 }

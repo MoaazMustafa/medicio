@@ -1,6 +1,12 @@
 import { PrismaClient, UserRole } from "@prisma/client";
 
+import { hashPassword } from "../lib/crypto";
+
 const prisma = new PrismaClient();
+
+// Demo credentials for local development only. Override with SEED_PASSWORD.
+const SEED_PASSWORD = process.env.SEED_PASSWORD || "Medicio@123";
+const seedPasswordHash = hashPassword(SEED_PASSWORD);
 
 async function main() {
   console.log("Starting database seeding...");
@@ -24,7 +30,7 @@ async function main() {
   await prisma.user.create({
     data: {
       email: "admin@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67", // mock hashed password
+      passwordHash: seedPasswordHash,
       name: "Medicio Super Admin",
       role: UserRole.SUPER_ADMIN,
       isVerified: true,
@@ -34,7 +40,7 @@ async function main() {
   const patient = await prisma.user.create({
     data: {
       email: "patient@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
+      passwordHash: seedPasswordHash,
       name: "Jane Doe",
       role: UserRole.PATIENT,
       isVerified: true,
@@ -44,7 +50,7 @@ async function main() {
   const doctorUser = await prisma.user.create({
     data: {
       email: "doctor@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
+      passwordHash: seedPasswordHash,
       name: "Dr. Aisha Rahman",
       role: UserRole.DOCTOR,
       isVerified: true,
@@ -54,7 +60,7 @@ async function main() {
   const hospitalUser = await prisma.user.create({
     data: {
       email: "hospital@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
+      passwordHash: seedPasswordHash,
       name: "City Health Admin",
       role: UserRole.HOSPITAL_ADMIN,
       isVerified: true,
@@ -64,7 +70,7 @@ async function main() {
   const pharmacyUser = await prisma.user.create({
     data: {
       email: "pharmacy@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
+      passwordHash: seedPasswordHash,
       name: "Al-Shifa Pharmacy Admin",
       role: UserRole.PHARMACY_ADMIN,
       isVerified: true,
@@ -74,7 +80,7 @@ async function main() {
   const labUser = await prisma.user.create({
     data: {
       email: "lab@medicio.com",
-      passwordHash: "7f9fa87831e5c6e2c400451d51c14d3c:83ca59981abc311b98076df3c20657b48f00906ebc1c4bc141c4c17cff5797873dfb5553077f08876828ffe684030f023916f31b2bb9ef35ac85f02dc0a64d67",
+      passwordHash: seedPasswordHash,
       name: "BioLab Diagnostics Admin",
       role: UserRole.LAB_ADMIN,
       isVerified: true,

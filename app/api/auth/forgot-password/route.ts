@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { createOtp } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
@@ -42,8 +43,7 @@ export async function POST(request: NextRequest) {
     if (user) {
       logAuthEvent("PASSWORD_RESET_REQUESTED_USER_FOUND", { email });
       // Generate a secure 6-digit numeric OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
+      const { otp, expiresAt } = createOtp();
 
       // Delete any existing tokens for this email to prevent spam
       await prisma.verificationToken.deleteMany({

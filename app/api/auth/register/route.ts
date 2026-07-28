@@ -1,15 +1,25 @@
 import { UserRole } from "@prisma/client";
-import { cookies } from "next/headers";
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
-import { hashPassword } from "@/lib/crypto";
+import { getSession, hasRole } from "@/lib/auth";
+import { createOtp, hashPassword, randomToken } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
-import { verifyJwt } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
+
+// Roles that may only be provisioned by an existing administrator.
+const RESTRICTED_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+  UserRole.PHARMACY_ADMIN,
+  UserRole.LAB_ADMIN,
+  UserRole.HOSPITAL_ADMIN,
+];
+
+const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,32 +47,18 @@ export async function POST(request: NextRequest) {
 
     const { email, password, name, role } = result.data;
 
-    // Restricted roles check: only SUPER_ADMIN or ADMIN can create administrative/manager roles
-    const restrictedRoles: UserRole[] = [
-      UserRole.ADMIN,
-      UserRole.SUPER_ADMIN,
-      UserRole.PHARMACY_ADMIN,
-      UserRole.LAB_ADMIN,
-      UserRole.HOSPITAL_ADMIN,
-    ];
+    // Resolve the caller's session once; an administrator may provision
+    // privileged roles and those accounts skip email verification.
+    const session = await getSession();
+    const isAdminActor = hasRole(session, ADMIN_ROLES);
 
-    if (restrictedRoles.includes(role as UserRole)) {
-      const cookieStore = await cookies();
-      const sessionCookie = cookieStore.get("medicio_session");
-      if (!sessionCookie || !sessionCookie.value) {
-        return NextResponse.json(
-          { error: "Access denied. Only administrators can register manager or administrative account roles." },
-          { status: 403 }
-        );
-      }
+    if (RESTRICTED_ROLES.includes(role as UserRole) && !isAdminActor) {
+      logAuthEvent("USER_REGISTER_FORBIDDEN_ROLE", { email, role });
 
-      const payload = verifyJwt(sessionCookie.value);
-      if (!payload || (payload.role !== UserRole.SUPER_ADMIN && payload.role !== UserRole.ADMIN)) {
-        return NextResponse.json(
-          { error: "Access denied. Only administrators can register manager or administrative account roles." },
-          { status: 403 }
-        );
-      }
+      return NextResponse.json(
+        { error: "Access denied. Only administrators can register manager or administrative account roles." },
+        { status: 403 }
+      );
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -77,17 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = hashPassword(password);
-
-    // If registered by Admin, set isVerified: true, otherwise false
-    let isVerified = false;
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("medicio_session");
-    if (sessionCookie && sessionCookie.value) {
-      const payload = verifyJwt(sessionCookie.value);
-      if (payload && (payload.role === UserRole.SUPER_ADMIN || payload.role === UserRole.ADMIN)) {
-        isVerified = true;
-      }
-    }
+    const isVerified = isAdminActor;
 
     const newUser = await prisma.user.create({
       data: {
@@ -107,15 +93,18 @@ export async function POST(request: NextRequest) {
           specialty: "General Medicine",
           education: "Not Specified",
           experience: 0,
-          licenseNumber: "TEMP-" + Math.floor(Math.random() * 1000000),
+          licenseNumber: `TEMP-${randomToken(8)}`,
           isVerified: false,
         },
       });
     }
 
     if (!isVerified) {
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const { otp, expiresAt } = createOtp();
+
+      await prisma.verificationToken.deleteMany({
+        where: { email: newUser.email },
+      });
 
       await prisma.verificationToken.create({
         data: {

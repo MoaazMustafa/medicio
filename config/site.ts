@@ -1,12 +1,17 @@
 export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
-  name: "Nexis Compute",
-  description: "Enterprise AI Infrastructure - Neural Core & Infinite Capabilities.",
+  name: "Medicio",
+  description:
+    "AI-powered healthcare access platform connecting patients with verified doctors, hospitals, labs and pharmacies.",
   navItems: [
     {
       label: "Home",
       href: "/",
+    },
+    {
+      label: "Symptom Checker",
+      href: "/chatbot",
     },
   ],
   navMenuItems: [
@@ -14,12 +19,9 @@ export const siteConfig = {
       label: "Home",
       href: "/",
     },
+    {
+      label: "Symptom Checker",
+      href: "/chatbot",
+    },
   ],
-  links: {
-    github: "https://github.com/heroui-inc/heroui",
-    twitter: "https://twitter.com/hero_ui",
-    docs: "https://heroui.com",
-    discord: "https://discord.gg/9b6yyZKmH4",
-    sponsor: "https://patreon.com/jrgarciadev",
-  },
 };

@@ -15,6 +15,8 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
+import { dashboardForRole } from "@/config/roles";
+
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -50,17 +52,7 @@ export default function RegisterPage() {
       if (data.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
-        const dashboards: Record<string, string> = {
-          PATIENT: "/chatbot",
-          DOCTOR: "/doctor/dashboard",
-          PHARMACY_ADMIN: "/pharmacy/dashboard",
-          LAB_ADMIN: "/lab/dashboard",
-          HOSPITAL_ADMIN: "/hospital/dashboard",
-          ADMIN: "/admin/dashboard",
-          SUPER_ADMIN: "/admin/dashboard",
-        };
-        const redirectPath = dashboards[data.user.role] || "/";
-        router.push(redirectPath);
+        router.push(dashboardForRole(data.user.role));
         router.refresh();
       }
     } catch (err: any) {
@@ -71,12 +63,8 @@ export default function RegisterPage() {
   };
 
   const handleGoogleLogin = () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const redirectUri = encodeURIComponent(`${appUrl}/api/auth/callback/google`);
-    const scope = encodeURIComponent("openid email profile");
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=select_account`;
-    window.location.href = googleAuthUrl;
+    // The server issues the anti-CSRF state and builds the authorization URL.
+    window.location.href = "/api/auth/google";
   };
 
   return (

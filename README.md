@@ -32,14 +32,29 @@ The system is divided into twelve core modules:
 npm install
 ```
 
-### 2. Generate Prisma Client
+### 2. Configure Environment
+Copy `.env.example` to `.env` and fill in the values. `DATABASE_URL` is required,
+and `JWT_SECRET` (min. 32 characters) is required before deploying to production.
+
 ```bash
-node node_modules/prisma/build/index.js generate
+cp .env.example .env
 ```
 
-### 3. Run Development Server
+### 3. Generate Prisma Client & Sync Schema
+```bash
+npm run prisma:generate
+npm run db:push
+```
+
+### 4. Run Development Server
 ```bash
 npm run dev
+```
+
+### Quality Checks
+```bash
+npm run typecheck
+npm run lint
 ```
 
 ---

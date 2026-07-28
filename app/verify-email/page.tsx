@@ -13,6 +13,8 @@ import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState, useEffect, Suspense } from "react";
 
+import { dashboardForRole } from "@/config/roles";
+
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,17 +58,7 @@ function VerifyEmailForm() {
 
       setSuccess("Account activated successfully! Logging you in...");
       setTimeout(() => {
-        const dashboards: Record<string, string> = {
-          PATIENT: "/chatbot",
-          DOCTOR: "/doctor/dashboard",
-          PHARMACY_ADMIN: "/pharmacy/dashboard",
-          LAB_ADMIN: "/lab/dashboard",
-          HOSPITAL_ADMIN: "/hospital/dashboard",
-          ADMIN: "/admin/dashboard",
-          SUPER_ADMIN: "/admin/dashboard",
-        };
-        const redirectPath = dashboards[data.user.role] || "/";
-        router.push(redirectPath);
+        router.push(dashboardForRole(data.user.role));
         router.refresh();
       }, 1500);
     } catch (err: any) {

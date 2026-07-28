@@ -202,5 +202,6 @@ model VerificationToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  @@index([email, token])
   @@map("verification_tokens")
 }

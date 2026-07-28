@@ -1,35 +1,21 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { verifyJwt } from "@/lib/jwt";
+import { getSession } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("medicio_session");
+    const session = await getSession();
 
-    if (!sessionCookie || !sessionCookie.value) {
-      return NextResponse.json(
-        { user: null },
-        { status: 200 }
-      );
-    }
-
-    const payload = verifyJwt(sessionCookie.value);
-
-    if (!payload) {
-      return NextResponse.json(
-        { user: null },
-        { status: 200 }
-      );
+    if (!session) {
+      return NextResponse.json({ user: null }, { status: 200 });
     }
 
     return NextResponse.json({
       user: {
-        id: payload.userId,
-        email: payload.email,
-        role: payload.role,
-        name: payload.name,
+        id: session.userId,
+        email: session.email,
+        role: session.role,
+        name: session.name,
       },
     });
   } catch (error: any) {

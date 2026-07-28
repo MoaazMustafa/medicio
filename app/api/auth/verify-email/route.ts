@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { signJwt } from "@/lib/jwt";
+import { createSessionCookie } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAuthEvent } from "@/lib/logger";
@@ -81,19 +80,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Automatically sign them in
-    const token = signJwt({
-      userId: updatedUser.id,
+    await createSessionCookie({
+      id: updatedUser.id,
       email: updatedUser.email,
-      role: updatedUser.role,
       name: updatedUser.name,
-    });
-
-    const cookieStore = await cookies();
-    cookieStore.set("medicio_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      role: updatedUser.role,
     });
 
     logAuthEvent("USER_EMAIL_VERIFICATION_SUCCESS", { email: updatedUser.email, role: updatedUser.role });
