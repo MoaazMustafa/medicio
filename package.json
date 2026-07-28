@@ -5,12 +5,13 @@
 	"private": true,
 	"scripts": {
 		"dev": "next dev",
-		"build": "next build",
+		"build": "prisma generate && next build",
 		"start": "next start",
 		"lint": "eslint --fix",
 		"typecheck": "tsc --noEmit",
 		"prisma:generate": "prisma generate",
-		"db:push": "prisma db push"
+		"db:push": "prisma db push",
+		"postinstall": "prisma generate"
 	},
 	"dependencies": {
 		"@heroui/react": "3.2.2",
