@@ -22,6 +22,7 @@ export interface SessionUser {
   email: string;
   name: string;
   role: UserRole;
+  avatarUrl?: string | null;
 }
 
 /** Resolves the verified session for the current request, or null. */
@@ -41,6 +42,7 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
     email: user.email,
     name: user.name,
     role: user.role,
+    avatarUrl: user.avatarUrl,
   });
 
   const cookieStore = await cookies();
@@ -63,6 +65,7 @@ export async function signSessionToken(user: SessionUser): Promise<string> {
     email: user.email,
     name: user.name,
     role: user.role,
+    avatarUrl: user.avatarUrl,
   });
 }
 

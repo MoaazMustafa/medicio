@@ -22,6 +22,7 @@ model User {
   email        String        @unique
   passwordHash String
   name         String
+  avatarUrl    String?
   role         UserRole      @default(PATIENT)
   isVerified   Boolean       @default(false)
   isActive     Boolean       @default(true)

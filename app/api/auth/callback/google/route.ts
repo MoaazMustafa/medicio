@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/login?error=Failed+to+fetch+google+userinfo", request.url));
     }
 
-    const { email, name, email_verified: emailVerified } = googleUser;
+    const { email, name, picture, email_verified: emailVerified } = googleUser;
 
     if (!email) {
       return NextResponse.redirect(new URL("/login?error=Google+profile+did+not+release+email+access", request.url));
@@ -122,7 +122,14 @@ export async function GET(request: NextRequest) {
           passwordHash: OAUTH_ONLY_PASSWORD_HASH,
           role: UserRole.PATIENT,
           isVerified: true,
+          avatarUrl: picture || null,
         },
+      });
+    } else if (picture && user.avatarUrl !== picture) {
+      // Sync latest Google profile picture
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { avatarUrl: picture },
       });
     }
 
@@ -141,6 +148,7 @@ export async function GET(request: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
+      avatarUrl: user.avatarUrl,
     });
 
     logAuthEvent("OAUTH_GOOGLE_LOGIN_SUCCESS", { email: user.email, role: user.role });

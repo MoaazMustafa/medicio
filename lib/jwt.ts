@@ -11,6 +11,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: UserRole;
+  avatarUrl?: string | null;
   iat: number;
   exp: number;
 }

@@ -20,12 +20,22 @@ const SENSITIVE_KEYS = [
   "key",
 ];
 
+function maskEmail(email: string): string {
+  const parts = email.split("@");
+  if (parts.length !== 2) return "[REDACTED_EMAIL]";
+  const [local, domain] = parts;
+  if (local.length <= 2) return `${local[0] || "*"}***@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
+
 function scrub(details: Record<string, unknown>): Record<string, unknown> {
   const scrubbed: Record<string, unknown> = { ...details };
 
-  for (const key of SENSITIVE_KEYS) {
-    if (key in scrubbed) {
+  for (const key of Object.keys(scrubbed)) {
+    if (SENSITIVE_KEYS.includes(key)) {
       scrubbed[key] = "[REDACTED]";
+    } else if (key === "email" && typeof scrubbed[key] === "string") {
+      scrubbed[key] = maskEmail(scrubbed[key] as string);
     }
   }
 

@@ -11,6 +11,7 @@ export interface UserMenuProps {
     name: string;
     email: string;
     role: string;
+    avatarUrl?: string | null;
   };
 }
 
@@ -49,10 +50,21 @@ export function UserMenu({ user }: UserMenuProps) {
   return (
     <Dropdown>
       <Dropdown.Trigger aria-label="Account menu" className="rounded-full">
-        <Avatar size="sm">
-          <Avatar.Fallback className="text-xs font-bold">
-            {initialsOf(user.name) || "?"}
-          </Avatar.Fallback>
+        <Avatar size="sm" className="relative overflow-hidden">
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <Avatar.Fallback className="text-xs font-bold">
+              {initialsOf(user.name) || "?"}
+            </Avatar.Fallback>
+          )}
         </Avatar>
       </Dropdown.Trigger>
 
@@ -60,10 +72,21 @@ export function UserMenu({ user }: UserMenuProps) {
         {/* Identity header */}
         <div className="px-3 pt-3 pb-1">
           <div className="flex items-center gap-2.5">
-            <Avatar size="sm">
-              <Avatar.Fallback className="text-xs font-bold">
-                {initialsOf(user.name) || "?"}
-              </Avatar.Fallback>
+            <Avatar size="sm" className="relative overflow-hidden">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <Avatar.Fallback className="text-xs font-bold">
+                  {initialsOf(user.name) || "?"}
+                </Avatar.Fallback>
+              )}
             </Avatar>
             <div className="flex flex-col min-w-0">
               <p className="text-sm font-semibold leading-5 text-text-primary truncate">
