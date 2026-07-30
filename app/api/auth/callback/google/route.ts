@@ -4,10 +4,15 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
 import { dashboardForRole } from "@/config/roles";
-import { createSessionCookie } from "@/lib/auth";
+import { signSessionToken } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/logger";
 import { OAUTH_ONLY_PASSWORD_HASH, OAUTH_STATE_COOKIE } from "@/lib/oauth";
 import { prisma } from "@/lib/prisma";
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  SESSION_MAX_AGE_SECONDS,
+} from "@/lib/session-cookie";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
@@ -129,8 +134,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 4. Issue the local session cookie
-    await createSessionCookie({
+    // 4. Issue the local session cookie — set it explicitly on the redirect
+    // response so it actually reaches the browser on Vercel.
+    const token = await signSessionToken({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -140,10 +146,18 @@ export async function GET(request: NextRequest) {
     logAuthEvent("OAUTH_GOOGLE_LOGIN_SUCCESS", { email: user.email, role: user.role });
 
     // 5. Redirect the user directly to their role dashboard
-    return NextResponse.redirect(new URL(dashboardForRole(user.role), request.url));
+    const response = NextResponse.redirect(new URL(dashboardForRole(user.role), request.url));
+
+    response.cookies.set(SESSION_COOKIE, token, {
+      ...SESSION_COOKIE_OPTIONS,
+      maxAge: SESSION_MAX_AGE_SECONDS,
+    });
+
+    return response;
   } catch (err: any) {
     logAuthEvent("OAUTH_GOOGLE_CALLBACK_EXCEPTION", { error: err?.message || String(err) });
 
     return NextResponse.redirect(new URL("/login?error=Unexpected+oauth+callback+error", request.url));
   }
 }
+
