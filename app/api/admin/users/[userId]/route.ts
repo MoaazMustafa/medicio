@@ -116,3 +116,70 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * DELETE /api/admin/users/[userId] — delete a user account from the admin console.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> },
+) {
+  const { session, response } = await requireRole(ADMIN_ROLES);
+
+  if (response) return response;
+
+  try {
+    const { userId } = await params;
+
+    if (userId === session.userId) {
+      return NextResponse.json(
+        { error: "You cannot delete your own account from the admin console." },
+        { status: 400 },
+      );
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, role: true },
+    });
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found." }, { status: 404 });
+    }
+
+    const actorIsSuper = session.role === UserRole.SUPER_ADMIN;
+
+    if (PRIVILEGED_ROLES.includes(target.role) && !actorIsSuper) {
+      return NextResponse.json(
+        { error: "Only a Super Admin can delete administrative accounts." },
+        { status: 403 },
+      );
+    }
+
+    await prisma.user.delete({
+      where: { id: target.id },
+    });
+
+    await writeAudit({
+      action: "ADMIN_USER_DELETED",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "USER",
+      entityId: target.id,
+      ip: getClientIp(request),
+      metadata: {
+        targetEmail: target.email,
+        targetName: target.name,
+        targetRole: target.role,
+      },
+    });
+
+    return NextResponse.json({ success: true, message: "User deleted successfully." });
+  } catch (error: any) {
+    console.error("Admin user delete error: ", error);
+    return NextResponse.json(
+      { error: "An unexpected error occurred while deleting the user." },
+      { status: 500 },
+    );
+  }
+}

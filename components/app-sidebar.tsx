@@ -70,14 +70,15 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { label: "User Administration", href: "/admin/dashboard", icon: Users },
-    { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck, soon: true },
+    { label: "User Management", href: "/admin/users", icon: Users },
+    { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck, soon: true },
-    { label: "Scraper Engine", href: "/admin/scraper", icon: Globe, soon: true },
-    { label: "Audit Logs", href: "/admin/logs", icon: ScrollText, soon: true },
+    { label: "User Management", href: "/admin/users", icon: Users },
+    { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "Scraper Engine", href: "/admin/scrapers", icon: Globe },
+    { label: "Audit Logs", href: "/admin/logs", icon: ScrollText },
   ],
 };
 

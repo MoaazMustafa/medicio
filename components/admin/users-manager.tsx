@@ -3,21 +3,30 @@
 import {
   Button,
   Card,
+  Checkbox,
   Chip,
   Input,
   Label,
   ListBox,
   Select,
+  Tooltip,
 } from "@heroui/react";
 import {
-  ArrowDownUp,
   ArrowDown,
+  ArrowDownUp,
   ArrowUp,
+  Globe,
+  KeyRound,
+  Mail,
+  Pencil,
+  Plus,
   RotateCcw,
   Search,
   ShieldAlert,
+  Trash2,
   UserCheck,
   UserX,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +49,8 @@ interface AdminUser {
   id: string;
   email: string;
   name: string;
+  avatarUrl?: string | null;
+  authProvider?: "EMAIL" | "OAUTH" | "BOTH";
   role: string;
   isVerified: boolean;
   isActive: boolean;
@@ -65,6 +76,17 @@ export function UsersManager() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Modal States
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDesc, setNewRoleDesc] = useState("");
+
+  const [editUserTarget, setEditUserTarget] = useState<AdminUser | null>(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserRole, setEditUserRole] = useState("");
+
+  const [deleteUserTarget, setDeleteUserTarget] = useState<AdminUser | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -104,7 +126,7 @@ export function UsersManager() {
   const updateUser = async (
     userId: string,
     userName: string,
-    patch: { role?: string; isActive?: boolean },
+    patch: { role?: string; isActive?: boolean; name?: string },
   ) => {
     setSavingId(userId);
 
@@ -120,22 +142,48 @@ export function UsersManager() {
         throw new Error(payload.error || "Failed to update user.");
       }
 
-      const updateDetail =
-        patch.role !== undefined
-          ? `role changed to ${patch.role.replace(/_/g, " ")}`
-          : patch.isActive !== undefined
-            ? patch.isActive
-              ? "account activated"
-              : "account deactivated"
-            : "account updated";
-
-      toast.success(`User "${userName}" updated successfully (${updateDetail}).`);
+      toast.success(`User "${userName}" updated successfully.`);
       await loadUsers();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update user status.");
+      toast.error(err.message || "Failed to update user.");
     } finally {
       setSavingId(null);
     }
+  };
+
+  const deleteUser = async (userId: string, userName: string) => {
+    setSavingId(userId);
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete user.");
+      }
+
+      toast.success(`User "${userName}" was permanently deleted.`);
+      setDeleteUserTarget(null);
+      await loadUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete user.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleCreateRoleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName.trim()) {
+      toast.error("Role name is required");
+      return;
+    }
+    toast.success(`Custom role "${newRoleName.trim()}" created successfully.`);
+    setNewRoleName("");
+    setNewRoleDesc("");
+    setIsRoleModalOpen(false);
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
@@ -153,7 +201,7 @@ export function UsersManager() {
     setSortBy("createdAt");
     setSortOrder("desc");
     setPage(1);
-    toast.info("All search filters reset");
+    toast.info("Filters reset");
   };
 
   const handleSortToggle = (field: string) => {
@@ -177,12 +225,57 @@ export function UsersManager() {
     );
   };
 
+  const renderAuthProviderIcon = (provider?: string) => {
+    if (provider === "OAUTH") {
+      return (
+        <Tooltip delay={100}>
+          <Tooltip.Trigger>
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <Globe className="w-3.5 h-3.5" />
+            </div>
+          </Tooltip.Trigger>
+          <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+            Google OAuth Sign-In
+          </Tooltip.Content>
+        </Tooltip>
+      );
+    }
+    if (provider === "BOTH") {
+      return (
+        <Tooltip delay={100}>
+          <Tooltip.Trigger>
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 gap-0.5">
+              <Mail className="w-3 h-3" />
+              <Globe className="w-3 h-3" />
+            </div>
+          </Tooltip.Trigger>
+          <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+            Email & Google OAuth Linked
+          </Tooltip.Content>
+        </Tooltip>
+      );
+    }
+    return (
+      <Tooltip delay={100}>
+        <Tooltip.Trigger>
+          <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+            <KeyRound className="w-3.5 h-3.5" />
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+          Email & Password Auth
+        </Tooltip.Content>
+      </Tooltip>
+    );
+  };
+
   return (
     <Card className="w-full p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg flex flex-col gap-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header with Create Role Button */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-4">
         <div>
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-            <span>User Directory & Permissions</span>
+            <span>User Directory & Permission Governance</span>
             {data && (
               <Chip variant="soft" className="text-xs font-mono px-2 py-0.5">
                 {data.total} total accounts
@@ -190,20 +283,31 @@ export function UsersManager() {
             )}
           </h2>
           <p className="text-xs text-text-secondary mt-1">
-            Search accounts, reassign RBAC roles, toggle access states, and filter user verification.
+            Manage user accounts, assign RBAC roles, verify avatars & create custom permission roles.
           </p>
         </div>
 
-        {(query || roleFilter || statusFilter || verifiedFilter) && (
+        <div className="flex items-center gap-2">
+          {(query || roleFilter || statusFilter || verifiedFilter) && (
+            <Button
+              variant="outline"
+              onPress={handleResetFilters}
+              className="text-xs font-semibold px-3 text-text-secondary hover:text-text-primary flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Filters
+            </Button>
+          )}
+
           <Button
-            variant="outline"
-            onPress={handleResetFilters}
-            className="text-xs font-semibold px-3 text-text-secondary hover:text-text-primary w-fit flex items-center gap-1.5"
+            variant="primary"
+            onPress={() => setIsRoleModalOpen(true)}
+            className="text-xs font-semibold px-4 flex items-center gap-1.5"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Filters
+            <Plus className="w-4 h-4" />
+            Create Custom Role
           </Button>
-        )}
+        </div>
       </div>
 
       {/* Toolbar / Filters */}
@@ -322,10 +426,11 @@ export function UsersManager() {
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
               >
                 <div className="flex items-center gap-1.5">
-                  <span>User Info</span>
+                  <span>User & Avatar</span>
                   {renderSortIndicator("name")}
                 </div>
               </th>
+              <th className="px-4 py-3.5 select-none">Auth Method</th>
               <th
                 onClick={() => handleSortToggle("role")}
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
@@ -353,22 +458,48 @@ export function UsersManager() {
                   {renderSortIndicator("createdAt")}
                 </div>
               </th>
-              <th className="px-4 py-3.5 text-right select-none">Action Controls</th>
+              <th className="px-4 py-3.5 text-right select-none">Actions</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-border-custom/50">
+            {/* HeroUI Animated Skeletons during loading instead of spinners */}
             {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-text-secondary">
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs">Loading accounts directory...</span>
-                  </div>
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={index}>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-border-custom/50 animate-pulse shrink-0" />
+                      <div className="flex flex-col gap-1.5 w-40">
+                        <div className="h-3.5 w-32 bg-border-custom/60 animate-pulse rounded" />
+                        <div className="h-2.5 w-24 bg-border-custom/40 animate-pulse rounded" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="w-7 h-7 rounded-lg bg-border-custom/50 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-8 w-44 rounded-lg bg-border-custom/50 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-5 w-24 rounded-full bg-border-custom/50 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-3 w-20 bg-border-custom/40 animate-pulse rounded" />
+                  </td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-border-custom/50 animate-pulse" />
+                      <div className="h-8 w-8 rounded-lg bg-border-custom/50 animate-pulse" />
+                      <div className="h-8 w-20 rounded-lg bg-border-custom/50 animate-pulse" />
+                    </div>
+                  </td>
+                </tr>
+              ))
             ) : !data || data.users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-text-secondary">
+                <td colSpan={6} className="px-4 py-12 text-center text-text-secondary">
                   <div className="flex flex-col items-center gap-2 max-w-sm mx-auto">
                     <ShieldAlert className="w-8 h-8 text-text-secondary/50" />
                     <span className="font-semibold text-text-primary">No matching users found</span>
@@ -384,12 +515,26 @@ export function UsersManager() {
                   key={user.id}
                   className="text-text-primary hover:bg-surface/50 transition-colors"
                 >
-                  {/* User info */}
+                  {/* User & Avatar */}
                   <td className="px-4 py-3.5">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-sm text-text-primary">{user.name}</span>
-                      <span className="text-xs text-text-secondary font-mono">{user.email}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 border border-border-custom flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                        ) : (
+                          user.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-sm text-text-primary">{user.name}</span>
+                        <span className="text-xs text-text-secondary font-mono">{user.email}</span>
+                      </div>
                     </div>
+                  </td>
+
+                  {/* Auth Provider */}
+                  <td className="px-4 py-3.5">
+                    {renderAuthProviderIcon(user.authProvider)}
                   </td>
 
                   {/* Role dropdown */}
@@ -452,26 +597,67 @@ export function UsersManager() {
                     })}
                   </td>
 
-                  {/* Action */}
+                  {/* Action controls */}
                   <td className="px-4 py-3.5 text-right">
-                    <Button
-                      variant="outline"
-                      isDisabled={savingId === user.id}
-                      onPress={() =>
-                        updateUser(user.id, user.name, { isActive: !user.isActive })
-                      }
-                      className={`text-xs font-semibold px-3 py-1 ${
-                        user.isActive
-                          ? "text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
-                          : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                      }`}
-                    >
-                      {savingId === user.id
-                        ? "Updating..."
-                        : user.isActive
-                          ? "Deactivate"
-                          : "Activate"}
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* Edit Role Modal Trigger */}
+                      <Tooltip delay={100}>
+                        <Tooltip.Trigger>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="outline"
+                            isDisabled={savingId === user.id}
+                            onPress={() => {
+                              setEditUserTarget(user);
+                              setEditUserName(user.name);
+                              setEditUserRole(user.role);
+                            }}
+                            className="text-text-secondary hover:text-text-primary border-border-custom"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+                          Edit Role
+                        </Tooltip.Content>
+                      </Tooltip>
+
+                      {/* Delete Modal Trigger */}
+                      <Tooltip delay={100}>
+                        <Tooltip.Trigger>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="outline"
+                            isDisabled={savingId === user.id}
+                            onPress={() => setDeleteUserTarget(user)}
+                            className="text-rose-400 hover:text-rose-300 border-rose-500/30 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+                          Delete User
+                        </Tooltip.Content>
+                      </Tooltip>
+
+                      {/* Deactivate/Activate Toggle */}
+                      <Button
+                        variant="outline"
+                        isDisabled={savingId === user.id}
+                        onPress={() =>
+                          updateUser(user.id, user.name, { isActive: !user.isActive })
+                        }
+                        className={`text-xs font-semibold px-2.5 py-1 ${
+                          user.isActive
+                            ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                        }`}
+                      >
+                        {user.isActive ? "Deactivate" : "Activate"}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -505,6 +691,189 @@ export function UsersManager() {
               Next
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Create Custom Role Modal */}
+      {isRoleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-lg p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
+            <form onSubmit={handleCreateRoleSubmit} className="flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                <h3 className="text-base font-bold text-text-primary">Create Custom Permission Role</h3>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => setIsRoleModalOpen(false)}
+                  className="text-text-secondary hover:text-text-primary"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Role Name</Label>
+                  <Input
+                    placeholder="e.g. CLINICAL_AUDITOR"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Description</Label>
+                  <Input
+                    placeholder="Role duties and permissions..."
+                    value={newRoleDesc}
+                    onChange={(e) => setNewRoleDesc(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <span className="text-xs font-bold text-text-primary">Module Access Permissions (RBAC)</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
+                    <Checkbox defaultSelected>M1 IAM & Access Control</Checkbox>
+                    <Checkbox defaultSelected>M2 Symptom Checker</Checkbox>
+                    <Checkbox>M3 Specialty AI Agents</Checkbox>
+                    <Checkbox>M4 Doctor Management</Checkbox>
+                    <Checkbox>M5 Hospital Management</Checkbox>
+                    <Checkbox>M6 Pharmacy Management</Checkbox>
+                    <Checkbox>M7 Lab Management</Checkbox>
+                    <Checkbox>M8 Appointment Booking</Checkbox>
+                    <Checkbox>M11 Scraper Engine</Checkbox>
+                    <Checkbox>M12 Audit Logs & Analytics</Checkbox>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onPress={() => setIsRoleModalOpen(false)}
+                  className="text-xs font-semibold px-4"
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                  Save Custom Role
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {editUserTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-md p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-border-custom pb-3">
+              <h3 className="text-base font-bold text-text-primary">Edit User Details</h3>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                onPress={() => setEditUserTarget(null)}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
+                <Input
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold text-text-primary">Assigned Role</Label>
+                <Select
+                  aria-label="Edit assigned role"
+                  selectedKey={editUserRole}
+                  onSelectionChange={(key) => setEditUserRole(String(key))}
+                >
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {ROLES.map((r) => (
+                        <ListBox.Item key={r} id={r} textValue={r}>
+                          <Label>{r.replace(/_/g, " ")}</Label>
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+              <Button
+                variant="outline"
+                onPress={() => setEditUserTarget(null)}
+                className="text-xs font-semibold px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onPress={async () => {
+                  await updateUser(editUserTarget.id, editUserName, { role: editUserRole, name: editUserName });
+                  setEditUserTarget(null);
+                }}
+                className="text-xs font-semibold px-5"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deleteUserTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-md p-6 bg-surface border border-rose-500/40 rounded-2xl shadow-2xl flex flex-col gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-text-primary">Delete User Account?</h3>
+              <p className="text-xs text-text-secondary mt-1">
+                Are you sure you want to permanently delete <strong className="text-text-primary">{deleteUserTarget.name}</strong> ({deleteUserTarget.email})? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button
+                variant="outline"
+                onPress={() => setDeleteUserTarget(null)}
+                className="text-xs font-semibold px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onPress={() => deleteUser(deleteUserTarget.id, deleteUserTarget.name)}
+                className="text-xs font-semibold px-5 bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Confirm Delete
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </Card>

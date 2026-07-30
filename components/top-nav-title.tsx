@@ -4,8 +4,24 @@ import { usePathname } from "next/navigation";
 
 const ROUTE_TITLES: Record<string, { title: string; subtitle?: string }> = {
   "/admin/dashboard": {
-    title: "Administrator Control Panel",
-    subtitle: "User management, credential verification & system operations",
+    title: "Administrator Overview",
+    subtitle: "Platform metrics, activity trends & system health graphs",
+  },
+  "/admin/users": {
+    title: "User Management & RBAC Roles",
+    subtitle: "Manage accounts, user avatars, auth methods & custom roles",
+  },
+  "/admin/verifications": {
+    title: "Doctor Credential Verifications",
+    subtitle: "Review practitioner credentials & medical license queue",
+  },
+  "/admin/scrapers": {
+    title: "Scraper & Aggregation Engine",
+    subtitle: "Public directory crawlers & record deduplication",
+  },
+  "/admin/logs": {
+    title: "Audit Logs & Telemetry",
+    subtitle: "System audit events, RBAC logs & PostHog product analytics",
   },
   "/doctor/dashboard": {
     title: "Doctor Console",

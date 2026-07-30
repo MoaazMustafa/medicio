@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
           id: true,
           email: true,
           name: true,
+          avatarUrl: true,
+          passwordHash: true,
           role: true,
           isVerified: true,
           isActive: true,
@@ -88,8 +90,16 @@ export async function GET(request: NextRequest) {
       prisma.user.count({ where }),
     ]);
 
+    const formattedUsers = users.map((u) => {
+      const isOAuth = u.passwordHash.includes("OAUTH") || u.passwordHash === "OAUTH_USER";
+      const isEmail = u.passwordHash.startsWith("$2") || (u.passwordHash.length > 20 && !u.passwordHash.startsWith("OAUTH_ONLY"));
+      const authProvider = isOAuth && isEmail ? "BOTH" : isOAuth ? "OAUTH" : "EMAIL";
+      const { passwordHash, ...rest } = u;
+      return { ...rest, authProvider };
+    });
+
     return NextResponse.json({
-      users,
+      users: formattedUsers,
       total,
       page,
       pageSize,

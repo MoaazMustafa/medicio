@@ -1,14 +1,14 @@
-import { AdminDashboardTabs } from "@/components/admin/admin-dashboard-tabs";
+import { DashboardMetrics } from "@/components/admin/dashboard-metrics";
 
 export const metadata = {
-  title: "Admin Console",
-  description: "Medicio Administrator Control Panel for accounts, verifications, scrapers, and audit logs.",
+  title: "Admin Overview",
+  description: "Medicio Administrator Analytics, User Activity Trends & Infrastructure Metrics.",
 };
 
 export default function AdminDashboardPage() {
   return (
     <section className="w-full flex flex-col min-h-[calc(100vh-4rem)]">
-      <AdminDashboardTabs />
+      <DashboardMetrics />
     </section>
   );
 }
