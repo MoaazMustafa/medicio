@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardHeader, CardContent, Button, Chip } from "@heroui/react";
+import { Button, Card, CardContent, CardHeader, Chip } from "@heroui/react";
 import React, { useEffect } from "react";
 
 export default function Error({
@@ -10,6 +10,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isDev = process.env.NODE_ENV === "development";
+
   useEffect(() => {
     // Log the error to console
     // eslint-disable-next-line no-console
@@ -22,6 +24,73 @@ export default function Error({
     }
   };
 
+  // Production View: Reassuring Clinical Maintenance Screen
+  if (!isDev) {
+    return (
+      <section className="flex flex-col items-center justify-center min-h-[75vh] gap-8 px-4 text-center max-w-2xl mx-auto py-16">
+        {/* Maintenance Header */}
+        <div className="flex flex-col items-center gap-3">
+          <Chip
+            color="accent"
+            variant="soft"
+            className="px-3 py-1 text-xs font-semibold font-mono tracking-wider uppercase flex items-center gap-2"
+          >
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            Scheduled System Maintenance
+          </Chip>
+
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-text-primary mt-2">
+            Medicio is Under Maintenance
+          </h1>
+
+          <p className="text-sm md:text-base text-text-secondary mt-1 max-w-lg leading-relaxed">
+            We are performing essential system updates and infrastructure maintenance to ensure maximum speed, security, and clinical data accuracy.
+          </p>
+        </div>
+
+        {/* Maintenance Status Info Card */}
+        <Card className="w-full text-left p-6 border border-border-custom bg-surface/40 backdrop-blur-md shadow-lg rounded-xl flex flex-col gap-4">
+          <div className="flex items-center gap-3 border-b border-border-custom pb-3">
+            <div className="w-3 h-3 rounded-full bg-primary animate-ping" />
+            <span className="text-xs font-mono uppercase tracking-wider text-primary font-bold">
+              Maintenance Status Notice
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-text-secondary">
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-background-custom/40 border border-border-custom/50">
+              <span className="font-semibold text-text-primary">Data Security</span>
+              <span>All patient records and clinical databases remain 100% encrypted & secure.</span>
+            </div>
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-background-custom/40 border border-border-custom/50">
+              <span className="font-semibold text-text-primary">Service Return</span>
+              <span>Platform services will resume shortly. Thank you for your patience.</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-2">
+          <Button
+            variant="primary"
+            className="font-semibold text-sm shadow-md px-6"
+            onPress={() => reset()}
+          >
+            Refresh Connection
+          </Button>
+          <Button
+            variant="outline"
+            className="font-semibold text-sm text-text-primary px-6"
+            onPress={handleReturn}
+          >
+            Return to Homepage
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  // Development View: Diagnostic Shell Dump for Developers
   return (
     <section className="flex flex-col items-center justify-center min-h-[70vh] gap-8 px-4 text-center max-w-2xl mx-auto py-12">
       {/* Crash Status Header */}
@@ -31,13 +100,13 @@ export default function Error({
           className="px-3 py-1 text-xs font-semibold font-mono tracking-wider uppercase flex items-center gap-1.5"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          Critical Alert: Platform Fault
+          Critical Alert: Platform Fault (Dev Mode)
         </Chip>
-        
+
         <h1 className="text-4xl md:text-5xl font-black tracking-tight text-text-primary mt-2">
           PORTAL EXCEPTION
         </h1>
-        
+
         <h2 className="text-base md:text-lg text-text-secondary mt-1 max-w-lg">
           The medical portal encountered an unhandled exception. Auto-diagnostics have halted the session to prevent client data corruption.
         </h2>

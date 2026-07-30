@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const search = searchParams.get("search")?.trim() ?? "";
     const roleParam = searchParams.get("role") ?? "";
+    const statusParam = searchParams.get("status") ?? "";
+    const verifiedParam = searchParams.get("isVerified") ?? "";
+    const sortByParam = searchParams.get("sortBy") ?? "createdAt";
+    const sortOrderParam = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
+
     const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
     const pageSize = Math.min(
       MAX_PAGE_SIZE,
@@ -32,6 +37,20 @@ export async function GET(request: NextRequest) {
     const roleFilter = (Object.values(UserRole) as string[]).includes(roleParam)
       ? (roleParam as UserRole)
       : undefined;
+
+    const isActiveFilter =
+      statusParam === "active"
+        ? true
+        : statusParam === "deactivated"
+          ? false
+          : undefined;
+
+    const isVerifiedFilter =
+      verifiedParam === "true"
+        ? true
+        : verifiedParam === "false"
+          ? false
+          : undefined;
 
     const where = {
       ...(search
@@ -43,12 +62,17 @@ export async function GET(request: NextRequest) {
           }
         : {}),
       ...(roleFilter ? { role: roleFilter } : {}),
+      ...(isActiveFilter !== undefined ? { isActive: isActiveFilter } : {}),
+      ...(isVerifiedFilter !== undefined ? { isVerified: isVerifiedFilter } : {}),
     };
+
+    const validSortFields = ["name", "email", "role", "isActive", "createdAt"];
+    const sortField = validSortFields.includes(sortByParam) ? sortByParam : "createdAt";
 
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { [sortField]: sortOrderParam },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {

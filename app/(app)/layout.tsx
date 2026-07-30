@@ -7,6 +7,7 @@ import { ThemeSwitch } from "@/components/theme-switch";
 import { UserMenu } from "@/components/user-menu";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { TopNavTitle } from "@/components/top-nav-title";
 
 /**
  * Authenticated app shell: role-aware sidebar + header with the user menu.
@@ -45,12 +46,13 @@ export default async function AppLayout({
           <div className="flex items-center gap-3">
             <MobileNav role={role} />
             {/* Brand shown only when the sidebar is hidden */}
-            <NextLink className="flex items-center gap-2 md:hidden" href="/">
+            <NextLink className="flex items-center gap-2 md:hidden mr-2" href="/">
               <Logo />
               <span className="font-bold text-lg tracking-tight text-primary">
                 Medicio
               </span>
             </NextLink>
+            <TopNavTitle />
           </div>
 
           <div className="flex items-center gap-3">
