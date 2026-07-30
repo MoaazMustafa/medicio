@@ -1,7 +1,8 @@
 "use client";
 
 import { Avatar, Dropdown, Label, Separator } from "@heroui/react";
-import { LayoutDashboard, LogOut, Settings } from "lucide-react";
+import { LayoutDashboard, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 
 import { dashboardForRole } from "@/config/roles";
@@ -24,9 +25,12 @@ function initialsOf(name: string): string {
     .join("");
 }
 
-/** Account button in the app header: avatar trigger + quick-action menu. */
+/** Account button in the app header: avatar trigger + quick-action menu with theme switcher inside. */
 export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+
+  const isDark = theme === "dark";
 
   const handleAction = async (key: React.Key) => {
     switch (key) {
@@ -35,6 +39,9 @@ export function UserMenu({ user }: UserMenuProps) {
         break;
       case "settings":
         router.push("/settings");
+        break;
+      case "theme":
+        setTheme(isDark ? "light" : "dark");
         break;
       case "logout":
         try {
@@ -107,11 +114,24 @@ export function UserMenu({ user }: UserMenuProps) {
             <LayoutDashboard className="w-4 h-4 shrink-0 text-text-secondary" />
             <Label>Dashboard</Label>
           </Dropdown.Item>
+
           <Dropdown.Item id="settings" textValue="Settings">
             <Settings className="w-4 h-4 shrink-0 text-text-secondary" />
             <Label>Settings</Label>
           </Dropdown.Item>
+
+          {/* Theme Switcher inside User Menu */}
+          <Dropdown.Item id="theme" textValue="Toggle Theme">
+            {isDark ? (
+              <Sun className="w-4 h-4 shrink-0 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 shrink-0 text-indigo-400" />
+            )}
+            <Label>{isDark ? "Light Theme" : "Dark Theme"}</Label>
+          </Dropdown.Item>
+
           <Separator />
+
           <Dropdown.Item id="logout" textValue="Log out" variant="danger">
             <LogOut className="w-4 h-4 shrink-0 text-danger" />
             <Label>Log Out</Label>

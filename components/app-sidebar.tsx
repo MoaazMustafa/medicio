@@ -109,7 +109,7 @@ export function AppSidebar({ role }: { role: string }) {
             className="flex items-center gap-2.5 overflow-hidden focus:outline-none"
             href="/"
           >
-            <Logo />
+            <Logo size={isCollapsed ? 24 : 34} className="transition-all duration-300 shrink-0 text-primary" />
             {!isCollapsed && (
               <span className="font-bold text-lg tracking-tight text-primary truncate">
                 Medicio

@@ -9,14 +9,15 @@ import {
   Label,
   ListBox,
   Select,
+  Skeleton,
   Tooltip,
 } from "@heroui/react";
 import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
-  Globe,
   KeyRound,
+  Lock,
   Mail,
   Pencil,
   Plus,
@@ -25,11 +26,35 @@ import {
   ShieldAlert,
   Trash2,
   UserCheck,
+  UserPlus,
   UserX,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
+function GoogleLogoIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.29v3.15C3.26 21.3 7.31 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.29C.47 8.2.01 10.04.01 12s.46 3.8 1.28 5.42l3.99-3.15z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.58l3.99 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+      />
+    </svg>
+  );
+}
 
 const ROLES = [
   "PATIENT",
@@ -82,9 +107,19 @@ export function UsersManager() {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
 
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createRole, setCreateRole] = useState("PATIENT");
+  const [createWarning, setCreateWarning] = useState<string | null>(null);
+
   const [editUserTarget, setEditUserTarget] = useState<AdminUser | null>(null);
   const [editUserName, setEditUserName] = useState("");
   const [editUserRole, setEditUserRole] = useState("");
+
+  const [passwordTarget, setPasswordTarget] = useState<AdminUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   const [deleteUserTarget, setDeleteUserTarget] = useState<AdminUser | null>(null);
 
@@ -151,6 +186,79 @@ export function UsersManager() {
     }
   };
 
+  const handleCreateUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateWarning(null);
+
+    if (!createName || !createEmail || !createPassword) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createName,
+          email: createEmail,
+          password: createPassword,
+          role: createRole,
+        }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setCreateWarning(payload.error);
+        } else {
+          throw new Error(payload.error || "Failed to create account.");
+        }
+        return;
+      }
+
+      toast.success(`Unverified user account created for "${createEmail}".`);
+      setIsCreateUserModalOpen(false);
+      setCreateName("");
+      setCreateEmail("");
+      setCreatePassword("");
+      await loadUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Could not provision user.");
+    }
+  };
+
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordTarget) return;
+
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${passwordTarget.id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to change password.");
+      }
+
+      toast.success(`Password for "${passwordTarget.name}" changed successfully.`);
+      setPasswordTarget(null);
+      setNewPassword("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change password.");
+    }
+  };
+
   const deleteUser = async (userId: string, userName: string) => {
     setSavingId(userId);
 
@@ -180,7 +288,7 @@ export function UsersManager() {
       toast.error("Role name is required");
       return;
     }
-    toast.success(`Custom role "${newRoleName.trim()}" created successfully.`);
+    toast.success(`Custom permission role "${newRoleName.trim()}" created successfully.`);
     setNewRoleName("");
     setNewRoleDesc("");
     setIsRoleModalOpen(false);
@@ -230,8 +338,8 @@ export function UsersManager() {
       return (
         <Tooltip delay={100}>
           <Tooltip.Trigger>
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-              <Globe className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-lg bg-background-custom border border-border-custom flex items-center justify-center shadow-xs">
+              <GoogleLogoIcon className="w-4 h-4" />
             </div>
           </Tooltip.Trigger>
           <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
@@ -244,9 +352,9 @@ export function UsersManager() {
       return (
         <Tooltip delay={100}>
           <Tooltip.Trigger>
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 gap-0.5">
-              <Mail className="w-3 h-3" />
-              <Globe className="w-3 h-3" />
+            <div className="w-8 h-8 rounded-lg bg-background-custom border border-border-custom flex items-center justify-center gap-1 shadow-xs px-1">
+              <Mail className="w-3 h-3 text-primary" />
+              <GoogleLogoIcon className="w-3.5 h-3.5" />
             </div>
           </Tooltip.Trigger>
           <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
@@ -258,8 +366,8 @@ export function UsersManager() {
     return (
       <Tooltip delay={100}>
         <Tooltip.Trigger>
-          <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-            <KeyRound className="w-3.5 h-3.5" />
+          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shadow-xs">
+            <KeyRound className="w-4 h-4" />
           </div>
         </Tooltip.Trigger>
         <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
@@ -271,7 +379,7 @@ export function UsersManager() {
 
   return (
     <Card className="w-full p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg flex flex-col gap-6">
-      {/* Header with Create Role Button */}
+      {/* Header with Create User & Create Role Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-4">
         <div>
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
@@ -283,11 +391,11 @@ export function UsersManager() {
             )}
           </h2>
           <p className="text-xs text-text-secondary mt-1">
-            Manage user accounts, assign RBAC roles, verify avatars & create custom permission roles.
+            Manage accounts, provision unverified users, reset passwords, and configure custom permissions.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {(query || roleFilter || statusFilter || verifiedFilter) && (
             <Button
               variant="outline"
@@ -298,6 +406,15 @@ export function UsersManager() {
               Reset Filters
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            onPress={() => setIsCreateUserModalOpen(true)}
+            className="text-xs font-semibold px-4 flex items-center gap-1.5 text-text-primary"
+          >
+            <UserPlus className="w-4 h-4 text-primary" />
+            Create User
+          </Button>
 
           <Button
             variant="primary"
@@ -463,36 +580,37 @@ export function UsersManager() {
           </thead>
 
           <tbody className="divide-y divide-border-custom/50">
-            {/* HeroUI Animated Skeletons during loading instead of spinners */}
+            {/* Standardized HeroUI Skeleton Loading Rows */}
             {loading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={index}>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-border-custom/50 animate-pulse shrink-0" />
+                      <Skeleton className="w-9 h-9 rounded-full shrink-0" />
                       <div className="flex flex-col gap-1.5 w-40">
-                        <div className="h-3.5 w-32 bg-border-custom/60 animate-pulse rounded" />
-                        <div className="h-2.5 w-24 bg-border-custom/40 animate-pulse rounded" />
+                        <Skeleton className="h-3.5 w-32 rounded" />
+                        <Skeleton className="h-2.5 w-24 rounded" />
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="w-7 h-7 rounded-lg bg-border-custom/50 animate-pulse" />
+                    <Skeleton className="w-8 h-8 rounded-lg" />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="h-8 w-44 rounded-lg bg-border-custom/50 animate-pulse" />
+                    <Skeleton className="h-8 w-44 rounded-lg" />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="h-5 w-24 rounded-full bg-border-custom/50 animate-pulse" />
+                    <Skeleton className="h-5 w-24 rounded-full" />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="h-3 w-20 bg-border-custom/40 animate-pulse rounded" />
+                    <Skeleton className="h-3 w-20 rounded" />
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <div className="h-8 w-8 rounded-lg bg-border-custom/50 animate-pulse" />
-                      <div className="h-8 w-8 rounded-lg bg-border-custom/50 animate-pulse" />
-                      <div className="h-8 w-20 rounded-lg bg-border-custom/50 animate-pulse" />
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                      <Skeleton className="h-8 w-20 rounded-lg" />
                     </div>
                   </td>
                 </tr>
@@ -600,6 +718,28 @@ export function UsersManager() {
                   {/* Action controls */}
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {/* Change Password Modal Trigger */}
+                      <Tooltip delay={100}>
+                        <Tooltip.Trigger>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="outline"
+                            isDisabled={savingId === user.id}
+                            onPress={() => {
+                              setPasswordTarget(user);
+                              setNewPassword("");
+                            }}
+                            className="text-text-secondary hover:text-text-primary border-border-custom"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                          </Button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+                          Change Password
+                        </Tooltip.Content>
+                      </Tooltip>
+
                       {/* Edit Role Modal Trigger */}
                       <Tooltip delay={100}>
                         <Tooltip.Trigger>
@@ -694,6 +834,162 @@ export function UsersManager() {
         </div>
       )}
 
+      {/* Create New Unverified User Modal */}
+      {isCreateUserModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-lg p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
+            <form onSubmit={handleCreateUserSubmit} className="flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-primary" />
+                  Provision New Unverified Account
+                </h3>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => setIsCreateUserModalOpen(false)}
+                  className="text-text-secondary hover:text-text-primary"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {createWarning && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium">
+                  {createWarning}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
+                  <Input
+                    placeholder="e.g. Dr. Alexander Fleming"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Email Address</Label>
+                  <Input
+                    type="email"
+                    placeholder="e.g. alexander@medicio.com"
+                    value={createEmail}
+                    onChange={(e) => setCreateEmail(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Initial Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={createPassword}
+                    onChange={(e) => setCreatePassword(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Assign Role</Label>
+                  <Select
+                    aria-label="Assign role for new user"
+                    selectedKey={createRole}
+                    onSelectionChange={(key) => setCreateRole(String(key))}
+                  >
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        {ROLES.map((r) => (
+                          <ListBox.Item key={r} id={r} textValue={r}>
+                            <Label>{r.replace(/_/g, " ")}</Label>
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onPress={() => setIsCreateUserModalOpen(false)}
+                  className="text-xs font-semibold px-4"
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                  Provision User (Unverified)
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Admin Password Change Modal */}
+      {passwordTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <Card className="w-full max-w-md p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
+            <form onSubmit={handleChangePasswordSubmit} className="flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-500" />
+                  Change User Password
+                </h3>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => setPasswordTarget(null)}
+                  className="text-text-secondary hover:text-text-primary"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <p className="text-xs text-text-secondary">
+                Set a new password for <strong className="text-text-primary">{passwordTarget.name}</strong> ({passwordTarget.email}).
+              </p>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-semibold text-text-primary">New Password</Label>
+                <Input
+                  type="password"
+                  placeholder="At least 6 characters..."
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onPress={() => setPasswordTarget(null)}
+                  className="text-xs font-semibold px-4"
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                  Update Password
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       {/* Create Custom Role Modal */}
       {isRoleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -714,7 +1010,7 @@ export function UsersManager() {
 
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Role Name</Label>
+                  <Label className="text-xs font-semibold text-text-primary">Role Identifier</Label>
                   <Input
                     placeholder="e.g. CLINICAL_AUDITOR"
                     value={newRoleName}
@@ -734,7 +1030,7 @@ export function UsersManager() {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2">
-                  <span className="text-xs font-bold text-text-primary">Module Access Permissions (RBAC)</span>
+                  <span className="text-xs font-bold text-text-primary">Module Access Permissions (Granular Checkboxes)</span>
                   <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
                     <Checkbox defaultSelected>M1 IAM & Access Control</Checkbox>
                     <Checkbox defaultSelected>M2 Symptom Checker</Checkbox>
@@ -744,6 +1040,8 @@ export function UsersManager() {
                     <Checkbox>M6 Pharmacy Management</Checkbox>
                     <Checkbox>M7 Lab Management</Checkbox>
                     <Checkbox>M8 Appointment Booking</Checkbox>
+                    <Checkbox>M9 Medicine Tracker</Checkbox>
+                    <Checkbox>M10 Patient Health Records</Checkbox>
                     <Checkbox>M11 Scraper Engine</Checkbox>
                     <Checkbox>M12 Audit Logs & Analytics</Checkbox>
                   </div>

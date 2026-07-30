@@ -56,7 +56,6 @@ export default async function AppLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeSwitch />
             <UserMenu
               user={{
                 name,
