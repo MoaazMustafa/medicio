@@ -64,12 +64,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash the new password and update user record
+    // Hash the new password and update user record.
+    // Also mark the account as verified — proving ownership of the email via
+    // the OTP is equivalent to email verification. Without this, users who
+    // trigger forgot-password before completing signup verification would be
+    // permanently locked out of login.
     const passwordHash = hashPassword(newPassword);
 
     await prisma.user.update({
       where: { email },
-      data: { passwordHash },
+      data: { passwordHash, isVerified: true },
     });
 
     // Delete the token so it cannot be used again

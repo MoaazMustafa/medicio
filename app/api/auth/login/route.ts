@@ -1,12 +1,17 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
-import { createSessionCookie } from "@/lib/auth";
+import { signSessionToken } from "@/lib/auth";
 import { createOtp, verifyPassword } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  SESSION_MAX_AGE_SECONDS,
+} from "@/lib/session-cookie";
 import { loginSchema } from "@/lib/validations/auth";
 
 export async function POST(request: NextRequest) {
@@ -95,7 +100,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await createSessionCookie({
+    // Sign a JWT and set it explicitly on the response object.
+    // Using cookies().set() inside Route Handlers does not reliably propagate
+    // the Set-Cookie header to the final response on Vercel's serverless runtime.
+    const token = await signSessionToken({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -103,7 +111,8 @@ export async function POST(request: NextRequest) {
     });
 
     logAuthEvent("USER_LOGIN_SUCCESS", { email: user.email, role: user.role });
-    return NextResponse.json({
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -112,6 +121,13 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
+
+    response.cookies.set(SESSION_COOKIE, token, {
+      ...SESSION_COOKIE_OPTIONS,
+      maxAge: SESSION_MAX_AGE_SECONDS,
+    });
+
+    return response;
   } catch (error: any) {
     logAuthEvent("USER_LOGIN_EXCEPTION", { error: error.message || error });
     console.error("Login Error: ", error);
@@ -121,3 +137,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

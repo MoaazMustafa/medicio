@@ -59,8 +59,16 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Send the email with the OTP code
-      await sendOtpEmail(email, otp, "Password Reset Request");
+      // Send the email with the OTP code and surface failures
+      const emailSent = await sendOtpEmail(email, otp, "Password Reset Request");
+
+      if (!emailSent) {
+        logAuthEvent("PASSWORD_RESET_EMAIL_DISPATCH_FAILURE", { email });
+        return NextResponse.json(
+          { error: "Failed to send the verification email. Please try again shortly." },
+          { status: 502 }
+        );
+      }
     } else {
       logAuthEvent("PASSWORD_RESET_REQUESTED_USER_NOT_FOUND", { email });
     }

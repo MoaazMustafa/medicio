@@ -2,10 +2,15 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSessionCookie } from "@/lib/auth";
+import { signSessionToken } from "@/lib/auth";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  SESSION_MAX_AGE_SECONDS,
+} from "@/lib/session-cookie";
 
 const verifyEmailSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
@@ -79,8 +84,10 @@ export async function POST(request: NextRequest) {
       where: { id: verificationRecord.id },
     });
 
-    // Automatically sign them in
-    await createSessionCookie({
+    // Sign a JWT and set it explicitly on the response object.
+    // Using cookies().set() inside Route Handlers does not reliably propagate
+    // the Set-Cookie header to the final response on Vercel's serverless runtime.
+    const token = await signSessionToken({
       id: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name,
@@ -89,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     logAuthEvent("USER_EMAIL_VERIFICATION_SUCCESS", { email: updatedUser.email, role: updatedUser.role });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: updatedUser.id,
@@ -98,6 +105,13 @@ export async function POST(request: NextRequest) {
         role: updatedUser.role,
       },
     });
+
+    response.cookies.set(SESSION_COOKIE, token, {
+      ...SESSION_COOKIE_OPTIONS,
+      maxAge: SESSION_MAX_AGE_SECONDS,
+    });
+
+    return response;
   } catch (error: any) {
     logAuthEvent("USER_EMAIL_VERIFICATION_EXCEPTION", { error: error.message || error });
     console.error("Email Verification Error: ", error);
@@ -107,3 +121,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

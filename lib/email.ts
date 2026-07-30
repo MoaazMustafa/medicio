@@ -7,9 +7,13 @@ import nodemailer from "nodemailer";
  * regular Gmail passwords will not work.
  */
 export async function sendOtpEmail(email: string, otp: string, purpose: string): Promise<boolean> {
-  // Fallback in case Gmail variables are not configured yet (e.g. testing dev resets)
+  // In development, skip gracefully; in production the credentials are mandatory.
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.warn("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping OTP email dispatch.");
+    if (process.env.NODE_ENV === "production") {
+      console.error("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set in production — cannot send OTP.");
+      return false;
+    }
+    console.warn("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping OTP email dispatch (dev mode).");
     return true;
   }
 
@@ -50,12 +54,17 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
   `;
 
   try {
-    // Build a clean RFC 5321 sender address.  GMAIL_FROM from .env may
-    // contain escaped quotes or stray backslashes that Gmail rejects with
-    // "555 5.5.2 Syntax error, cannot decode response".  Strip them out and
-    // fall back to a safe default built from GMAIL_USER.
+    // Build a clean RFC 5321 sender address.  GMAIL_FROM from .env or Vercel
+    // env vars may contain escaped quotes, smart quotes, or stray backslashes
+    // that Gmail rejects with "555 5.5.2 Syntax error".  Strip them all out
+    // and fall back to a safe default built from GMAIL_USER.
     const rawFrom = process.env.GMAIL_FROM || "";
-    const cleanFrom = rawFrom.replace(/\\"/g, "").replace(/"/g, "").trim();
+    const cleanFrom = rawFrom
+      .replace(/\\"/g, "")       // escaped double quotes
+      .replace(/"/g, "")         // regular double quotes
+      .replace(/\u201C|\u201D/g, "") // smart quotes
+      .replace(/'/g, "")         // single quotes
+      .trim();
     const from = cleanFrom || `Medicio Portal <${process.env.GMAIL_USER}>`;
 
     await transporter.sendMail({
@@ -66,7 +75,8 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
     });
     return true;
   } catch (error) {
-    console.error("Nodemailer Gmail Transporter Error: ", error);
+    console.error("[email] Nodemailer Gmail Transporter Error:", error);
     return false;
   }
 }
+

@@ -51,6 +51,21 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
   });
 }
 
+/**
+ * Returns a signed JWT for the given user without touching `cookies()`.
+ * Route Handlers must set this token on the returned `NextResponse` themselves
+ * because `cookies().set()` does not reliably propagate to the response on
+ * Vercel's serverless runtime.
+ */
+export async function signSessionToken(user: SessionUser): Promise<string> {
+  return signJwt({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  });
+}
+
 /** Clears the session cookie. */
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
