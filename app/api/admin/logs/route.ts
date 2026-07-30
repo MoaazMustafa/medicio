@@ -98,7 +98,7 @@ export async function GET() {
         id: `email-user-${u.id}`,
         recipient: u.email,
         subject: u.isVerified ? "Welcome to Medicio Healthcare Platform" : "Action Required: Complete Medicio Account Verification",
-        category: (u.isVerified ? "Welcome Email" : "System Alert") as const,
+        category: (u.isVerified ? "Welcome Email" : "System Alert") as "OTP Verification" | "Password Reset" | "Appointment Reminder" | "Welcome Email" | "System Alert",
         status: (u.isVerified ? "DELIVERED" : "PENDING") as "DELIVERED" | "PENDING" | "FAILED",
         provider: "Resend SMTP" as const,
         sentAt: u.createdAt.toISOString().replace("T", " ").substring(0, 19),
