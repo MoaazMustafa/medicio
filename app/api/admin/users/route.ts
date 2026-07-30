@@ -94,8 +94,17 @@ export async function GET(request: NextRequest) {
       const hasPassword = u.passwordHash.startsWith("$2") || (u.passwordHash.length > 25 && !u.passwordHash.startsWith("OAUTH_ONLY"));
       const hasOAuth = u.passwordHash.includes("OAUTH") || u.passwordHash === "OAUTH_ONLY";
       const authProvider = hasPassword && hasOAuth ? "BOTH" : hasOAuth ? "OAUTH" : "EMAIL";
-      const { passwordHash: _hash, ...rest } = u;
-      return { ...rest, authProvider };
+      return {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        avatarUrl: u.avatarUrl,
+        role: u.role,
+        isVerified: u.isVerified,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+        authProvider,
+      };
     });
 
     return NextResponse.json({

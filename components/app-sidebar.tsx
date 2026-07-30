@@ -52,37 +52,35 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Health Records", href: "/records", icon: FolderHeart, soon: true },
   ],
   DOCTOR: [
-    { label: "Dashboard", href: "/doctor/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/doctor/dashboard", icon: LayoutDashboard, soon: true },
     { label: "Appointments", href: "/doctor/appointments", icon: CalendarCheck, soon: true },
     { label: "AI Agent Training", href: "/doctor/agent", icon: Bot, soon: true },
   ],
   HOSPITAL_ADMIN: [
-    { label: "Dashboard", href: "/hospital/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/hospital/dashboard", icon: LayoutDashboard, soon: true },
     { label: "Affiliated Providers", href: "/hospital/providers", icon: Building2, soon: true },
   ],
   LAB_ADMIN: [
-    { label: "Dashboard", href: "/lab/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/lab/dashboard", icon: LayoutDashboard, soon: true },
     { label: "Test Catalogue", href: "/lab/catalogue", icon: FlaskConical, soon: true },
     { label: "Reports", href: "/lab/reports", icon: FileText, soon: true },
   ],
   PHARMACY_ADMIN: [
-    { label: "Dashboard", href: "/pharmacy/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/pharmacy/dashboard", icon: LayoutDashboard, soon: true },
     { label: "Inventory", href: "/pharmacy/inventory", icon: Pill, soon: true },
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
-    { label: "System Audit Logs", href: "/admin/logs", icon: ScrollText },
-    { label: "Email Logs", href: "/admin/logs/email", icon: Mail },
+    { label: "Audit Logs", href: "/admin/logs", icon: ScrollText },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
     { label: "Scraper Engine", href: "/admin/scrapers", icon: Globe },
-    { label: "System Audit Logs", href: "/admin/logs", icon: ScrollText },
-    { label: "Email Logs", href: "/admin/logs/email", icon: Mail },
+    { label: "Audit Logs", href: "/admin/logs", icon: ScrollText },
   ],
 };
 

@@ -8,6 +8,7 @@ import {
   Input,
   Label,
   ListBox,
+  Modal,
   Select,
   Skeleton,
   Tooltip,
@@ -342,13 +343,17 @@ export function UsersManager() {
       return (
         <Tooltip delay={100}>
           <Tooltip.Trigger>
-            <div className="w-8 h-8 rounded-lg bg-background-custom border border-border-custom flex items-center justify-center gap-1 shadow-xs px-1">
-              <Mail className="w-3 h-3 text-primary" />
-              <GoogleLogoIcon className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shadow-xs">
+                <Mail className="w-3.5 h-3.5" />
+              </div>
+              <div className="w-7 h-7 rounded-lg bg-background-custom border border-border-custom flex items-center justify-center shadow-xs">
+                <GoogleLogoIcon className="w-3.5 h-3.5" />
+              </div>
             </div>
           </Tooltip.Trigger>
           <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
-            Email & Google OAuth Linked
+            Email & Password + Google OAuth Linked
           </Tooltip.Content>
         </Tooltip>
       );
@@ -824,70 +829,297 @@ export function UsersManager() {
 
       {/* Create New Unverified User Modal */}
       {isCreateUserModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-lg p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
-            <form onSubmit={handleCreateUserSubmit} className="flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-border-custom pb-3">
-                <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-primary" />
-                  Provision New Unverified Account
-                </h3>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="ghost"
-                  onPress={() => setIsCreateUserModalOpen(false)}
-                  className="text-text-secondary hover:text-text-primary"
-                >
+        <Modal.Root isOpen={isCreateUserModalOpen} onOpenChange={setIsCreateUserModalOpen}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-lg h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
+              <form onSubmit={handleCreateUserSubmit} className="flex flex-col gap-4">
+                <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
+                  <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-primary" />
+                    Provision New Unverified Account
+                  </h3>
+                  <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
+                    <X className="w-4 h-4" />
+                  </Modal.CloseTrigger>
+                </Modal.Header>
+
+                <Modal.Body className="flex flex-col gap-3 py-2">
+                  {createWarning && (
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium">
+                      {createWarning}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
+                    <Input
+                      placeholder="e.g. Dr. Alexander Fleming"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Email Address</Label>
+                    <Input
+                      type="email"
+                      placeholder="e.g. alexander@medicio.com"
+                      value={createEmail}
+                      onChange={(e) => setCreateEmail(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Initial Password</Label>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={createPassword}
+                      onChange={(e) => setCreatePassword(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Assign Role</Label>
+                    <Select
+                      aria-label="Assign role for new user"
+                      selectedKey={createRole}
+                      onSelectionChange={(key) => setCreateRole(String(key))}
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {ROLES.map((r) => (
+                            <ListBox.Item key={r} id={r} textValue={r}>
+                              <Label>{r.replace(/_/g, " ")}</Label>
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
+                </Modal.Body>
+
+                <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onPress={() => setIsCreateUserModalOpen(false)}
+                    className="text-xs font-semibold px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                    Provision User (Unverified)
+                  </Button>
+                </Modal.Footer>
+              </form>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
+      )}
+
+      {/* Admin Password Change Modal */}
+      {passwordTarget && (
+        <Modal.Root isOpen={!!passwordTarget} onOpenChange={() => setPasswordTarget(null)}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-md h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
+              <form onSubmit={handleChangePasswordSubmit} className="flex flex-col gap-4">
+                <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
+                  <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-500" />
+                    Change User Password
+                  </h3>
+                  <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
+                    <X className="w-4 h-4" />
+                  </Modal.CloseTrigger>
+                </Modal.Header>
+
+                <Modal.Body className="flex flex-col gap-3 py-2">
+                  <p className="text-xs text-text-secondary">
+                    Set a new password for <strong className="text-text-primary">{passwordTarget.name}</strong> ({passwordTarget.email}).
+                  </p>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">New Password</Label>
+                    <Input
+                      type="password"
+                      placeholder="At least 6 characters..."
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+                </Modal.Body>
+
+                <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onPress={() => setPasswordTarget(null)}
+                    className="text-xs font-semibold px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                    Update Password
+                  </Button>
+                </Modal.Footer>
+              </form>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
+      )}
+
+      {/* Create Custom Role & Account Permission Overrides Modal */}
+      {isRoleModalOpen && (
+        <Modal.Root isOpen={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-lg h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newRoleName.trim()) {
+                    toast.error("Role identifier name is required");
+                    return;
+                  }
+                  const targetMsg = targetUserEmail.trim()
+                    ? ` assigned to account "${targetUserEmail.trim()}"`
+                    : "";
+                  toast.success(
+                    `Custom role "CUSTOM_${newRoleName.trim().toUpperCase()}" created & permissions granted${targetMsg}.`,
+                  );
+                  setNewRoleName("");
+                  setNewRoleDesc("");
+                  setTargetUserEmail("");
+                  setIsRoleModalOpen(false);
+                }}
+                className="flex flex-col gap-4"
+              >
+                <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">Create Custom Role & Permission Override</h3>
+                    <p className="text-xs text-text-secondary">Define granular RBAC permissions for a role preset or target account.</p>
+                  </div>
+                  <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
+                    <X className="w-4 h-4" />
+                  </Modal.CloseTrigger>
+                </Modal.Header>
+
+                <Modal.Body className="flex flex-col gap-3 py-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Role Identifier Name</Label>
+                    <Input
+                      placeholder="e.g. CLINICAL_AUDITOR or LAB_DIRECTOR"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional)</Label>
+                    <Input
+                      type="email"
+                      placeholder="e.g. moaazmustafa@gmail.com (leave blank for role preset)"
+                      value={targetUserEmail}
+                      onChange={(e) => setTargetUserEmail(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-semibold text-text-primary">Role Description & Duties</Label>
+                    <Input
+                      placeholder="e.g. Clinical audit access and patient record review duties..."
+                      value={newRoleDesc}
+                      onChange={(e) => setNewRoleDesc(e.target.value)}
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                    />
+                  </div>
+
+                  {/* HeroUI Visual Checkbox Grid */}
+                  <div className="flex flex-col gap-2 pt-2 border-t border-border-custom/50">
+                    <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
+                    <div className="grid grid-cols-2 gap-3 text-xs text-text-secondary">
+                      {[
+                        { id: "M1", label: "M1 IAM & Access Control", default: true },
+                        { id: "M2", label: "M2 Symptom Checker", default: true },
+                        { id: "M3", label: "M3 Specialty AI Agents", default: true },
+                        { id: "M4", label: "M4 Doctor Management", default: false },
+                        { id: "M5", label: "M5 Hospital Management", default: false },
+                        { id: "M6", label: "M6 Pharmacy Management", default: false },
+                        { id: "M7", label: "M7 Lab Management", default: false },
+                        { id: "M8", label: "M8 Appointment Booking", default: false },
+                        { id: "M9", label: "M9 Medicine Tracker", default: false },
+                        { id: "M10", label: "M10 Patient Health Records", default: false },
+                        { id: "M11", label: "M11 Scraper Engine", default: false },
+                        { id: "M12", label: "M12 Audit Logs & Analytics", default: false },
+                      ].map((mod) => (
+                        <Checkbox key={mod.id} defaultSelected={mod.default} value={mod.id} className="flex items-center gap-2">
+                          <Checkbox.Control />
+                          <span className="text-xs font-medium text-text-primary select-none cursor-pointer">
+                            {mod.label}
+                          </span>
+                        </Checkbox>
+                      ))}
+                    </div>
+                  </div>
+                </Modal.Body>
+
+                <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onPress={() => setIsRoleModalOpen(false)}
+                    className="text-xs font-semibold px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
+                    Save Custom Role
+                  </Button>
+                </Modal.Footer>
+              </form>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
+      )}
+
+      {/* Edit User Modal */}
+      {editUserTarget && (
+        <Modal.Root isOpen={!!editUserTarget} onOpenChange={() => setEditUserTarget(null)}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-md h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
+              <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
+                <h3 className="text-base font-bold text-text-primary">Edit User Details</h3>
+                <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
                   <X className="w-4 h-4" />
-                </Button>
-              </div>
+                </Modal.CloseTrigger>
+              </Modal.Header>
 
-              {createWarning && (
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium">
-                  {createWarning}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3">
+              <Modal.Body className="flex flex-col gap-3 py-2">
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
                   <Input
-                    placeholder="e.g. Dr. Alexander Fleming"
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
+                    value={editUserName}
+                    onChange={(e) => setEditUserName(e.target.value)}
                     className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Email Address</Label>
-                  <Input
-                    type="email"
-                    placeholder="e.g. alexander@medicio.com"
-                    value={createEmail}
-                    onChange={(e) => setCreateEmail(e.target.value)}
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Initial Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={createPassword}
-                    onChange={(e) => setCreatePassword(e.target.value)}
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Assign Role</Label>
+                  <Label className="text-xs font-semibold text-text-primary">Assigned Role</Label>
                   <Select
-                    aria-label="Assign role for new user"
-                    selectedKey={createRole}
-                    onSelectionChange={(key) => setCreateRole(String(key))}
+                    aria-label="Edit assigned role"
+                    selectedKey={editUserRole}
+                    onSelectionChange={(key) => setEditUserRole(String(key))}
                   >
                     <Select.Trigger>
                       <Select.Value />
@@ -904,296 +1136,69 @@ export function UsersManager() {
                     </Select.Popover>
                   </Select>
                 </div>
-              </div>
+              </Modal.Body>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+              <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
                 <Button
                   variant="outline"
-                  type="button"
-                  onPress={() => setIsCreateUserModalOpen(false)}
+                  onPress={() => setEditUserTarget(null)}
                   className="text-xs font-semibold px-4"
                 >
                   Cancel
                 </Button>
-                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
-                  Provision User (Unverified)
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Admin Password Change Modal */}
-      {passwordTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-md p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
-            <form onSubmit={handleChangePasswordSubmit} className="flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-border-custom pb-3">
-                <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-amber-500" />
-                  Change User Password
-                </h3>
                 <Button
-                  isIconOnly
-                  size="sm"
-                  variant="ghost"
-                  onPress={() => setPasswordTarget(null)}
-                  className="text-text-secondary hover:text-text-primary"
+                  variant="primary"
+                  onPress={async () => {
+                    await updateUser(editUserTarget.id, editUserName, { role: editUserRole, name: editUserName });
+                    setEditUserTarget(null);
+                  }}
+                  className="text-xs font-semibold px-5"
                 >
-                  <X className="w-4 h-4" />
+                  Save Changes
                 </Button>
-              </div>
-
-              <p className="text-xs text-text-secondary">
-                Set a new password for <strong className="text-text-primary">{passwordTarget.name}</strong> ({passwordTarget.email}).
-              </p>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">New Password</Label>
-                <Input
-                  type="password"
-                  placeholder="At least 6 characters..."
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onPress={() => setPasswordTarget(null)}
-                  className="text-xs font-semibold px-4"
-                >
-                  Cancel
-                </Button>
-                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
-                  Update Password
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Create Custom Role & Account Permission Overrides Modal */}
-      {isRoleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-lg p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!newRoleName.trim()) {
-                  toast.error("Role identifier name is required");
-                  return;
-                }
-                const targetMsg = targetUserEmail.trim()
-                  ? ` assigned to account "${targetUserEmail.trim()}"`
-                  : "";
-                toast.success(
-                  `Custom role "CUSTOM_${newRoleName.trim().toUpperCase()}" created & permissions granted${targetMsg}.`,
-                );
-                setNewRoleName("");
-                setNewRoleDesc("");
-                setTargetUserEmail("");
-                setIsRoleModalOpen(false);
-              }}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex items-center justify-between border-b border-border-custom pb-3">
-                <div>
-                  <h3 className="text-base font-bold text-text-primary">Create Custom Role & Permission Override</h3>
-                  <p className="text-xs text-text-secondary">Define granular RBAC permissions for a role preset or target account.</p>
-                </div>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="ghost"
-                  onPress={() => setIsRoleModalOpen(false)}
-                  className="text-text-secondary hover:text-text-primary"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Role Identifier Name</Label>
-                  <Input
-                    placeholder="e.g. CLINICAL_AUDITOR or LAB_DIRECTOR"
-                    value={newRoleName}
-                    onChange={(e) => setNewRoleName(e.target.value)}
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional)</Label>
-                  <Input
-                    type="email"
-                    placeholder="e.g. moaazmustafa@gmail.com (leave blank for role preset)"
-                    value={targetUserEmail}
-                    onChange={(e) => setTargetUserEmail(e.target.value)}
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Role Description & Duties</Label>
-                  <Input
-                    placeholder="e.g. Clinical audit access and patient record review duties..."
-                    value={newRoleDesc}
-                    onChange={(e) => setNewRoleDesc(e.target.value)}
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2 pt-2 border-t border-border-custom/50">
-                  <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
-                    <Checkbox defaultSelected>M1 IAM & Access Control</Checkbox>
-                    <Checkbox defaultSelected>M2 Symptom Checker</Checkbox>
-                    <Checkbox defaultSelected>M3 Specialty AI Agents</Checkbox>
-                    <Checkbox>M4 Doctor Management</Checkbox>
-                    <Checkbox>M5 Hospital Management</Checkbox>
-                    <Checkbox>M6 Pharmacy Management</Checkbox>
-                    <Checkbox>M7 Lab Management</Checkbox>
-                    <Checkbox>M8 Appointment Booking</Checkbox>
-                    <Checkbox>M9 Medicine Tracker</Checkbox>
-                    <Checkbox>M10 Patient Health Records</Checkbox>
-                    <Checkbox>M11 Scraper Engine</Checkbox>
-                    <Checkbox>M12 Audit Logs & Analytics</Checkbox>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onPress={() => setIsRoleModalOpen(false)}
-                  className="text-xs font-semibold px-4"
-                >
-                  Cancel
-                </Button>
-                <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
-                  Save Custom Role
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {editUserTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-md p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-border-custom pb-3">
-              <h3 className="text-base font-bold text-text-primary">Edit User Details</h3>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                onPress={() => setEditUserTarget(null)}
-                className="text-text-secondary hover:text-text-primary"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
-                <Input
-                  value={editUserName}
-                  onChange={(e) => setEditUserName(e.target.value)}
-                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Assigned Role</Label>
-                <Select
-                  aria-label="Edit assigned role"
-                  selectedKey={editUserRole}
-                  onSelectionChange={(key) => setEditUserRole(String(key))}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {ROLES.map((r) => (
-                        <ListBox.Item key={r} id={r} textValue={r}>
-                          <Label>{r.replace(/_/g, " ")}</Label>
-                        </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
-              <Button
-                variant="outline"
-                onPress={() => setEditUserTarget(null)}
-                className="text-xs font-semibold px-4"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onPress={async () => {
-                  await updateUser(editUserTarget.id, editUserName, { role: editUserRole, name: editUserName });
-                  setEditUserTarget(null);
-                }}
-                className="text-xs font-semibold px-5"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </Card>
-        </div>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
       )}
 
       {/* Delete User Confirmation Modal */}
       {deleteUserTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-md p-6 bg-surface border rounded-2xl shadow-2xl flex flex-col gap-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
+        <Modal.Root isOpen={!!deleteUserTarget} onOpenChange={() => setDeleteUserTarget(null)}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-md h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-rose-500/40 rounded-2xl shadow-2xl text-center flex flex-col gap-4 outline-none pointer-events-auto">
+              <Modal.Body className="flex flex-col gap-4 text-center py-2">
+                <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+                  <Trash2 className="w-6 h-6" />
+                </div>
 
-            <div>
-              <h3 className="text-lg font-bold text-text-primary">Delete User Account?</h3>
-              <p className="text-xs text-text-secondary mt-1">
-                Are you sure you want to permanently delete <strong className="text-text-primary">{deleteUserTarget.name}</strong> ({deleteUserTarget.email})? This action cannot be undone.
-              </p>
-            </div>
+                <div>
+                  <h3 className="text-lg font-bold text-text-primary">Delete User Account?</h3>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Are you sure you want to permanently delete <strong className="text-text-primary">{deleteUserTarget.name}</strong> ({deleteUserTarget.email})? This action cannot be undone.
+                  </p>
+                </div>
+              </Modal.Body>
 
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <Button
-                variant="outline"
-                onPress={() => setDeleteUserTarget(null)}
-                className="text-xs font-semibold px-4"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onPress={() => deleteUser(deleteUserTarget.id, deleteUserTarget.name)}
-                className="text-xs font-semibold px-5 bg-rose-600 hover:bg-rose-700 text-white"
-              >
-                Confirm Delete
-              </Button>
-            </div>
-          </Card>
-        </div>
+              <Modal.Footer className="flex items-center justify-center gap-3 pt-2 border-t border-border-custom">
+                <Button
+                  variant="outline"
+                  onPress={() => setDeleteUserTarget(null)}
+                  className="text-xs font-semibold px-4"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => deleteUser(deleteUserTarget.id, deleteUserTarget.name)}
+                  className="text-xs font-semibold px-5 bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  Confirm Delete
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
       )}
     </Card>
   );

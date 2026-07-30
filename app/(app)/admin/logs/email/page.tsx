@@ -3,7 +3,6 @@
 import {
   Button,
   Card,
-  Chip,
   Input,
   Label,
   ListBox,
@@ -17,11 +16,10 @@ import {
   Download,
   Mail,
   RefreshCw,
-  Search,
   Send,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface EmailLogItem {
@@ -34,31 +32,50 @@ interface EmailLogItem {
   sentAt: string;
 }
 
-const MOCK_EMAIL_LOGS: EmailLogItem[] = [
-  { id: "em-101", recipient: "moaazmustafa@gmail.com", subject: "Verify your Medicio account OTP", category: "OTP Verification", status: "DELIVERED", provider: "Resend SMTP", sentAt: "2026-07-30 22:10:15" },
-  { id: "em-102", recipient: "doctor.sarah@medicio.com", subject: "Doctor Credential Approval Confirmation", category: "System Alert", status: "DELIVERED", provider: "Resend SMTP", sentAt: "2026-07-30 21:45:00" },
-  { id: "em-103", recipient: "patient.john@gmail.com", subject: "Upcoming Doctor Appointment Reminder", category: "Appointment Reminder", status: "DELIVERED", provider: "AWS SES", sentAt: "2026-07-30 20:30:12" },
-  { id: "em-104", recipient: "admin@medicio.com", subject: "Security Alert: Password Reset Requested", category: "Password Reset", status: "DELIVERED", provider: "Resend SMTP", sentAt: "2026-07-30 19:15:40" },
-  { id: "em-105", recipient: "unverified.user@hotmail.com", subject: "Verify your Medicio account OTP", category: "OTP Verification", status: "FAILED", provider: "SendGrid", sentAt: "2026-07-30 18:50:00" },
-  { id: "em-106", recipient: "new.member@yahoo.com", subject: "Welcome to Medicio Healthcare Platform", category: "Welcome Email", status: "DELIVERED", provider: "Resend SMTP", sentAt: "2026-07-30 17:22:11" },
-  { id: "em-107", recipient: "pharmacy.manager@medicio.com", subject: "Monthly Inventory Audit Summary", category: "System Alert", status: "PENDING", provider: "AWS SES", sentAt: "2026-07-30 16:05:00" },
-];
-
 export default function AdminEmailLogsPage() {
+  const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>([]);
+  const [emailMetrics, setEmailMetrics] = useState<{
+    totalEmails: number;
+    deliveryRate: string;
+    bouncedCount: number;
+    pendingQueueCount: number;
+  } | null>(null);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/logs");
+      const data = await res.json();
+      if (res.ok && data.emailLogs) {
+        setEmailLogs(data.emailLogs);
+        if (data.emailMetrics) setEmailMetrics(data.emailMetrics);
+      } else {
+        setEmailLogs([]);
+      }
+    } catch {
+      setEmailLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Email delivery log stream refreshed.");
-    }, 400);
+    loadData();
+    toast.success("Email delivery telemetry refreshed.");
   };
 
-  const filteredLogs = MOCK_EMAIL_LOGS.filter((item) => {
+  const filteredLogs = emailLogs.filter((item) => {
     const matchesSearch =
       item.recipient.toLowerCase().includes(search.toLowerCase()) ||
       item.subject.toLowerCase().includes(search.toLowerCase());
@@ -67,6 +84,9 @@ export default function AdminEmailLogsPage() {
 
     return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const paginatedLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <section className="w-full flex flex-col min-h-[calc(100vh-4rem)] p-4 md:p-8 max-w-[1600px] mx-auto gap-6">
@@ -79,7 +99,13 @@ export default function AdminEmailLogsPage() {
               <Mail className="w-5 h-5" />
             </div>
           </div>
-          <span className="text-3xl font-extrabold text-text-primary">1,480</span>
+          {loading || !emailMetrics ? (
+            <Skeleton className="h-8 w-24 rounded my-1" />
+          ) : (
+            <span className="text-3xl font-extrabold text-text-primary">
+              {emailMetrics.totalEmails.toLocaleString()}
+            </span>
+          )}
           <p className="text-[11px] text-text-secondary">Transactional & OTP email dispatches</p>
         </Card>
 
@@ -90,7 +116,13 @@ export default function AdminEmailLogsPage() {
               <ShieldCheck className="w-5 h-5" />
             </div>
           </div>
-          <span className="text-3xl font-extrabold text-emerald-400">98.6%</span>
+          {loading || !emailMetrics ? (
+            <Skeleton className="h-8 w-24 rounded my-1" />
+          ) : (
+            <span className="text-3xl font-extrabold text-emerald-400">
+              {emailMetrics.deliveryRate}
+            </span>
+          )}
           <p className="text-[11px] text-text-secondary">Successful Inbox Delivery</p>
         </Card>
 
@@ -101,7 +133,13 @@ export default function AdminEmailLogsPage() {
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <span className="text-3xl font-extrabold text-text-primary">18</span>
+          {loading || !emailMetrics ? (
+            <Skeleton className="h-8 w-24 rounded my-1" />
+          ) : (
+            <span className="text-3xl font-extrabold text-text-primary">
+              {emailMetrics.bouncedCount.toLocaleString()}
+            </span>
+          )}
           <p className="text-[11px] text-text-secondary">Invalid addresses or bounce events</p>
         </Card>
 
@@ -112,7 +150,13 @@ export default function AdminEmailLogsPage() {
               <Clock className="w-5 h-5" />
             </div>
           </div>
-          <span className="text-3xl font-extrabold text-text-primary">4</span>
+          {loading || !emailMetrics ? (
+            <Skeleton className="h-8 w-24 rounded my-1" />
+          ) : (
+            <span className="text-3xl font-extrabold text-text-primary">
+              {emailMetrics.pendingQueueCount.toLocaleString()}
+            </span>
+          )}
           <p className="text-[11px] text-text-secondary">Emails currently in queue</p>
         </Card>
       </div>
@@ -126,7 +170,10 @@ export default function AdminEmailLogsPage() {
               <Input
                 placeholder="Search by email address or subject..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-xs text-text-primary w-full"
               />
             </div>
@@ -135,7 +182,10 @@ export default function AdminEmailLogsPage() {
               aria-label="Filter status"
               className="w-40"
               selectedKey={statusFilter}
-              onSelectionChange={(key) => setStatusFilter(String(key))}
+              onSelectionChange={(key) => {
+                setStatusFilter(String(key));
+                setPage(1);
+              }}
             >
               <Select.Trigger>
                 <Select.Value />
@@ -163,7 +213,10 @@ export default function AdminEmailLogsPage() {
               aria-label="Filter category"
               className="w-48"
               selectedKey={categoryFilter}
-              onSelectionChange={(key) => setCategoryFilter(String(key))}
+              onSelectionChange={(key) => {
+                setCategoryFilter(String(key));
+                setPage(1);
+              }}
             >
               <Select.Trigger>
                 <Select.Value />
@@ -200,14 +253,6 @@ export default function AdminEmailLogsPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button
-              variant="outline"
-              onPress={() => toast.success("Exporting Email Logs CSV...")}
-              className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
-            </Button>
           </div>
         </div>
 
@@ -234,14 +279,14 @@ export default function AdminEmailLogsPage() {
                     <td className="px-4 py-4 text-right"><Skeleton className="h-4 w-28 rounded ml-auto" /></td>
                   </tr>
                 ))
-              ) : filteredLogs.length === 0 ? (
+              ) : paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-text-secondary">
                     No email dispatches matching filters.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
+                paginatedLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-surface/50 transition-colors text-text-primary">
                     <td className="px-4 py-3.5 font-mono font-semibold text-primary flex items-center gap-2">
                       <Send className="w-3.5 h-3.5 text-text-secondary shrink-0" />
@@ -270,13 +315,41 @@ export default function AdminEmailLogsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-text-secondary font-mono text-xs">{log.provider}</td>
-                    <td className="px-4 py-3.5 text-right text-text-secondary font-mono text-xs">{log.sentAt}</td>
+                    <td className="px-4 py-3.5 text-text-secondary font-mono text-xs text-right">{log.sentAt}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredLogs.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-secondary pt-2">
+            <span>
+              Showing page <strong className="text-text-primary">{page}</strong> of{" "}
+              <strong className="text-text-primary">{totalPages}</strong> ({filteredLogs.length} total dispatches)
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                isDisabled={page <= 1 || loading}
+                onPress={() => setPage((prev) => Math.max(1, prev - 1))}
+                className="text-xs font-semibold px-4 py-1.5 text-text-primary"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                isDisabled={page >= totalPages || loading}
+                onPress={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                className="text-xs font-semibold px-4 py-1.5 text-text-primary"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </section>
   );

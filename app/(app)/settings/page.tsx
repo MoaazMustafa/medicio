@@ -5,10 +5,13 @@ import {
   Button,
   Card,
   Chip,
+  Dropdown,
   Input,
   Label,
   ListBox,
+  Modal,
   Select,
+  Skeleton,
   Switch,
 } from "@heroui/react";
 import {
@@ -21,14 +24,26 @@ import {
   Moon,
   Shield,
   ShieldAlert,
-  Smartphone,
   Sun,
   Trash2,
   User,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
+import { downloadData } from "@/lib/export-helper";
+
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: string;
+  isVerified: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -39,10 +54,13 @@ export default function SettingsPage() {
   >("profile");
 
   // Profile Form States
-  const [name, setName] = useState("Moaaz Mustafa");
-  const [email] = useState("moaazmustafa@gmail.com");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("+92 300 1234567");
-  const [bio, setBio] = useState("Healthcare Platform Engineer & Administrator");
+  const [bio, setBio] = useState("Healthcare Platform User / Practitioner");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Security Form States
@@ -64,12 +82,57 @@ export default function SettingsPage() {
   // Danger Zone Modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const handleProfileSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Profile information updated successfully!");
+  // Fetch real profile from PostgreSQL database
+  const loadProfile = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user/profile");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load user profile.");
+
+      setProfile(data.user);
+      setName(data.user.name);
+      setAvatarUrl(data.user.avatarUrl ?? null);
+    } catch (err: any) {
+      toast.error(err.message || "Could not fetch user profile from database.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // Persist Profile to database
+  const handleProfileSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Name field cannot be empty.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, avatarUrl }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to update profile.");
+
+      toast.success("Profile details saved to PostgreSQL database!");
+      setProfile(data.user);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save profile updates.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  // Persist Password to database
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword || newPassword.length < 6) {
       toast.error("New password must be at least 6 characters long.");
@@ -79,29 +142,27 @@ export default function SettingsPage() {
       toast.error("Passwords do not match.");
       return;
     }
-    toast.success("Security password updated successfully!");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-  };
 
-  const handleExportData = () => {
-    const dataStr = JSON.stringify(
-      {
-        user: { name, email, phone, bio },
-        settings: { notifyAppointments, notifySecurity, language, timezone },
-        exportedAt: new Date().toISOString(),
-      },
-      null,
-      2,
-    );
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `medicio_account_export_${Date.now()}.json`;
-    a.click();
-    toast.success("Account data exported successfully!");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to update password.");
+
+      toast.success("Security password updated in database!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change password.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -111,8 +172,8 @@ export default function SettingsPage() {
         <div>
           <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
             <span>Account Settings & Preferences</span>
-            <Chip variant="soft" color="accent" className="text-xs font-mono">
-              Production Standard
+            <Chip variant="soft" color="success" className="text-xs font-mono">
+              Database Connected
             </Chip>
           </h2>
           <p className="text-xs text-text-secondary mt-1">
@@ -123,17 +184,19 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onPress={() => toast.info("Changes discarded")}
+            onPress={() => loadProfile()}
+            isDisabled={loading || saving}
             className="text-xs font-semibold px-4 text-text-secondary hover:text-text-primary"
           >
-            Cancel
+            Reset
           </Button>
           <Button
             variant="primary"
-            onPress={() => toast.success("All settings saved successfully!")}
+            onPress={() => handleProfileSave()}
+            isDisabled={loading || saving}
             className="text-xs font-semibold px-5"
           >
-            Save All Changes
+            {saving ? "Saving to DB..." : "Save All Changes"}
           </Button>
         </div>
       </div>
@@ -171,91 +234,105 @@ export default function SettingsPage() {
         <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
           <div className="border-b border-border-custom pb-3">
             <h3 className="text-base font-bold text-text-primary">Personal Profile Details</h3>
-            <p className="text-xs text-text-secondary">Update your photo, contact info, and public display details.</p>
+            <p className="text-xs text-text-secondary">Update your photo, contact info, and public display details stored in PostgreSQL.</p>
           </div>
 
-          <form onSubmit={handleProfileSave} className="flex flex-col gap-6 max-w-2xl">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 border border-border-custom flex items-center justify-center font-bold text-lg text-primary overflow-hidden shrink-0">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-                ) : (
-                  name.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-text-primary">Profile Avatar</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={() => toast.info("Select image file to upload")}
-                    className="text-xs font-semibold px-3"
-                  >
-                    Upload Photo
-                  </Button>
-                  {avatarUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onPress={() => setAvatarUrl(null)}
-                      className="text-xs text-rose-400 hover:text-rose-300 px-2"
-                    >
-                      Remove
-                    </Button>
+          {loading ? (
+            <div className="space-y-4 max-w-xl">
+              <Skeleton className="h-16 w-16 rounded-full" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ) : (
+            <form onSubmit={handleProfileSave} className="flex flex-col gap-6 max-w-2xl">
+              {/* Avatar Section */}
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 border border-border-custom flex items-center justify-center font-bold text-lg text-primary overflow-hidden shrink-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                  ) : (
+                    name.charAt(0).toUpperCase()
                   )}
                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Email Address</Label>
-                <div className="relative">
-                  <Input
-                    value={email}
-                    disabled
-                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-secondary bg-background-custom/40 w-full"
-                  />
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 absolute right-3 top-3" />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-semibold text-text-primary">Profile Avatar</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={() => toast.info("Select image file to upload")}
+                      className="text-xs font-semibold px-3"
+                    >
+                      Upload Photo
+                    </Button>
+                    {avatarUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => setAvatarUrl(null)}
+                        className="text-xs text-rose-400 hover:text-rose-300 px-2"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Phone Number</Label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Full Name</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Email Address</Label>
+                  <div className="relative">
+                    <Input
+                      value={profile?.email ?? ""}
+                      disabled
+                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-secondary bg-background-custom/40 w-full"
+                    />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 absolute right-3 top-3" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-semibold text-text-primary">Phone Number</Label>
+                    <Chip variant="soft" color="warning" className="text-[9px] font-mono px-1 py-0">Coming Soon</Chip>
+                  </div>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-semibold text-text-primary">Professional Title / Specialty</Label>
+                    <Chip variant="soft" color="warning" className="text-[9px] font-mono px-1 py-0">Coming Soon</Chip>
+                  </div>
+                  <Input
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-text-primary">Professional Title / Specialty</Label>
-                <Input
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                />
+              <div className="pt-2">
+                <Button variant="primary" type="submit" isDisabled={saving} className="text-xs font-semibold px-5 w-fit">
+                  {saving ? "Saving..." : "Save Profile Details to DB"}
+                </Button>
               </div>
-            </div>
-
-            <div className="pt-2">
-              <Button variant="primary" type="submit" className="text-xs font-semibold px-5 w-fit">
-                Save Profile Details
-              </Button>
-            </div>
-          </form>
+            </form>
+          )}
         </Card>
       )}
 
@@ -265,7 +342,7 @@ export default function SettingsPage() {
           <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
             <div className="border-b border-border-custom pb-3">
               <h3 className="text-base font-bold text-text-primary">Change Password</h3>
-              <p className="text-xs text-text-secondary">Ensure your account uses a strong, unique password.</p>
+              <p className="text-xs text-text-secondary">Ensure your account uses a strong, unique password stored securely with bcrypt hashing.</p>
             </div>
 
             <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 max-w-md">
@@ -302,8 +379,8 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <Button variant="primary" type="submit" className="text-xs font-semibold px-5 w-fit">
-                Update Password
+              <Button variant="primary" type="submit" isDisabled={saving} className="text-xs font-semibold px-5 w-fit">
+                {saving ? "Updating..." : "Update Password in DB"}
               </Button>
             </form>
           </Card>
@@ -312,14 +389,19 @@ export default function SettingsPage() {
           <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
             <div className="flex items-center justify-between border-b border-border-custom pb-3">
               <div>
-                <h3 className="text-base font-bold text-text-primary">Two-Factor Authentication (2FA)</h3>
+                <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                  <span>Two-Factor Authentication (2FA)</span>
+                  <Chip variant="soft" color="warning" className="text-[10px] font-mono">
+                    Coming Soon
+                  </Chip>
+                </h3>
                 <p className="text-xs text-text-secondary">Add an extra layer of security to your account with TOTP authenticator.</p>
               </div>
               <Switch
                 isSelected={is2FAEnabled}
                 onChange={(val: boolean) => {
                   setIs2FAEnabled(val);
-                  toast.success(val ? "2FA Authentication Enabled" : "2FA Disabled");
+                  toast.success(val ? "2FA Enabled" : "2FA Disabled");
                 }}
               />
             </div>
@@ -444,7 +526,10 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-text-primary">Interface Language</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold text-text-primary">Interface Language</Label>
+                <Chip variant="soft" color="warning" className="text-[9px] font-mono px-1 py-0">Coming Soon</Chip>
+              </div>
               <Select
                 aria-label="Language selector"
                 selectedKey={language}
@@ -471,7 +556,10 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-text-primary">Local Timezone</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold text-text-primary">Local Timezone</Label>
+                <Chip variant="soft" color="warning" className="text-[9px] font-mono px-1 py-0">Coming Soon</Chip>
+              </div>
               <Select
                 aria-label="Timezone selector"
                 selectedKey={timezone}
@@ -507,19 +595,57 @@ export default function SettingsPage() {
             <div className="border-b border-border-custom pb-3">
               <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
                 <Download className="w-4 h-4 text-primary" />
-                <span>Export Account Data</span>
+                <span>Export Account Data & Compliance Logs</span>
               </h3>
-              <p className="text-xs text-text-secondary">Download a full JSON archive of your profile, settings & records per GDPR standards.</p>
+              <p className="text-xs text-text-secondary">Download a full export of your personal profile, notification preferences & audit records per GDPR standards.</p>
             </div>
 
-            <Button
-              variant="outline"
-              onPress={handleExportData}
-              className="text-xs font-semibold px-4 text-text-primary w-fit flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download Account Data (JSON)
-            </Button>
+            <div className="flex items-center gap-3">
+              <Dropdown>
+                <Dropdown.Trigger>
+                  <Button
+                    variant="outline"
+                    className="text-xs font-semibold px-4 text-text-primary flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4 text-primary" />
+                    Export Account Data
+                  </Button>
+                </Dropdown.Trigger>
+                <Dropdown.Popover placement="bottom start">
+                  <Dropdown.Menu
+                    onAction={(key) => {
+                      const exportObj = [
+                        {
+                          id: profile?.id,
+                          name: profile?.name,
+                          email: profile?.email,
+                          role: profile?.role,
+                          phone,
+                          bio,
+                          language,
+                          timezone,
+                          notifyAppointments,
+                          notifySecurity,
+                          exportedAt: new Date().toISOString(),
+                        },
+                      ];
+                      downloadData(exportObj, "medicio_account_export", key as any);
+                      toast.success(`Account data exported as ${String(key).toUpperCase()}`);
+                    }}
+                  >
+                    <Dropdown.Item id="json" textValue="Export JSON">
+                      <Label>Export as JSON (.json)</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="csv" textValue="Export CSV">
+                      <Label>Export as CSV (.csv)</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="txt" textValue="Export TXT Log">
+                      <Label>Export as TXT Archive (.txt)</Label>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </div>
           </Card>
 
           <Card className="p-6 border border-rose-500/30 bg-rose-500/5 flex flex-col gap-4 shadow-lg">
