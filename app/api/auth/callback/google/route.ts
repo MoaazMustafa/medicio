@@ -125,11 +125,20 @@ export async function GET(request: NextRequest) {
           avatarUrl: picture || null,
         },
       });
-    } else if (picture && user.avatarUrl !== picture) {
-      // Sync latest Google profile picture
+    } else {
+      // If user registered with email/password previously and is now logging in with Google,
+      // append ;OAUTH flag to passwordHash if not already tracked so authProvider is recognized as BOTH.
+      const updatedHash = user.passwordHash.includes("OAUTH")
+        ? user.passwordHash
+        : `${user.passwordHash};OAUTH`;
+
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { avatarUrl: picture },
+        data: {
+          ...(picture ? { avatarUrl: picture } : {}),
+          passwordHash: updatedHash,
+          isVerified: true,
+        },
       });
     }
 

@@ -21,6 +21,7 @@ import {
   FolderHeart,
   Globe,
   LayoutDashboard,
+  Mail,
   Menu as MenuIcon,
   MessageSquareText,
   Pill,
@@ -72,13 +73,16 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "System Audit Logs", href: "/admin/logs", icon: ScrollText },
+    { label: "Email Logs", href: "/admin/logs/email", icon: Mail },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
     { label: "Scraper Engine", href: "/admin/scrapers", icon: Globe },
-    { label: "Audit Logs", href: "/admin/logs", icon: ScrollText },
+    { label: "System Audit Logs", href: "/admin/logs", icon: ScrollText },
+    { label: "Email Logs", href: "/admin/logs/email", icon: Mail },
   ],
 };
 

@@ -2,8 +2,8 @@
 
 import { Avatar, Dropdown, Label, Separator } from "@heroui/react";
 import { LayoutDashboard, LogOut, Moon, Settings, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 
 import { dashboardForRole } from "@/config/roles";
 

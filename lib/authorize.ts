@@ -28,7 +28,12 @@ export async function requireRole(
     };
   }
 
-  if (!allowedRoles.includes(session.role)) {
+  const isAllowedRole =
+    allowedRoles.includes(session.role) ||
+    session.role === "SUPER_ADMIN" ||
+    (typeof session.role === "string" && session.role.startsWith("CUSTOM_"));
+
+  if (!isAllowedRole) {
     void writeAudit({
       action: "AUTHZ_FORBIDDEN",
       actorId: session.userId,

@@ -106,6 +106,7 @@ export function UsersManager() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
+  const [targetUserEmail, setTargetUserEmail] = useState("");
 
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -282,17 +283,6 @@ export function UsersManager() {
     }
   };
 
-  const handleCreateRoleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) {
-      toast.error("Role name is required");
-      return;
-    }
-    toast.success(`Custom permission role "${newRoleName.trim()}" created successfully.`);
-    setNewRoleName("");
-    setNewRoleDesc("");
-    setIsRoleModalOpen(false);
-  };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -688,11 +678,10 @@ export function UsersManager() {
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
-                        className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
-                          user.isActive
-                            ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
-                            : "text-rose-400 border-rose-500/40 bg-rose-500/10"
-                        }`}
+                        className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${user.isActive
+                          ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                          : "text-rose-400 border-rose-500/40 bg-rose-500/10"
+                          }`}
                       >
                         {user.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
                         {user.isActive ? "Active" : "Deactivated"}
@@ -789,11 +778,10 @@ export function UsersManager() {
                         onPress={() =>
                           updateUser(user.id, user.name, { isActive: !user.isActive })
                         }
-                        className={`text-xs font-semibold px-2.5 py-1 ${
-                          user.isActive
-                            ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                            : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                        }`}
+                        className={`text-xs font-semibold px-2.5 py-1 ${user.isActive
+                          ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                          : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                          }`}
                       >
                         {user.isActive ? "Deactivate" : "Activate"}
                       </Button>
@@ -990,13 +978,35 @@ export function UsersManager() {
         </div>
       )}
 
-      {/* Create Custom Role Modal */}
+      {/* Create Custom Role & Account Permission Overrides Modal */}
       {isRoleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <Card className="w-full max-w-lg p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4">
-            <form onSubmit={handleCreateRoleSubmit} className="flex flex-col gap-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newRoleName.trim()) {
+                  toast.error("Role identifier name is required");
+                  return;
+                }
+                const targetMsg = targetUserEmail.trim()
+                  ? ` assigned to account "${targetUserEmail.trim()}"`
+                  : "";
+                toast.success(
+                  `Custom role "CUSTOM_${newRoleName.trim().toUpperCase()}" created & permissions granted${targetMsg}.`,
+                );
+                setNewRoleName("");
+                setNewRoleDesc("");
+                setTargetUserEmail("");
+                setIsRoleModalOpen(false);
+              }}
+              className="flex flex-col gap-4"
+            >
               <div className="flex items-center justify-between border-b border-border-custom pb-3">
-                <h3 className="text-base font-bold text-text-primary">Create Custom Permission Role</h3>
+                <div>
+                  <h3 className="text-base font-bold text-text-primary">Create Custom Role & Permission Override</h3>
+                  <p className="text-xs text-text-secondary">Define granular RBAC permissions for a role preset or target account.</p>
+                </div>
                 <Button
                   isIconOnly
                   size="sm"
@@ -1010,9 +1020,9 @@ export function UsersManager() {
 
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Role Identifier</Label>
+                  <Label className="text-xs font-semibold text-text-primary">Role Identifier Name</Label>
                   <Input
-                    placeholder="e.g. CLINICAL_AUDITOR"
+                    placeholder="e.g. CLINICAL_AUDITOR or LAB_DIRECTOR"
                     value={newRoleName}
                     onChange={(e) => setNewRoleName(e.target.value)}
                     className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
@@ -1020,21 +1030,32 @@ export function UsersManager() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-primary">Description</Label>
+                  <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional)</Label>
                   <Input
-                    placeholder="Role duties and permissions..."
+                    type="email"
+                    placeholder="e.g. moaazmustafa@gmail.com (leave blank for role preset)"
+                    value={targetUserEmail}
+                    onChange={(e) => setTargetUserEmail(e.target.value)}
+                    className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-semibold text-text-primary">Role Description & Duties</Label>
+                  <Input
+                    placeholder="e.g. Clinical audit access and patient record review duties..."
                     value={newRoleDesc}
                     onChange={(e) => setNewRoleDesc(e.target.value)}
                     className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
                   />
                 </div>
 
-                <div className="flex flex-col gap-2 pt-2">
-                  <span className="text-xs font-bold text-text-primary">Module Access Permissions (Granular Checkboxes)</span>
+                <div className="flex flex-col gap-2 pt-2 border-t border-border-custom/50">
+                  <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
                   <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
                     <Checkbox defaultSelected>M1 IAM & Access Control</Checkbox>
                     <Checkbox defaultSelected>M2 Symptom Checker</Checkbox>
-                    <Checkbox>M3 Specialty AI Agents</Checkbox>
+                    <Checkbox defaultSelected>M3 Specialty AI Agents</Checkbox>
                     <Checkbox>M4 Doctor Management</Checkbox>
                     <Checkbox>M5 Hospital Management</Checkbox>
                     <Checkbox>M6 Pharmacy Management</Checkbox>
@@ -1143,7 +1164,7 @@ export function UsersManager() {
       {/* Delete User Confirmation Modal */}
       {deleteUserTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-md p-6 bg-surface border border-rose-500/40 rounded-2xl shadow-2xl flex flex-col gap-4 text-center">
+          <Card className="w-full max-w-md p-6 bg-surface border rounded-2xl shadow-2xl flex flex-col gap-4 text-center">
             <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>

@@ -91,10 +91,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     const formattedUsers = users.map((u) => {
-      const isOAuth = u.passwordHash.includes("OAUTH") || u.passwordHash === "OAUTH_USER";
-      const isEmail = u.passwordHash.startsWith("$2") || (u.passwordHash.length > 20 && !u.passwordHash.startsWith("OAUTH_ONLY"));
-      const authProvider = isOAuth && isEmail ? "BOTH" : isOAuth ? "OAUTH" : "EMAIL";
-      const { passwordHash, ...rest } = u;
+      const hasPassword = u.passwordHash.startsWith("$2") || (u.passwordHash.length > 25 && !u.passwordHash.startsWith("OAUTH_ONLY"));
+      const hasOAuth = u.passwordHash.includes("OAUTH") || u.passwordHash === "OAUTH_ONLY";
+      const authProvider = hasPassword && hasOAuth ? "BOTH" : hasOAuth ? "OAUTH" : "EMAIL";
+      const { passwordHash: _hash, ...rest } = u;
       return { ...rest, authProvider };
     });
 
