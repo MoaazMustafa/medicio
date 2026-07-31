@@ -25,6 +25,7 @@ import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
+  Check,
   KeyRound,
   Lock,
   Mail,
@@ -33,6 +34,7 @@ import {
   RotateCcw,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   UserCheck,
   UserPlus,
@@ -91,6 +93,14 @@ interface AdminUser {
   createdAt: string;
 }
 
+interface CustomRoleItem {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  createdAt: string;
+}
+
 interface UsersResponse {
   users: AdminUser[];
   total: number;
@@ -100,6 +110,7 @@ interface UsersResponse {
 
 export function UsersManager() {
   const [data, setData] = useState<UsersResponse | null>(null);
+  const [customRoles, setCustomRoles] = useState<CustomRoleItem[]>([]);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -116,6 +127,11 @@ export function UsersManager() {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
   const [targetUserEmail, setTargetUserEmail] = useState("");
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
+    "M1",
+    "M2",
+    "M3",
+  ]);
 
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -164,9 +180,22 @@ export function UsersManager() {
     }
   }, [page, query, roleFilter, statusFilter, verifiedFilter, sortBy, sortOrder]);
 
+  const loadCustomRoles = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/roles");
+      const payload = await res.json();
+      if (res.ok && payload.customRoles) {
+        setCustomRoles(payload.customRoles);
+      }
+    } catch {
+      // Custom roles fetch fallback
+    }
+  }, []);
+
   useEffect(() => {
     loadUsers();
-  }, [loadUsers]);
+    loadCustomRoles();
+  }, [loadUsers, loadCustomRoles]);
 
   const updateUser = async (
     userId: string,
@@ -269,6 +298,43 @@ export function UsersManager() {
     }
   };
 
+  const handleSaveCustomRoleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName.trim()) {
+      toast.error("Role identifier name is required");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newRoleName.trim(),
+          description: newRoleDesc.trim(),
+          permissions: selectedPermissions,
+          targetUserEmail: targetUserEmail.trim() || undefined,
+        }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to save custom role.");
+      }
+
+      const roleIdentifier = payload.customRole?.name || `CUSTOM_${newRoleName.trim().toUpperCase()}`;
+      toast.success(`Custom Role "${roleIdentifier}" created and permissions saved.`);
+      setNewRoleName("");
+      setNewRoleDesc("");
+      setTargetUserEmail("");
+      setIsRoleModalOpen(false);
+      await loadCustomRoles();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save custom role.");
+    }
+  };
+
   const deleteUser = async (userId: string, userName: string) => {
     setSavingId(userId);
 
@@ -291,7 +357,6 @@ export function UsersManager() {
       setSavingId(null);
     }
   };
-
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -379,6 +444,11 @@ export function UsersManager() {
       </Tooltip>
     );
   };
+
+  const allAvailableRoles = [
+    ...ROLES,
+    ...customRoles.map((c) => c.name),
+  ];
 
   return (
     <Card className="w-full p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg flex flex-col gap-6">
@@ -468,7 +538,7 @@ export function UsersManager() {
               <ListBox.Item id={ALL_ROLES_KEY} textValue="All roles">
                 <Label>All roles</Label>
               </ListBox.Item>
-              {ROLES.map((role) => (
+              {allAvailableRoles.map((role) => (
                 <ListBox.Item key={role} id={role} textValue={role}>
                   <Label>{role.replace(/_/g, " ")}</Label>
                 </ListBox.Item>
@@ -677,7 +747,7 @@ export function UsersManager() {
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          {ROLES.map((role) => (
+                          {allAvailableRoles.map((role) => (
                             <ListBox.Item key={role} id={role} textValue={role}>
                               <Label>{role.replace(/_/g, " ")}</Label>
                             </ListBox.Item>
@@ -691,10 +761,11 @@ export function UsersManager() {
                   <TableCell className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
-                        className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${user.isActive
-                          ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
-                          : "text-rose-400 border-rose-500/40 bg-rose-500/10"
-                          }`}
+                        className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
+                          user.isActive
+                            ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                            : "text-rose-400 border-rose-500/40 bg-rose-500/10"
+                        }`}
                       >
                         {user.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
                         {user.isActive ? "Active" : "Deactivated"}
@@ -791,10 +862,11 @@ export function UsersManager() {
                         onPress={() =>
                           updateUser(user.id, user.name, { isActive: !user.isActive })
                         }
-                        className={`text-xs font-semibold px-2.5 py-1 ${user.isActive
-                          ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                          : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                          }`}
+                        className={`text-xs font-semibold px-2.5 py-1 ${
+                          user.isActive
+                            ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                        }`}
                       >
                         {user.isActive ? "Deactivate" : "Activate"}
                       </Button>
@@ -903,7 +975,7 @@ export function UsersManager() {
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          {ROLES.map((r) => (
+                          {allAvailableRoles.map((r) => (
                             <ListBox.Item key={r} id={r} textValue={r}>
                               <Label>{r.replace(/_/g, " ")}</Label>
                             </ListBox.Item>
@@ -985,35 +1057,64 @@ export function UsersManager() {
         </Modal.Root>
       )}
 
-      {/* Create Custom Role & Account Permission Overrides Modal */}
+      {/* Delete User Confirmation Modal */}
+      {deleteUserTarget && (
+        <Modal.Root isOpen={!!deleteUserTarget} onOpenChange={() => setDeleteUserTarget(null)}>
+          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
+            <Modal.Dialog className="w-full max-w-md h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
+              <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
+                <h3 className="text-base font-bold text-rose-400 flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Confirm User Deletion
+                </h3>
+                <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
+                  <X className="w-4 h-4" />
+                </Modal.CloseTrigger>
+              </Modal.Header>
+
+              <Modal.Body className="flex flex-col gap-3 py-2 text-xs text-text-secondary">
+                <p>
+                  Are you sure you want to permanently delete <strong className="text-text-primary">{deleteUserTarget.name}</strong> ({deleteUserTarget.email})?
+                </p>
+                <p className="text-rose-400 font-semibold">
+                  This action cannot be undone. All linked profile data and appointments will be permanently removed.
+                </p>
+              </Modal.Body>
+
+              <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
+                <Button
+                  variant="outline"
+                  onPress={() => setDeleteUserTarget(null)}
+                  className="text-xs font-semibold px-4"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => deleteUser(deleteUserTarget.id, deleteUserTarget.name)}
+                  className="text-xs font-semibold px-5 bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  Permanently Delete
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Backdrop>
+        </Modal.Root>
+      )}
+
+      {/* Create Custom Role & Granular Permission Overrides Modal (FR-IAM-04) */}
       {isRoleModalOpen && (
         <Modal.Root isOpen={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
           <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
             <Modal.Dialog className="w-full max-w-lg h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!newRoleName.trim()) {
-                    toast.error("Role identifier name is required");
-                    return;
-                  }
-                  const targetMsg = targetUserEmail.trim()
-                    ? ` assigned to account "${targetUserEmail.trim()}"`
-                    : "";
-                  toast.success(
-                    `Custom role "CUSTOM_${newRoleName.trim().toUpperCase()}" created & permissions granted${targetMsg}.`,
-                  );
-                  setNewRoleName("");
-                  setNewRoleDesc("");
-                  setTargetUserEmail("");
-                  setIsRoleModalOpen(false);
-                }}
-                className="flex flex-col gap-4"
-              >
+              <form onSubmit={handleSaveCustomRoleSubmit} className="flex flex-col gap-4">
                 <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
                   <div>
-                    <h3 className="text-base font-bold text-text-primary">Create Custom Role & Permission Override</h3>
-                    <p className="text-xs text-text-secondary">Define granular RBAC permissions for a role preset or target account.</p>
+                    <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-primary" />
+                      Create Custom Role & Permission Matrix
+                    </h3>
+                    <p className="text-xs text-text-secondary">Define granular RBAC module permissions stored in PostgreSQL (FR-IAM-04).</p>
                   </div>
                   <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
                     <X className="w-4 h-4" />
@@ -1032,10 +1133,10 @@ export function UsersManager() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional)</Label>
+                    <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional Override)</Label>
                     <Input
                       type="email"
-                      placeholder="e.g. moaazmustafa@gmail.com (leave blank for role preset)"
+                      placeholder="e.g. user@medicio.com (leave blank for role preset)"
                       value={targetUserEmail}
                       onChange={(e) => setTargetUserEmail(e.target.value)}
                       className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
@@ -1052,31 +1153,60 @@ export function UsersManager() {
                     />
                   </div>
 
-                  {/* HeroUI Visual Checkbox Grid */}
+                  {/* Granular Module Access Checkboxes Grid */}
                   <div className="flex flex-col gap-2 pt-2 border-t border-border-custom/50">
-                    <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
-                    <div className="grid grid-cols-2 gap-3 text-xs text-text-secondary">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
+                      <span className="text-[10px] text-primary font-mono font-semibold">
+                        {selectedPermissions.length} / 12 selected
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
                       {[
-                        { id: "M1", label: "M1 IAM & Access Control", default: true },
-                        { id: "M2", label: "M2 Symptom Checker", default: true },
-                        { id: "M3", label: "M3 Specialty AI Agents", default: true },
-                        { id: "M4", label: "M4 Doctor Management", default: false },
-                        { id: "M5", label: "M5 Hospital Management", default: false },
-                        { id: "M6", label: "M6 Pharmacy Management", default: false },
-                        { id: "M7", label: "M7 Lab Management", default: false },
-                        { id: "M8", label: "M8 Appointment Booking", default: false },
-                        { id: "M9", label: "M9 Medicine Tracker", default: false },
-                        { id: "M10", label: "M10 Patient Health Records", default: false },
-                        { id: "M11", label: "M11 Scraper Engine", default: false },
-                        { id: "M12", label: "M12 Audit Logs & Analytics", default: false },
-                      ].map((mod) => (
-                        <Checkbox key={mod.id} defaultSelected={mod.default} value={mod.id} className="flex items-center gap-2">
-                          <Checkbox.Control />
-                          <span className="text-xs font-medium text-text-primary select-none cursor-pointer">
-                            {mod.label}
-                          </span>
-                        </Checkbox>
-                      ))}
+                        { id: "M1", label: "M1 IAM & Access Control" },
+                        { id: "M2", label: "M2 Symptom Checker" },
+                        { id: "M3", label: "M3 Specialty AI Agents" },
+                        { id: "M4", label: "M4 Doctor Management" },
+                        { id: "M5", label: "M5 Hospital Management" },
+                        { id: "M6", label: "M6 Pharmacy Management" },
+                        { id: "M7", label: "M7 Lab Management" },
+                        { id: "M8", label: "M8 Appointment Booking" },
+                        { id: "M9", label: "M9 Medicine Tracker" },
+                        { id: "M10", label: "M10 Patient Health Records" },
+                        { id: "M11", label: "M11 Scraper Engine" },
+                        { id: "M12", label: "M12 Audit Logs & Analytics" },
+                      ].map((mod) => {
+                        const isChecked = selectedPermissions.includes(mod.id);
+                        return (
+                          <button
+                            key={mod.id}
+                            type="button"
+                            onClick={() => {
+                              if (isChecked) {
+                                setSelectedPermissions((prev) => prev.filter((id) => id !== mod.id));
+                              } else {
+                                setSelectedPermissions((prev) => [...prev, mod.id]);
+                              }
+                            }}
+                            className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer select-none ${
+                              isChecked
+                                ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs"
+                                : "bg-background-custom/40 border-border-custom/60 text-text-secondary hover:text-text-primary hover:bg-surface/50"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                                isChecked
+                                  ? "bg-primary border-primary text-white"
+                                  : "border-border-custom bg-surface"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span className="truncate">{mod.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </Modal.Body>
@@ -1135,7 +1265,7 @@ export function UsersManager() {
                     </Select.Trigger>
                     <Select.Popover>
                       <ListBox>
-                        {ROLES.map((r) => (
+                        {allAvailableRoles.map((r) => (
                           <ListBox.Item key={r} id={r} textValue={r}>
                             <Label>{r.replace(/_/g, " ")}</Label>
                           </ListBox.Item>
@@ -1157,51 +1287,15 @@ export function UsersManager() {
                 <Button
                   variant="primary"
                   onPress={async () => {
-                    await updateUser(editUserTarget.id, editUserName, { role: editUserRole, name: editUserName });
+                    await updateUser(editUserTarget.id, editUserName, {
+                      name: editUserName,
+                      role: editUserRole,
+                    });
                     setEditUserTarget(null);
                   }}
                   className="text-xs font-semibold px-5"
                 >
                   Save Changes
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Backdrop>
-        </Modal.Root>
-      )}
-
-      {/* Delete User Confirmation Modal */}
-      {deleteUserTarget && (
-        <Modal.Root isOpen={!!deleteUserTarget} onOpenChange={() => setDeleteUserTarget(null)}>
-          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
-            <Modal.Dialog className="w-full max-w-md h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-rose-500/40 rounded-2xl shadow-2xl text-center flex flex-col gap-4 outline-none pointer-events-auto">
-              <Modal.Body className="flex flex-col gap-4 text-center py-2">
-                <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
-                  <Trash2 className="w-6 h-6" />
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-text-primary">Delete User Account?</h3>
-                  <p className="text-xs text-text-secondary mt-1">
-                    Are you sure you want to permanently delete <strong className="text-text-primary">{deleteUserTarget.name}</strong> ({deleteUserTarget.email})? This action cannot be undone.
-                  </p>
-                </div>
-              </Modal.Body>
-
-              <Modal.Footer className="flex items-center justify-center gap-3 pt-2 border-t border-border-custom">
-                <Button
-                  variant="outline"
-                  onPress={() => setDeleteUserTarget(null)}
-                  className="text-xs font-semibold px-4"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={() => deleteUser(deleteUserTarget.id, deleteUserTarget.name)}
-                  className="text-xs font-semibold px-5 bg-rose-600 hover:bg-rose-700 text-white"
-                >
-                  Confirm Delete
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

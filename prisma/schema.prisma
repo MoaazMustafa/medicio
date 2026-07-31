@@ -223,3 +223,14 @@ model AuditLog {
   @@index([action, createdAt])
   @@map("audit_logs")
 }
+
+model CustomRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions String   // JSON array string of granted module IDs e.g. ["M1", "M2", "M12"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("custom_roles")
+}
