@@ -11,14 +11,16 @@ import {
   Modal,
   Select,
   Skeleton,
+  Tooltip,
+} from "@heroui/react";
+import {
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
-  Tooltip,
-} from "@heroui/react";
+} from "@/components/ui/table";
 import {
   ArrowDown,
   ArrowDownUp,

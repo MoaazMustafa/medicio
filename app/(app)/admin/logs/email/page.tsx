@@ -9,13 +9,15 @@ import {
   ListBox,
   Select,
   Skeleton,
+} from "@heroui/react";
+import {
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
-} from "@heroui/react";
+} from "@/components/ui/table";
 import {
   AlertCircle,
   CheckCircle2,

@@ -11,13 +11,15 @@ import {
   Modal,
   Select,
   Skeleton,
+} from "@heroui/react";
+import {
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
-} from "@heroui/react";
+} from "@/components/ui/table";
 import {
   Activity,
   AlertCircle,
