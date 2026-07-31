@@ -20,8 +20,12 @@ const ROUTE_TITLES: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Public directory crawlers & record deduplication",
   },
   "/admin/logs": {
-    title: "Audit Logs & Telemetry Hub",
-    subtitle: "System audit logs, security trails & email dispatches",
+    title: "System Audit Logs",
+    subtitle: "System security audit trails, RBAC mutations & client telemetry",
+  },
+  "/admin/logs/email": {
+    title: "Email Dispatch Logs",
+    subtitle: "Transactional email delivery history, SMTP headers & dispatch status",
   },
   "/doctor/dashboard": {
     title: "Doctor Console",

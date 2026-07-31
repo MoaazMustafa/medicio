@@ -3,6 +3,7 @@
 import {
   Button,
   Card,
+  Chip,
   Input,
   Label,
   ListBox,
@@ -14,12 +15,14 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileSpreadsheet,
   Mail,
   RefreshCw,
   Send,
   ShieldCheck,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 interface EmailLogItem {
@@ -33,6 +36,7 @@ interface EmailLogItem {
 }
 
 export default function AdminEmailLogsPage() {
+  const router = useRouter();
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>([]);
   const [emailMetrics, setEmailMetrics] = useState<{
     totalEmails: number;
@@ -90,6 +94,38 @@ export default function AdminEmailLogsPage() {
 
   return (
     <section className="w-full flex flex-col min-h-[calc(100vh-4rem)] p-4 md:p-8 max-w-[1600px] mx-auto gap-6">
+      {/* Header & Subtabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-custom pb-4">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
+            <span>Email Dispatch Telemetry Logs</span>
+            <Chip variant="soft" color="accent" className="text-xs font-mono">
+              Transactional SMTP
+            </Chip>
+          </h2>
+          <p className="text-xs text-text-secondary mt-1">
+            Real-time delivery confirmation, bounce tracking & header inspection for outbound emails.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-surface/80 border border-border-custom p-1 rounded-xl">
+          <button
+            onClick={() => router.push("/admin/logs")}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all text-text-secondary hover:text-text-primary"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>System Audit Logs</span>
+          </button>
+          <button
+            onClick={() => router.push("/admin/logs/email")}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-primary text-white shadow-xs"
+          >
+            <Mail className="w-4 h-4" />
+            <span>Email Dispatch Logs</span>
+          </button>
+        </div>
+      </div>
+
       {/* Top Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-5 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-3 shadow-sm">

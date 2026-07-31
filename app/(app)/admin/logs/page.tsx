@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { downloadData } from "@/lib/export-helper";
@@ -122,6 +123,7 @@ const MOCK_EMAIL_LOGS: EmailLogItem[] = [
 ];
 
 export default function AdminLogsPage() {
+  const router = useRouter();
   const [activeSubtab, setActiveSubtab] = useState<"system" | "email">("system");
 
   // System & Email Logs state from real PostgreSQL API
@@ -248,7 +250,10 @@ export default function AdminLogsPage() {
         {/* HeroUI Subtab Controls */}
         <div className="flex items-center gap-2 bg-surface/80 border border-border-custom p-1 rounded-xl">
           <button
-            onClick={() => setActiveSubtab("system")}
+            onClick={() => {
+              setActiveSubtab("system");
+              router.push("/admin/logs");
+            }}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
               activeSubtab === "system"
                 ? "bg-primary text-white shadow-xs"
@@ -256,10 +261,12 @@ export default function AdminLogsPage() {
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>System Logs</span>
+            <span>System Audit Logs</span>
           </button>
           <button
-            onClick={() => setActiveSubtab("email")}
+            onClick={() => {
+              router.push("/admin/logs/email");
+            }}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
               activeSubtab === "email"
                 ? "bg-primary text-white shadow-xs"
@@ -267,7 +274,7 @@ export default function AdminLogsPage() {
             }`}
           >
             <Mail className="w-4 h-4" />
-            <span>Email Logs</span>
+            <span>Email Dispatch Logs</span>
           </button>
         </div>
       </div>

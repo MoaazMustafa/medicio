@@ -61,7 +61,7 @@ export const config = {
     "/verify-email",
     "/chatbot/:path*",
     "/settings/:path*",
-    "/admin/dashboard/:path*",
+    "/admin/:path*",
     "/doctor/dashboard/:path*",
     "/pharmacy/dashboard/:path*",
     "/lab/dashboard/:path*",

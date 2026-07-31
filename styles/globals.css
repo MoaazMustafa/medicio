@@ -188,13 +188,13 @@ body {
 
 /* change scrollbar color to primary and hide its background */
 ::-webkit-scrollbar {
-  width: 10;
+  width: 7;
   background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--primary);
-  border-radius: 2px;
+  border-radius: 20px;
 }
 
 ::-webkit-scrollbar-track {

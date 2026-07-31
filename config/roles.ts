@@ -30,17 +30,17 @@ export const GUEST_ROUTES = [
   "/verify-email",
 ] as const;
 
-/** Route prefixes gated by role. */
+/** Route prefixes gated by role. Super Admin and Admin can access all portals. */
 export const PROTECTED_ROUTES: ReadonlyArray<{
   prefix: string;
   allowedRoles: readonly string[];
 }> = [
   { prefix: "/chatbot", allowedRoles: ["PATIENT", "ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/admin/dashboard", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/doctor/dashboard", allowedRoles: ["DOCTOR"] },
-  { prefix: "/pharmacy/dashboard", allowedRoles: ["PHARMACY_ADMIN"] },
-  { prefix: "/lab/dashboard", allowedRoles: ["LAB_ADMIN"] },
-  { prefix: "/hospital/dashboard", allowedRoles: ["HOSPITAL_ADMIN"] },
+  { prefix: "/admin", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/doctor/dashboard", allowedRoles: ["DOCTOR", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/pharmacy/dashboard", allowedRoles: ["PHARMACY_ADMIN", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/lab/dashboard", allowedRoles: ["LAB_ADMIN", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/hospital/dashboard", allowedRoles: ["HOSPITAL_ADMIN", "ADMIN", "SUPER_ADMIN"] },
   {
     prefix: "/settings",
     allowedRoles: [
