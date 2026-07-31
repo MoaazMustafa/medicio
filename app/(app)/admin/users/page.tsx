@@ -2,7 +2,7 @@ import { UsersManager } from "@/components/admin/users-manager";
 
 export const metadata = {
   title: "User Management",
-  description: "Manage platform account credentials, RBAC roles, avatars & custom roles.",
+  description: "Manage platform accounts, RBAC roles, avatars, and status governance.",
 };
 
 export default function AdminUsersPage() {

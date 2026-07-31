@@ -107,7 +107,7 @@ The platform serves three broad classes of user, further divided into eight role
 
 | **Role** | **Class** | **Description** |
 | --- | --- | --- |
-| Super Admin | Administrative | Full system access; the only role with access to scraper configuration, raw scraped data, and system logs; can define custom roles. |
+| Super Admin | Administrative | Full system access; the only role with access to scraper configuration, raw scraped data, system audit logs, and role management. |
 | Admin/Manager | Administrative | Day-to-day operational administration (support, content oversight, verification approvals) without system-level, scraper, or log access. |
 | Doctor | Healthcare Professional | Manages own profile, availability, and appointments; trains a personal AI agent; may be independent or hospital-affiliated. |
 | Hospital Admin | Healthcare Professional | Manages a hospital's profile and its affiliated doctors, labs, and pharmacies. |

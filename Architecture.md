@@ -122,7 +122,7 @@ medicio/
 │  │  │  └─ webhooks/          # POS sync callbacks
 │  │  └─ layout.tsx
 │  ├─ modules/                 # one folder per SRS module, owns its Prisma models
-│  │  ├─ iam/                  # M1 — session, role resolution, custom roles
+│  │  ├─ iam/                  # M1 — session, role resolution, RBAC rules
 │  │  ├─ symptom-checker/      # M2
 │  │  ├─ specialty-agents/     # M3
 │  │  ├─ doctors/              # M4
