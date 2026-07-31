@@ -11,6 +11,12 @@ import {
   Modal,
   Select,
   Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
   Tooltip,
 } from "@heroui/react";
 import {
@@ -528,12 +534,12 @@ export function UsersManager() {
         </Select>
       </form>
 
-      {/* Table Container - Edge-to-Edge full width */}
+      {/* HeroUI Table Container - Edge-to-Edge full width */}
       <div className="w-full overflow-x-auto border border-border-custom rounded-lg bg-surface/30">
-        <table className="w-full text-left text-xs min-w-[800px]">
-          <thead className="bg-background-custom/60 text-text-secondary uppercase font-mono text-[10px] tracking-wider border-b border-border-custom">
-            <tr>
-              <th
+        <Table className="w-full text-left text-xs min-w-[800px]">
+          <TableHeader className="bg-background-custom/60 text-text-secondary uppercase font-mono text-[10px] tracking-wider border-b border-border-custom">
+            <TableRow>
+              <TableColumn
                 onClick={() => handleSortToggle("name")}
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
               >
@@ -541,9 +547,9 @@ export function UsersManager() {
                   <span>User & Avatar</span>
                   {renderSortIndicator("name")}
                 </div>
-              </th>
-              <th className="px-4 py-3.5 select-none">Auth Method</th>
-              <th
+              </TableColumn>
+              <TableColumn className="px-4 py-3.5 select-none">Auth Method</TableColumn>
+              <TableColumn
                 onClick={() => handleSortToggle("role")}
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
               >
@@ -551,8 +557,8 @@ export function UsersManager() {
                   <span>Assigned Role</span>
                   {renderSortIndicator("role")}
                 </div>
-              </th>
-              <th
+              </TableColumn>
+              <TableColumn
                 onClick={() => handleSortToggle("isActive")}
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
               >
@@ -560,8 +566,8 @@ export function UsersManager() {
                   <span>Status & Verif</span>
                   {renderSortIndicator("isActive")}
                 </div>
-              </th>
-              <th
+              </TableColumn>
+              <TableColumn
                 onClick={() => handleSortToggle("createdAt")}
                 className="px-4 py-3.5 cursor-pointer hover:text-text-primary transition-colors group select-none"
               >
@@ -569,17 +575,17 @@ export function UsersManager() {
                   <span>Joined Date</span>
                   {renderSortIndicator("createdAt")}
                 </div>
-              </th>
-              <th className="px-4 py-3.5 text-right select-none">Actions</th>
-            </tr>
-          </thead>
+              </TableColumn>
+              <TableColumn className="px-4 py-3.5 text-right select-none">Actions</TableColumn>
+            </TableRow>
+          </TableHeader>
 
-          <tbody className="divide-y divide-border-custom/50">
+          <TableBody className="divide-y divide-border-custom/50">
             {/* Standardized HeroUI Skeleton Loading Rows */}
             {loading ? (
               Array.from({ length: 5 }).map((_, index) => (
-                <tr key={index}>
-                  <td className="px-4 py-4">
+                <TableRow key={index}>
+                  <TableCell className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <Skeleton className="w-9 h-9 rounded-full shrink-0" />
                       <div className="flex flex-col gap-1.5 w-40">
@@ -587,32 +593,32 @@ export function UsersManager() {
                         <Skeleton className="h-2.5 w-24 rounded" />
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-4">
+                  </TableCell>
+                  <TableCell className="px-4 py-4">
                     <Skeleton className="w-8 h-8 rounded-lg" />
-                  </td>
-                  <td className="px-4 py-4">
+                  </TableCell>
+                  <TableCell className="px-4 py-4">
                     <Skeleton className="h-8 w-44 rounded-lg" />
-                  </td>
-                  <td className="px-4 py-4">
+                  </TableCell>
+                  <TableCell className="px-4 py-4">
                     <Skeleton className="h-5 w-24 rounded-full" />
-                  </td>
-                  <td className="px-4 py-4">
+                  </TableCell>
+                  <TableCell className="px-4 py-4">
                     <Skeleton className="h-3 w-20 rounded" />
-                  </td>
-                  <td className="px-4 py-4 text-right">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <Skeleton className="h-8 w-8 rounded-lg" />
                       <Skeleton className="h-8 w-8 rounded-lg" />
                       <Skeleton className="h-8 w-8 rounded-lg" />
                       <Skeleton className="h-8 w-20 rounded-lg" />
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             ) : !data || data.users.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-text-secondary">
+              <TableRow>
+                <TableCell colSpan={6} className="px-4 py-12 text-center text-text-secondary">
                   <div className="flex flex-col items-center gap-2 max-w-sm mx-auto">
                     <ShieldAlert className="w-8 h-8 text-text-secondary/50" />
                     <span className="font-semibold text-text-primary">No matching users found</span>
@@ -620,16 +626,16 @@ export function UsersManager() {
                       Try resetting search keywords or adjusting your role/status dropdown filters.
                     </span>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               data.users.map((user) => (
-                <tr
+                <TableRow
                   key={user.id}
                   className="text-text-primary hover:bg-surface/50 transition-colors"
                 >
                   {/* User & Avatar */}
-                  <td className="px-4 py-3.5">
+                  <TableCell className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-primary/10 border border-border-custom flex items-center justify-center font-bold text-xs text-primary shrink-0 overflow-hidden">
                         {user.avatarUrl ? (
@@ -643,15 +649,15 @@ export function UsersManager() {
                         <span className="text-xs text-text-secondary font-mono">{user.email}</span>
                       </div>
                     </div>
-                  </td>
+                  </TableCell>
 
                   {/* Auth Provider */}
-                  <td className="px-4 py-3.5">
+                  <TableCell className="px-4 py-3.5">
                     {renderAuthProviderIcon(user.authProvider)}
-                  </td>
+                  </TableCell>
 
                   {/* Role dropdown */}
-                  <td className="px-4 py-3.5">
+                  <TableCell className="px-4 py-3.5">
                     <Select
                       aria-label={`Role for ${user.email}`}
                       className="w-48"
@@ -677,10 +683,10 @@ export function UsersManager() {
                         </ListBox>
                       </Select.Popover>
                     </Select>
-                  </td>
+                  </TableCell>
 
                   {/* Status badges */}
-                  <td className="px-4 py-3.5">
+                  <TableCell className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${user.isActive
@@ -698,19 +704,19 @@ export function UsersManager() {
                         </span>
                       )}
                     </div>
-                  </td>
+                  </TableCell>
 
                   {/* Joined Date */}
-                  <td className="px-4 py-3.5 text-text-secondary font-mono text-xs">
+                  <TableCell className="px-4 py-3.5 text-text-secondary font-mono text-xs">
                     {new Date(user.createdAt).toLocaleDateString(undefined, {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
                     })}
-                  </td>
+                  </TableCell>
 
                   {/* Action controls */}
-                  <td className="px-4 py-3.5 text-right">
+                  <TableCell className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       {/* Change Password Modal Trigger */}
                       <Tooltip delay={100}>
@@ -791,12 +797,12 @@ export function UsersManager() {
                         {user.isActive ? "Deactivate" : "Activate"}
                       </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination */}

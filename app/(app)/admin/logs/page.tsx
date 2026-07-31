@@ -11,6 +11,12 @@ import {
   Modal,
   Select,
   Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
 } from "@heroui/react";
 import {
   Activity,
@@ -439,59 +445,59 @@ export default function AdminLogsPage() {
               </div>
             </div>
 
-            {/* Table */}
+            {/* HeroUI Table */}
             <div className="w-full overflow-x-auto border border-border-custom rounded-lg bg-surface/30">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-background-custom/60 text-text-secondary uppercase font-mono text-[10px] tracking-wider border-b border-border-custom">
-                  <tr>
-                    <th className="px-4 py-3.5">Action Code</th>
-                    <th className="px-4 py-3.5">Acting User / Role</th>
-                    <th className="px-4 py-3.5">Target Entity</th>
-                    <th className="px-4 py-3.5">Client IP</th>
-                    <th className="px-4 py-3.5 text-right">Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-custom/50">
+              <Table className="w-full text-left text-xs">
+                <TableHeader className="bg-background-custom/60 text-text-secondary uppercase font-mono text-[10px] tracking-wider border-b border-border-custom">
+                  <TableRow>
+                    <TableColumn className="px-4 py-3.5">Action Code</TableColumn>
+                    <TableColumn className="px-4 py-3.5">Acting User / Role</TableColumn>
+                    <TableColumn className="px-4 py-3.5">Target Entity</TableColumn>
+                    <TableColumn className="px-4 py-3.5">Client IP</TableColumn>
+                    <TableColumn className="px-4 py-3.5 text-right">Timestamp</TableColumn>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border-custom/50">
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}>
-                        <td className="px-4 py-4"><Skeleton className="h-4 w-48 rounded" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-4 w-40 rounded" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-4 w-28 rounded" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-4 w-28 rounded" /></td>
-                        <td className="px-4 py-4 text-right"><Skeleton className="h-4 w-28 rounded ml-auto" /></td>
-                      </tr>
+                      <TableRow key={i}>
+                        <TableCell className="px-4 py-4"><Skeleton className="h-4 w-48 rounded" /></TableCell>
+                        <TableCell className="px-4 py-4"><Skeleton className="h-4 w-40 rounded" /></TableCell>
+                        <TableCell className="px-4 py-4"><Skeleton className="h-4 w-28 rounded" /></TableCell>
+                        <TableCell className="px-4 py-4"><Skeleton className="h-4 w-28 rounded" /></TableCell>
+                        <TableCell className="px-4 py-4 text-right"><Skeleton className="h-4 w-28 rounded ml-auto" /></TableCell>
+                      </TableRow>
                     ))
                   ) : paginatedSystemLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-text-secondary">
+                    <TableRow>
+                      <TableCell colSpan={5} className="px-4 py-8 text-center text-text-secondary">
                         No system audit logs match your search filters.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     paginatedSystemLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-surface/50 transition-colors text-text-primary">
-                        <td className="px-4 py-3.5 font-mono font-bold text-emerald-400">
+                      <TableRow key={log.id} className="hover:bg-surface/50 transition-colors text-text-primary">
+                        <TableCell className="px-4 py-3.5 font-mono font-bold text-emerald-400">
                           {log.action}
-                        </td>
-                        <td className="px-4 py-3.5">
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
                           <div className="flex flex-col">
                             <span className="font-semibold text-text-primary">{log.actorEmail}</span>
                             <span className="text-[10px] text-text-secondary font-mono">{log.actorRole}</span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3.5">
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
                           <Chip variant="soft" className="text-[10px] font-mono">
                             {log.entityType}
                           </Chip>
-                        </td>
-                        <td className="px-4 py-3.5 text-text-secondary font-mono text-xs">{log.clientIp}</td>
-                        <td className="px-4 py-3.5 text-right text-text-secondary font-mono text-xs">{log.timestamp}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-text-secondary font-mono text-xs">{log.clientIp}</TableCell>
+                        <TableCell className="px-4 py-3.5 text-right text-text-secondary font-mono text-xs">{log.timestamp}</TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             {/* System Logs Pagination Bar */}
