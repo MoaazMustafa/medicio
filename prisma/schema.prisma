@@ -42,17 +42,23 @@ model User {
 }
 
 model Doctor {
-  id            String      @id @default(cuid())
-  userId        String      @unique
-  specialty     String
-  education     String
-  experience    Int
-  licenseNumber String
-  isVerified    Boolean     @default(false)
-  availability  String?     // JSON representation of working slots
-  hospitalId    String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id                     String      @id @default(cuid())
+  userId                 String      @unique
+  specialty              String
+  education              String
+  experience             Int
+  licenseNumber          String
+  isVerified             Boolean     @default(false)
+  availability           String?     // JSON representation of working slots
+  bio                    String?
+  clinicAddress          String?
+  consultationFee        Float?
+  affiliationStatus      String?     @default("INDEPENDENT") // INDEPENDENT, PENDING_DOCTOR_ACCEPT, PENDING_HOSPITAL_ACCEPT, AFFILIATED
+  affiliationRequestedBy String?     // DOCTOR or HOSPITAL
+  aiTrainingData         String?     // JSON representation of AI training answers
+  hospitalId             String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   hospital     Hospital?    @relation(fields: [hospitalId], references: [id], onDelete: SetNull)

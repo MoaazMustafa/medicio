@@ -126,21 +126,56 @@ export default function RegisterPage() {
               />
             </div>
 
-            <RadioGroup
-              value={role}
-              onChange={setRole}
-              className="mt-2 flex flex-col gap-1.5"
-            >
+            <div className="mt-2 flex flex-col gap-2">
               <label className="text-xs font-semibold text-text-secondary">Account Role Type</label>
-              <div className="grid grid-cols-2 gap-3 mt-1 text-sm">
-                <Radio value="PATIENT" className="text-xs text-text-primary">
-                  Patient Seeker
-                </Radio>
-                <Radio value="DOCTOR" className="text-xs text-text-primary">
-                  Medical Practitioner
-                </Radio>
+              <div className="grid grid-cols-2 gap-3 text-xs font-medium">
+                <div
+                  onClick={() => setRole("PATIENT")}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 select-none ${
+                    role === "PATIENT"
+                      ? "border-primary bg-primary/10 text-text-primary ring-1 ring-primary"
+                      : "border-border-custom bg-background-custom/30 text-text-secondary hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-text-primary">Patient Seeker</span>
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        role === "PATIENT"
+                          ? "border-primary bg-primary text-white"
+                          : "border-border-custom"
+                      }`}
+                    >
+                      {role === "PATIENT" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-text-secondary">Access symptom check & appointments</span>
+                </div>
+
+                <div
+                  onClick={() => setRole("DOCTOR")}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 select-none ${
+                    role === "DOCTOR"
+                      ? "border-primary bg-primary/10 text-text-primary ring-1 ring-primary"
+                      : "border-border-custom bg-background-custom/30 text-text-secondary hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-text-primary">Medical Practitioner</span>
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        role === "DOCTOR"
+                          ? "border-primary bg-primary text-white"
+                          : "border-border-custom"
+                      }`}
+                    >
+                      {role === "DOCTOR" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-text-secondary">Register clinic, timetable & AI agent</span>
+                </div>
               </div>
-            </RadioGroup>
+            </div>
           </CardContent>
 
           <Button
