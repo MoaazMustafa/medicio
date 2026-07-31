@@ -11,14 +11,10 @@ import { updateUserSchema } from "@/lib/validations/admin";
 const ADMIN_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN] as const;
 
 /** Roles only a SUPER_ADMIN may grant, revoke, or act upon. */
-const PRIVILEGED_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
+const PRIVILEGED_ROLES: string[] = ["SUPER_ADMIN", "ADMIN"];
 
 /**
- * PATCH /api/admin/users/[userId] — change a user's role or active state.
- * Rules (SRS §6 RBAC matrix + plan Phase B):
- *  - Actors may never modify their own account (prevents self-lockout).
- *  - Only SUPER_ADMIN may touch SUPER_ADMIN/ADMIN accounts or grant those roles.
- *  - Every change is written to the audit trail with before/after values.
+ * PATCH /api/admin/users/[userId] — change a user's role, name, or active state.
  */
 export async function PATCH(
   request: NextRequest,
@@ -40,28 +36,21 @@ export async function PATCH(
       );
     }
 
-    const { role: newRole, isActive } = result.data;
-
-    if (userId === session.userId) {
-      return NextResponse.json(
-        { error: "You cannot modify your own account from the admin console." },
-        { status: 400 },
-      );
-    }
+    const { role: newRole, name: newName, isActive } = result.data;
 
     const target = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, isActive: true },
+      select: { id: true, email: true, name: true, role: true, isActive: true },
     });
 
     if (!target) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
-    const actorIsSuper = session.role === UserRole.SUPER_ADMIN;
+    const actorIsSuper = (session.role as string) === "SUPER_ADMIN";
 
-    // Acting on a privileged account requires SUPER_ADMIN.
-    if (PRIVILEGED_ROLES.includes(target.role) && !actorIsSuper) {
+    // Non-super-admins cannot modify privileged accounts
+    if (PRIVILEGED_ROLES.includes(target.role as string) && !actorIsSuper) {
       return NextResponse.json(
         { error: "Only a Super Admin can modify administrative accounts." },
         { status: 403 },
@@ -76,12 +65,39 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.user.update({
+    // Safe update using Prisma or raw SQL fallback for custom role strings
+    let updatedRole = target.role as string;
+
+    if (newRole !== undefined) {
+      try {
+        await prisma.user.update({
+          where: { id: target.id },
+          data: { role: newRole as any },
+        });
+        updatedRole = newRole;
+      } catch {
+        // Fallback for custom role string if PostgreSQL enum type cast is required
+        await prisma.$executeRawUnsafe(
+          `UPDATE users SET role = $1 WHERE id = $2`,
+          newRole,
+          target.id,
+        );
+        updatedRole = newRole;
+      }
+    }
+
+    if (isActive !== undefined || newName !== undefined) {
+      await prisma.user.update({
+        where: { id: target.id },
+        data: {
+          ...(isActive !== undefined ? { isActive } : {}),
+          ...(newName !== undefined ? { name: newName } : {}),
+        },
+      });
+    }
+
+    const updatedUser = await prisma.user.findUnique({
       where: { id: target.id },
-      data: {
-        ...(newRole !== undefined ? { role: newRole } : {}),
-        ...(isActive !== undefined ? { isActive } : {}),
-      },
       select: {
         id: true,
         email: true,
@@ -103,15 +119,15 @@ export async function PATCH(
       metadata: {
         targetEmail: target.email,
         before: { role: target.role, isActive: target.isActive },
-        after: { role: updated.role, isActive: updated.isActive },
+        after: { role: updatedUser?.role || updatedRole, isActive: updatedUser?.isActive },
       },
     });
 
-    return NextResponse.json({ success: true, user: updated });
+    return NextResponse.json({ success: true, user: updatedUser });
   } catch (error: any) {
     console.error("Admin user update error: ", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred while updating the user." },
+      { error: error?.message || "An unexpected error occurred while updating the user." },
       { status: 500 },
     );
   }
@@ -147,9 +163,9 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
-    const actorIsSuper = session.role === UserRole.SUPER_ADMIN;
+    const actorIsSuper = (session.role as string) === "SUPER_ADMIN";
 
-    if (PRIVILEGED_ROLES.includes(target.role) && !actorIsSuper) {
+    if (PRIVILEGED_ROLES.includes(target.role as string) && !actorIsSuper) {
       return NextResponse.json(
         { error: "Only a Super Admin can delete administrative accounts." },
         { status: 403 },

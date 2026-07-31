@@ -3,7 +3,6 @@
 import {
   Button,
   Card,
-  Checkbox,
   Chip,
   Input,
   Label,
@@ -25,16 +24,13 @@ import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
-  Check,
   KeyRound,
   Lock,
   Mail,
   Pencil,
-  Plus,
   RotateCcw,
   Search,
   ShieldAlert,
-  ShieldCheck,
   Trash2,
   UserCheck,
   UserPlus,
@@ -68,13 +64,13 @@ function GoogleLogoIcon({ className = "w-4 h-4" }: { className?: string }) {
 }
 
 const ROLES = [
-  "PATIENT",
-  "DOCTOR",
-  "HOSPITAL_ADMIN",
-  "LAB_ADMIN",
-  "PHARMACY_ADMIN",
-  "ADMIN",
-  "SUPER_ADMIN",
+  { key: "PATIENT", label: "Patient (User)" },
+  { key: "DOCTOR", label: "Doctor" },
+  { key: "HOSPITAL_ADMIN", label: "Hospital Admin" },
+  { key: "LAB_ADMIN", label: "Lab Admin" },
+  { key: "PHARMACY_ADMIN", label: "Pharmacy Admin" },
+  { key: "ADMIN", label: "Admin" },
+  { key: "SUPER_ADMIN", label: "Super Admin" },
 ] as const;
 
 const ALL_ROLES_KEY = "ALL";
@@ -93,14 +89,6 @@ interface AdminUser {
   createdAt: string;
 }
 
-interface CustomRoleItem {
-  id: string;
-  name: string;
-  description?: string;
-  permissions: string[];
-  createdAt: string;
-}
-
 interface UsersResponse {
   users: AdminUser[];
   total: number;
@@ -110,7 +98,6 @@ interface UsersResponse {
 
 export function UsersManager() {
   const [data, setData] = useState<UsersResponse | null>(null);
-  const [customRoles, setCustomRoles] = useState<CustomRoleItem[]>([]);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -123,16 +110,6 @@ export function UsersManager() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // Modal States
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleDesc, setNewRoleDesc] = useState("");
-  const [targetUserEmail, setTargetUserEmail] = useState("");
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
-    "M1",
-    "M2",
-    "M3",
-  ]);
-
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
@@ -180,22 +157,9 @@ export function UsersManager() {
     }
   }, [page, query, roleFilter, statusFilter, verifiedFilter, sortBy, sortOrder]);
 
-  const loadCustomRoles = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/roles");
-      const payload = await res.json();
-      if (res.ok && payload.customRoles) {
-        setCustomRoles(payload.customRoles);
-      }
-    } catch {
-      // Custom roles fetch fallback
-    }
-  }, []);
-
   useEffect(() => {
     loadUsers();
-    loadCustomRoles();
-  }, [loadUsers, loadCustomRoles]);
+  }, [loadUsers]);
 
   const updateUser = async (
     userId: string,
@@ -257,7 +221,7 @@ export function UsersManager() {
         return;
       }
 
-      toast.success(`Unverified user account created for "${createEmail}".`);
+      toast.success(`Account created for "${createEmail}".`);
       setIsCreateUserModalOpen(false);
       setCreateName("");
       setCreateEmail("");
@@ -295,43 +259,6 @@ export function UsersManager() {
       setNewPassword("");
     } catch (err: any) {
       toast.error(err.message || "Failed to change password.");
-    }
-  };
-
-  const handleSaveCustomRoleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) {
-      toast.error("Role identifier name is required");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/admin/roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newRoleName.trim(),
-          description: newRoleDesc.trim(),
-          permissions: selectedPermissions,
-          targetUserEmail: targetUserEmail.trim() || undefined,
-        }),
-      });
-
-      const payload = await res.json();
-
-      if (!res.ok) {
-        throw new Error(payload.error || "Failed to save custom role.");
-      }
-
-      const roleIdentifier = payload.customRole?.name || `CUSTOM_${newRoleName.trim().toUpperCase()}`;
-      toast.success(`Custom Role "${roleIdentifier}" created and permissions saved.`);
-      setNewRoleName("");
-      setNewRoleDesc("");
-      setTargetUserEmail("");
-      setIsRoleModalOpen(false);
-      await loadCustomRoles();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save custom role.");
     }
   };
 
@@ -445,18 +372,13 @@ export function UsersManager() {
     );
   };
 
-  const allAvailableRoles = [
-    ...ROLES,
-    ...customRoles.map((c) => c.name),
-  ];
-
   return (
     <Card className="w-full p-6 border border-border-custom bg-surface/50 backdrop-blur-md shadow-lg flex flex-col gap-6">
-      {/* Header with Create User & Create Role Buttons */}
+      {/* Header with Create User Button */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-4">
         <div>
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-            <span>User Directory & Permission Governance</span>
+            <span>User Directory & Role Governance</span>
             {data && (
               <Chip variant="soft" className="text-xs font-mono px-2 py-0.5">
                 {data.total} total accounts
@@ -464,7 +386,7 @@ export function UsersManager() {
             )}
           </h2>
           <p className="text-xs text-text-secondary mt-1">
-            Manage accounts, provision unverified users, reset passwords, and configure custom permissions.
+            Manage user accounts, assign roles, activate/deactivate access, and provision accounts.
           </p>
         </div>
 
@@ -481,21 +403,12 @@ export function UsersManager() {
           )}
 
           <Button
-            variant="outline"
-            onPress={() => setIsCreateUserModalOpen(true)}
-            className="text-xs font-semibold px-4 flex items-center gap-1.5 text-text-primary"
-          >
-            <UserPlus className="w-4 h-4 text-primary" />
-            Create User
-          </Button>
-
-          <Button
             variant="primary"
-            onPress={() => setIsRoleModalOpen(true)}
+            onPress={() => setIsCreateUserModalOpen(true)}
             className="text-xs font-semibold px-4 flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
-            Create Custom Role
+            <UserPlus className="w-4 h-4" />
+            Provision New User
           </Button>
         </div>
       </div>
@@ -538,9 +451,9 @@ export function UsersManager() {
               <ListBox.Item id={ALL_ROLES_KEY} textValue="All roles">
                 <Label>All roles</Label>
               </ListBox.Item>
-              {allAvailableRoles.map((role) => (
-                <ListBox.Item key={role} id={role} textValue={role}>
-                  <Label>{role.replace(/_/g, " ")}</Label>
+              {ROLES.map((role) => (
+                <ListBox.Item key={role.key} id={role.key} textValue={role.label}>
+                  <Label>{role.label}</Label>
                 </ListBox.Item>
               ))}
             </ListBox>
@@ -682,7 +595,6 @@ export function UsersManager() {
                     <div className="flex justify-end gap-2">
                       <Skeleton className="h-8 w-8 rounded-lg" />
                       <Skeleton className="h-8 w-8 rounded-lg" />
-                      <Skeleton className="h-8 w-8 rounded-lg" />
                       <Skeleton className="h-8 w-20 rounded-lg" />
                     </div>
                   </TableCell>
@@ -728,7 +640,7 @@ export function UsersManager() {
                     {renderAuthProviderIcon(user.authProvider)}
                   </TableCell>
 
-                  {/* Role dropdown */}
+                  {/* Role Selection Dropdown (Instant Role Change) */}
                   <TableCell className="px-4 py-3.5">
                     <Select
                       aria-label={`Role for ${user.email}`}
@@ -747,9 +659,9 @@ export function UsersManager() {
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          {allAvailableRoles.map((role) => (
-                            <ListBox.Item key={role} id={role} textValue={role}>
-                              <Label>{role.replace(/_/g, " ")}</Label>
+                          {ROLES.map((r) => (
+                            <ListBox.Item key={r.key} id={r.key} textValue={r.label}>
+                              <Label>{r.label}</Label>
                             </ListBox.Item>
                           ))}
                         </ListBox>
@@ -813,7 +725,7 @@ export function UsersManager() {
                         </Tooltip.Content>
                       </Tooltip>
 
-                      {/* Edit Role Modal Trigger */}
+                      {/* Edit Details Modal Trigger */}
                       <Tooltip delay={100}>
                         <Tooltip.Trigger>
                           <Button
@@ -832,7 +744,7 @@ export function UsersManager() {
                           </Button>
                         </Tooltip.Trigger>
                         <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
-                          Edit Role
+                          Edit User Details
                         </Tooltip.Content>
                       </Tooltip>
 
@@ -907,7 +819,7 @@ export function UsersManager() {
         </div>
       )}
 
-      {/* Create New Unverified User Modal */}
+      {/* Create New User Modal */}
       {isCreateUserModalOpen && (
         <Modal.Root isOpen={isCreateUserModalOpen} onOpenChange={setIsCreateUserModalOpen}>
           <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
@@ -916,7 +828,7 @@ export function UsersManager() {
                 <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
                   <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-primary" />
-                    Provision New Unverified Account
+                    Provision New User Account
                   </h3>
                   <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
                     <X className="w-4 h-4" />
@@ -963,7 +875,7 @@ export function UsersManager() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold text-text-primary">Assign Role</Label>
+                    <Label className="text-xs font-semibold text-text-primary">Assign Platform Role</Label>
                     <Select
                       aria-label="Assign role for new user"
                       selectedKey={createRole}
@@ -975,9 +887,9 @@ export function UsersManager() {
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          {allAvailableRoles.map((r) => (
-                            <ListBox.Item key={r} id={r} textValue={r}>
-                              <Label>{r.replace(/_/g, " ")}</Label>
+                          {ROLES.map((r) => (
+                            <ListBox.Item key={r.key} id={r.key} textValue={r.label}>
+                              <Label>{r.label}</Label>
                             </ListBox.Item>
                           ))}
                         </ListBox>
@@ -996,7 +908,7 @@ export function UsersManager() {
                     Cancel
                   </Button>
                   <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
-                    Provision User (Unverified)
+                    Provision User
                   </Button>
                 </Modal.Footer>
               </form>
@@ -1102,134 +1014,6 @@ export function UsersManager() {
         </Modal.Root>
       )}
 
-      {/* Create Custom Role & Granular Permission Overrides Modal (FR-IAM-04) */}
-      {isRoleModalOpen && (
-        <Modal.Root isOpen={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
-          <Modal.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 outline-none animate-in fade-in">
-            <Modal.Dialog className="w-full max-w-lg h-fit max-h-[90vh] overflow-y-auto p-6 bg-surface border border-border-custom rounded-2xl shadow-2xl flex flex-col gap-4 outline-none pointer-events-auto">
-              <form onSubmit={handleSaveCustomRoleSubmit} className="flex flex-col gap-4">
-                <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-primary" />
-                      Create Custom Role & Permission Matrix
-                    </h3>
-                    <p className="text-xs text-text-secondary">Define granular RBAC module permissions stored in PostgreSQL (FR-IAM-04).</p>
-                  </div>
-                  <Modal.CloseTrigger className="text-text-secondary hover:text-text-primary p-1">
-                    <X className="w-4 h-4" />
-                  </Modal.CloseTrigger>
-                </Modal.Header>
-
-                <Modal.Body className="flex flex-col gap-3 py-2">
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold text-text-primary">Role Identifier Name</Label>
-                    <Input
-                      placeholder="e.g. CLINICAL_AUDITOR or LAB_DIRECTOR"
-                      value={newRoleName}
-                      onChange={(e) => setNewRoleName(e.target.value)}
-                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold text-text-primary">Target User Account Email (Optional Override)</Label>
-                    <Input
-                      type="email"
-                      placeholder="e.g. user@medicio.com (leave blank for role preset)"
-                      value={targetUserEmail}
-                      onChange={(e) => setTargetUserEmail(e.target.value)}
-                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold text-text-primary">Role Description & Duties</Label>
-                    <Input
-                      placeholder="e.g. Clinical audit access and patient record review duties..."
-                      value={newRoleDesc}
-                      onChange={(e) => setNewRoleDesc(e.target.value)}
-                      className="px-3 py-2 border border-border-custom rounded-lg text-sm text-text-primary"
-                    />
-                  </div>
-
-                  {/* Granular Module Access Checkboxes Grid */}
-                  <div className="flex flex-col gap-2 pt-2 border-t border-border-custom/50">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-text-primary">Granular Module Access Checkboxes</span>
-                      <span className="text-[10px] text-primary font-mono font-semibold">
-                        {selectedPermissions.length} / 12 selected
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {[
-                        { id: "M1", label: "M1 IAM & Access Control" },
-                        { id: "M2", label: "M2 Symptom Checker" },
-                        { id: "M3", label: "M3 Specialty AI Agents" },
-                        { id: "M4", label: "M4 Doctor Management" },
-                        { id: "M5", label: "M5 Hospital Management" },
-                        { id: "M6", label: "M6 Pharmacy Management" },
-                        { id: "M7", label: "M7 Lab Management" },
-                        { id: "M8", label: "M8 Appointment Booking" },
-                        { id: "M9", label: "M9 Medicine Tracker" },
-                        { id: "M10", label: "M10 Patient Health Records" },
-                        { id: "M11", label: "M11 Scraper Engine" },
-                        { id: "M12", label: "M12 Audit Logs & Analytics" },
-                      ].map((mod) => {
-                        const isChecked = selectedPermissions.includes(mod.id);
-                        return (
-                          <button
-                            key={mod.id}
-                            type="button"
-                            onClick={() => {
-                              if (isChecked) {
-                                setSelectedPermissions((prev) => prev.filter((id) => id !== mod.id));
-                              } else {
-                                setSelectedPermissions((prev) => [...prev, mod.id]);
-                              }
-                            }}
-                            className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer select-none ${
-                              isChecked
-                                ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs"
-                                : "bg-background-custom/40 border-border-custom/60 text-text-secondary hover:text-text-primary hover:bg-surface/50"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
-                                isChecked
-                                  ? "bg-primary border-primary text-white"
-                                  : "border-border-custom bg-surface"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span className="truncate">{mod.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </Modal.Body>
-
-                <Modal.Footer className="flex items-center justify-end gap-3 pt-4 border-t border-border-custom">
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onPress={() => setIsRoleModalOpen(false)}
-                    className="text-xs font-semibold px-4"
-                  >
-                    Cancel
-                  </Button>
-                  <Button variant="primary" type="submit" className="text-xs font-semibold px-5">
-                    Save Custom Role
-                  </Button>
-                </Modal.Footer>
-              </form>
-            </Modal.Dialog>
-          </Modal.Backdrop>
-        </Modal.Root>
-      )}
-
       {/* Edit User Modal */}
       {editUserTarget && (
         <Modal.Root isOpen={!!editUserTarget} onOpenChange={() => setEditUserTarget(null)}>
@@ -1265,9 +1049,9 @@ export function UsersManager() {
                     </Select.Trigger>
                     <Select.Popover>
                       <ListBox>
-                        {allAvailableRoles.map((r) => (
-                          <ListBox.Item key={r} id={r} textValue={r}>
-                            <Label>{r.replace(/_/g, " ")}</Label>
+                        {ROLES.map((r) => (
+                          <ListBox.Item key={r.key} id={r.key} textValue={r.label}>
+                            <Label>{r.label}</Label>
                           </ListBox.Item>
                         ))}
                       </ListBox>

@@ -43,7 +43,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/admin/roles — Provision a new Custom Role with granular module access permissions (FR-IAM-04).
+ * POST /api/admin/roles — Provision a new Custom Role or update existing permissions (FR-IAM-04).
  */
 export async function POST(req: Request) {
   const { session, response } = await requireRole(ADMIN_ROLES);
@@ -72,15 +72,43 @@ export async function POST(req: Request) {
       normalizedRoleName,
     );
 
+    const now = new Date();
+
     if (Array.isArray(existingRoles) && existingRoles.length > 0) {
-      return NextResponse.json(
-        { error: `Custom role "${normalizedRoleName}" already exists.` },
-        { status: 409 },
+      // Upsert/Update existing custom role
+      const roleId = existingRoles[0].id;
+      await prisma.$executeRawUnsafe(
+        `UPDATE custom_roles SET description = $1, permissions = $2, "updatedAt" = $3 WHERE id = $4`,
+        description || null,
+        JSON.stringify(permissionsArray),
+        now,
+        roleId,
       );
+
+      void writeAudit({
+        action: "SUPER_ADMIN_CUSTOM_ROLE_UPDATED",
+        actorId: session.userId,
+        actorRole: session.role,
+        metadata: {
+          roleName: normalizedRoleName,
+          permissions: permissionsArray,
+          targetUserEmail: targetUserEmail || null,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        customRole: {
+          id: roleId,
+          name: normalizedRoleName,
+          description: description || null,
+          permissions: permissionsArray,
+          updatedAt: now.toISOString(),
+        },
+      });
     }
 
     const newId = `crole_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date();
 
     await prisma.$executeRawUnsafe(
       `INSERT INTO custom_roles (id, name, description, permissions, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6)`,
