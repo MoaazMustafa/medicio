@@ -5,12 +5,13 @@ import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import type { SessionPayload } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 /**
  * Route Handler authorization guard (FR-IAM-05).
- * Resolves the session, re-checks the role server-side and — for privileged
- * surfaces — confirms the account is still active in the database, so a
- * deactivated admin cannot keep operating on a still-valid cookie.
+ * Resolves the session, re-checks the role server-side and confirms the account
+ * is still active in the database (isActive = true), so a deleted or deactivated
+ * user is signed out immediately.
  */
 
 export type AuthorizeResult =
@@ -23,9 +24,9 @@ export async function requireRole(
   const session = await getSession();
 
   if (!session) {
-    return {
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
+    const unauthResponse = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    unauthResponse.cookies.delete(SESSION_COOKIE);
+    return { response: unauthResponse };
   }
 
   const isAllowedRole =
@@ -46,8 +47,7 @@ export async function requireRole(
     };
   }
 
-  // Privileged routes re-verify liveness against the database: role changes
-  // and deactivations take effect immediately, not at cookie expiry.
+  // Re-verify liveness against PostgreSQL database
   const account = await prisma.user.findUnique({
     where: { id: session.userId },
     select: { isActive: true, role: true },
@@ -64,12 +64,13 @@ export async function requireRole(
       },
     });
 
-    return {
-      response: NextResponse.json(
-        { error: "Session is no longer valid. Please sign in again." },
-        { status: 401 },
-      ),
-    };
+    const invalidSessionResponse = NextResponse.json(
+      { error: "Account deleted, deactivated, or role changed. Please sign in again." },
+      { status: 401 },
+    );
+    invalidSessionResponse.cookies.delete(SESSION_COOKIE);
+
+    return { response: invalidSessionResponse };
   }
 
   return { session };

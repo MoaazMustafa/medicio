@@ -1,12 +1,13 @@
 import { UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { dashboardForRole } from "@/config/roles";
 import { signSessionToken } from "@/lib/auth";
+import { randomToken } from "@/lib/crypto";
 import { logAuthEvent } from "@/lib/logger";
-import { OAUTH_ONLY_PASSWORD_HASH, OAUTH_STATE_COOKIE } from "@/lib/oauth";
+import { OAUTH_ONLY_PASSWORD_HASH, OAUTH_STATE_COOKIE, OAUTH_ROLE_COOKIE } from "@/lib/oauth";
 import { prisma } from "@/lib/prisma";
 import {
   SESSION_COOKIE,
@@ -20,9 +21,11 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const expectedState = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
+  const requestedRoleCookie = cookieStore.get(OAUTH_ROLE_COOKIE)?.value;
 
-  // The state cookie is single-use regardless of the outcome below.
+  // Single-use cookies deleted on callback
   cookieStore.delete(OAUTH_STATE_COOKIE);
+  cookieStore.delete(OAUTH_ROLE_COOKIE);
 
   try {
     const { searchParams } = request.nextUrl;
@@ -107,6 +110,7 @@ export async function GET(request: NextRequest) {
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
+    const assignedRole = requestedRoleCookie === "DOCTOR" ? UserRole.DOCTOR : UserRole.PATIENT;
 
     // 3. Find or create the user in local PostgreSQL
     let user = await prisma.user.findUnique({
@@ -120,14 +124,27 @@ export async function GET(request: NextRequest) {
           email: normalizedEmail,
           name: name || normalizedEmail.split("@")[0],
           passwordHash: OAUTH_ONLY_PASSWORD_HASH,
-          role: UserRole.PATIENT,
+          role: assignedRole,
           isVerified: true,
           avatarUrl: picture || null,
         },
       });
+
+      // If user registered with DOCTOR role via OAuth, initialize Doctor profile record
+      if (assignedRole === UserRole.DOCTOR) {
+        await prisma.doctor.create({
+          data: {
+            userId: user.id,
+            specialty: "General Practice",
+            education: "Not Specified",
+            experience: 0,
+            licenseNumber: `TEMP-${randomToken(8)}`,
+            isVerified: false,
+          },
+        });
+      }
     } else {
-      // If user registered with email/password previously and is now logging in with Google,
-      // append ;OAUTH flag to passwordHash if not already tracked so authProvider is recognized as BOTH.
+      // If user registered previously, preserve their existing role, append ;OAUTH flag if needed
       const updatedHash = user.passwordHash.includes("OAUTH")
         ? user.passwordHash
         : `${user.passwordHash};OAUTH`;
@@ -150,8 +167,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 4. Issue the local session cookie — set it explicitly on the redirect
-    // response so it actually reaches the browser on Vercel.
+    // 4. Issue the local session cookie
     const token = await signSessionToken({
       id: user.id,
       email: user.email,
@@ -177,4 +193,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=Unexpected+oauth+callback+error", request.url));
   }
 }
-

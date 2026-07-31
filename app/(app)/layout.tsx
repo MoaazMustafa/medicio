@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
 import { Logo } from "@/components/icons";
-import { ThemeSwitch } from "@/components/theme-switch";
 import { UserMenu } from "@/components/user-menu";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -11,8 +10,8 @@ import { TopNavTitle } from "@/components/top-nav-title";
 
 /**
  * Authenticated app shell: role-aware sidebar + header with the user menu.
- * Session is resolved server-side; middleware already gates these routes,
- * this is the defense-in-depth check plus the data source for the shell.
+ * Session is resolved server-side; validates live account in database.
+ * If user was deleted or deactivated, immediately redirects to /login.
  */
 export default async function AppLayout({
   children,
@@ -25,16 +24,21 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  // Fetch current user record from database to get live avatarUrl & user details
+  // Fetch current user record from database to verify active status
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { name: true, email: true, role: true, avatarUrl: true },
+    select: { name: true, email: true, role: true, avatarUrl: true, isActive: true },
   });
 
-  const name = user?.name ?? session.name;
-  const email = user?.email ?? session.email;
-  const role = user?.role ?? session.role;
-  const avatarUrl = user?.avatarUrl ?? session.avatarUrl ?? null;
+  // If user was deleted or deactivated, force immediate logout & redirect
+  if (!user || !user.isActive) {
+    redirect("/login");
+  }
+
+  const name = user.name;
+  const email = user.email;
+  const role = user.role;
+  const avatarUrl = user.avatarUrl ?? null;
 
   return (
     <div className="flex min-h-screen w-full bg-background-custom text-text-primary">

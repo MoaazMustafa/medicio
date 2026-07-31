@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 
 import { randomToken } from "@/lib/crypto";
 import { logAuthEvent } from "@/lib/logger";
-import { OAUTH_STATE_COOKIE, OAUTH_STATE_MAX_AGE_SECONDS } from "@/lib/oauth";
+import { OAUTH_STATE_COOKIE, OAUTH_ROLE_COOKIE, OAUTH_STATE_MAX_AGE_SECONDS } from "@/lib/oauth";
 import { SESSION_COOKIE_OPTIONS } from "@/lib/session-cookie";
 
 /**
  * Starts the Google OAuth flow server-side so an anti-CSRF `state` value can be
- * bound to an httpOnly cookie. The client never builds the authorization URL.
+ * bound to an httpOnly cookie. Preserves requested account role (e.g. DOCTOR vs PATIENT).
  */
 export async function GET(request: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
       new URL("/login?error=Google+sign-in+is+not+configured+on+this+server", request.url),
     );
   }
+
+  const requestedRole = request.nextUrl.searchParams.get("role") || "PATIENT";
+  const sanitizedRole = requestedRole === "DOCTOR" ? "DOCTOR" : "PATIENT";
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
   const state = randomToken(16);
@@ -36,6 +39,11 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(authorizationUrl);
 
   response.cookies.set(OAUTH_STATE_COOKIE, state, {
+    ...SESSION_COOKIE_OPTIONS,
+    maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
+  });
+
+  response.cookies.set(OAUTH_ROLE_COOKIE, sanitizedRole, {
     ...SESSION_COOKIE_OPTIONS,
     maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
   });

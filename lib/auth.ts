@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import type { SessionPayload } from "@/lib/jwt";
 import { signJwt, verifyJwt } from "@/lib/jwt";
+import { prisma } from "@/lib/prisma";
 import {
   SESSION_COOKIE,
   SESSION_COOKIE_OPTIONS,
@@ -25,14 +26,44 @@ export interface SessionUser {
   avatarUrl?: string | null;
 }
 
-/** Resolves the verified session for the current request, or null. */
+/**
+ * Resolves the verified session for the current request, or null.
+ * Validates JWT signature and confirms the account exists in PostgreSQL
+ * and is active (isActive = true). If the account was deleted or deactivated,
+ * returns NULL immediately.
+ */
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (!token) return null;
 
-  return verifyJwt(token);
+  const payload = await verifyJwt(token);
+  if (!payload) return null;
+
+  try {
+    const account = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, isActive: true, role: true },
+    });
+
+    // If account was deleted or deactivated by an admin, return null immediately.
+    if (!account || !account.isActive) {
+      // Best-effort cookie deletion (succeeds in Route Handlers / Server Actions)
+      try {
+        cookieStore.delete(SESSION_COOKIE);
+      } catch {
+        // Ignored in read-only Server Component renders
+      }
+      return null;
+    }
+  } catch (error) {
+    console.error("Session database liveness check error: ", error);
+    // On DB failure, strictly reject stale session if user lookup failed
+    return null;
+  }
+
+  return payload;
 }
 
 /** Issues a signed session cookie for the given user. */
@@ -55,9 +86,6 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
 
 /**
  * Returns a signed JWT for the given user without touching `cookies()`.
- * Route Handlers must set this token on the returned `NextResponse` themselves
- * because `cookies().set()` does not reliably propagate to the response on
- * Vercel's serverless runtime.
  */
 export async function signSessionToken(user: SessionUser): Promise<string> {
   return signJwt({
@@ -73,7 +101,11 @@ export async function signSessionToken(user: SessionUser): Promise<string> {
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
 
-  cookieStore.delete(SESSION_COOKIE);
+  try {
+    cookieStore.delete(SESSION_COOKIE);
+  } catch {
+    // Read-only fallback
+  }
 }
 
 /** Checks a resolved session against a list of permitted roles. */

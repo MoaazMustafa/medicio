@@ -74,8 +74,8 @@ export default function RegisterPage() {
   };
 
   const handleGoogleLogin = () => {
-    // The server issues the anti-CSRF state and builds the authorization URL.
-    window.location.href = "/api/auth/google";
+    // The server issues the anti-CSRF state, preserves requested role, and builds authorization URL.
+    window.location.href = `/api/auth/google?role=${encodeURIComponent(role)}`;
   };
 
   return (

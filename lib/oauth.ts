@@ -1,6 +1,7 @@
 /** Shared constants for the Google OAuth authorization-code flow. */
 
 export const OAUTH_STATE_COOKIE = "medicio_oauth_state";
+export const OAUTH_ROLE_COOKIE = "medicio_oauth_role";
 
 export const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60; // 10 minutes
 
