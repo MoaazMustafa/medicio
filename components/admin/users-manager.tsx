@@ -530,7 +530,7 @@ export function UsersManager() {
 
       {/* Table Container - Edge-to-Edge full width */}
       <div className="w-full overflow-x-auto border border-border-custom rounded-lg bg-surface/30">
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-xs min-w-[800px]">
           <thead className="bg-background-custom/60 text-text-secondary uppercase font-mono text-[10px] tracking-wider border-b border-border-custom">
             <tr>
               <th

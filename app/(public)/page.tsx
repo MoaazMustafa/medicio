@@ -1,4 +1,6 @@
 
+"use client";
+
 import { Button, Card, Chip } from "@heroui/react";
 import {
   Activity,
@@ -14,19 +16,12 @@ import {
   Sparkles,
   Stethoscope,
 } from "lucide-react";
-import type { Metadata } from "next";
 import Image from "next/image";
 import NextLink from "next/link";
 
 import { BlurText } from "@/components/blur-text";
 import { HeroBackground } from "@/components/hero-background";
 import { Reveal } from "@/components/reveal";
-
-export const metadata: Metadata = {
-  title: "AI-Powered Healthcare Access",
-  description:
-    "Describe your symptoms, get an instant AI triage, and connect with verified doctors, hospitals, labs and pharmacies near you — all in one place.",
-};
 
 const HOW_IT_WORKS = [
   {

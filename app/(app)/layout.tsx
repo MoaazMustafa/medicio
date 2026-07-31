@@ -37,25 +37,25 @@ export default async function AppLayout({
   const avatarUrl = user?.avatarUrl ?? session.avatarUrl ?? null;
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-screen w-full bg-background-custom text-text-primary">
       <AppSidebar role={role} />
 
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Top bar */}
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 h-16 px-4 md:px-6 border-b border-border-custom bg-background-custom/70 backdrop-blur-lg">
-          <div className="flex items-center gap-3">
+        {/* Top bar header with high responsive stability */}
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 sm:gap-4 h-16 px-3 sm:px-4 md:px-6 border-b border-border-custom bg-background-custom/80 backdrop-blur-lg min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <MobileNav role={role} />
-            {/* Brand shown only when the sidebar is hidden */}
-            <NextLink className="flex items-center gap-2 md:hidden mr-2" href="/">
-              <Logo />
-              <span className="font-bold text-lg tracking-tight text-primary">
+            {/* Brand shown only when the desktop sidebar is hidden */}
+            <NextLink className="flex items-center gap-1.5 md:hidden shrink-0 mr-1" href="/">
+              <Logo size={26} />
+              <span className="font-bold text-base tracking-tight text-primary hidden sm:inline">
                 Medicio
               </span>
             </NextLink>
             <TopNavTitle />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <UserMenu
               user={{
                 name,
@@ -67,7 +67,7 @@ export default async function AppLayout({
           </div>
         </header>
 
-        <main className="flex-1 w-full">{children}</main>
+        <main className="flex-1 w-full overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

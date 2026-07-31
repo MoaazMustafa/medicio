@@ -61,8 +61,8 @@ export function TopNavTitle() {
   };
 
   return (
-    <div className="flex flex-col justify-center">
-      <h1 className="text-sm md:text-base font-bold tracking-tight text-text-primary">
+    <div className="flex flex-col justify-center min-w-0 flex-1">
+      <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-text-primary truncate max-w-[200px] xs:max-w-[280px] sm:max-w-none">
         {matched.title}
       </h1>
       {matched.subtitle && (

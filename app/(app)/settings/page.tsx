@@ -202,7 +202,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Subtabs Navigation Bar */}
-      <div className="flex items-center gap-2 border-b border-border-custom overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 border-b border-border-custom overflow-x-auto pb-2 pt-1 max-w-full scrollbar-none snap-x">
         {[
           { id: "profile", label: "Profile Info", icon: User },
           { id: "security", label: "Security & 2FA", icon: Lock },

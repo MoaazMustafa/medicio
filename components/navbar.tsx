@@ -1,8 +1,10 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Drawer } from "@heroui/react";
+import { Menu as MenuIcon, X } from "lucide-react";
 import NextLink from "next/link";
-import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/icons";
 import { ThemeSwitch } from "@/components/theme-switch";
@@ -10,8 +12,9 @@ import { dashboardForRole } from "@/config/roles";
 import { siteConfig } from "@/config/site";
 
 export const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -34,9 +37,14 @@ export const Navbar = () => {
     }
   };
 
+  const handleNavigate = (href: string) => {
+    setIsDrawerOpen(false);
+    router.push(href);
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border-custom bg-background-custom/70 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Brand */}
         <div className="flex items-center gap-6">
           <NextLink className="flex items-center gap-2" href="/">
@@ -59,118 +67,97 @@ export const Navbar = () => {
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <ThemeSwitch />
-          
+
           {user ? (
-            <div className="hidden sm:flex items-center gap-3">
-              <NextLink href={dashboardForRole(user.role)}>
-                <Button
-                  variant="primary"
-                  className="text-xs font-semibold"
-                >
-                  Dashboard
-                </Button>
-              </NextLink>
-              
-            </div>
+            <NextLink href={dashboardForRole(user.role)}>
+              <Button variant="primary" className="text-xs font-semibold px-3 py-1.5 h-auto">
+                Dashboard
+              </Button>
+            </NextLink>
           ) : (
             <NextLink href="/login">
               <Button
                 variant="outline"
-                className="hidden sm:inline-flex text-sm font-semibold text-text-primary hover:text-primary"
+                className="text-xs sm:text-sm font-semibold text-text-primary hover:text-primary px-3 py-1.5 h-auto"
               >
                 Login
               </Button>
             </NextLink>
           )}
 
-          {/* Mobile menu toggle */}
-          <Button
-            isIconOnly
-            variant="ghost"
-            aria-label="Toggle Menu"
-            className="md:hidden"
-            onPress={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <svg
-              className="h-5 w-5 text-text-primary"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {isMenuOpen ? (
-                <path
-                  d="M6 18L18 6M6 6l12 12"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                />
-              ) : (
-                <path
-                  d="M4 6h16M4 12h16M4 18h16"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                />
-              )}
-            </svg>
-          </Button>
-        </div>
-      </div>
+          {/* Mobile Drawer Navigation (HeroUI Drawer) */}
+          <div className="md:hidden">
+            <Drawer.Root isOpen={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+              <Drawer.Trigger>
+                <Button isIconOnly variant="ghost" aria-label="Toggle Navigation Menu">
+                  <MenuIcon className="h-5 w-5 text-text-primary" />
+                </Button>
+              </Drawer.Trigger>
 
-      {/* Mobile Drawer */}
-      {isMenuOpen && (
-        <div className="border-t border-border-custom bg-background-custom/95 backdrop-blur-md md:hidden">
-          <div className="flex flex-col gap-2 p-4">
-            {siteConfig.navMenuItems.map((item, index) => (
-              <NextLink
-                key={`${item.label}-${index}`}
-                className="w-full py-2 text-base text-text-primary block hover:text-primary"
-                href={item.href}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.label}
-              </NextLink>
-            ))}
-            {user ? (
-              <div className="flex flex-col gap-2 border-t border-border-custom pt-3 mt-1">
-                <div className="flex items-center justify-between text-xs px-1">
-                  <span className="font-semibold text-text-primary">{user.name}</span>
-                  <span className="font-mono text-text-secondary uppercase">{user.role}</span>
-                </div>
-                <NextLink
-                  href={dashboardForRole(user.role)}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Button
-                    variant="primary"
-                    className="w-full mt-1 font-semibold"
-                  >
-                    Go to Dashboard
-                  </Button>
-                </NextLink>
-                <Button
-                  variant="outline"
-                  className="w-full mt-1 font-semibold text-danger"
-                  onPress={handleLogout}
-                >
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <NextLink href="/login" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant="primary"
-                  className="w-full mt-2 font-semibold"
-                >
-                  Portal Login
-                </Button>
-              </NextLink>
-            )}
+              <Drawer.Backdrop isDismissable>
+                <Drawer.Content placement="right" className="w-[280px] sm:w-[320px] max-w-[85vw] h-full bg-surface border-l border-border-custom">
+                  <Drawer.Dialog className="flex flex-col h-full outline-none">
+                    <Drawer.Header className="flex items-center justify-between p-4 border-b border-border-custom">
+                      <NextLink
+                        className="flex items-center gap-2"
+                        href="/"
+                        onClick={() => setIsDrawerOpen(false)}
+                      >
+                        <Logo />
+                        <span className="font-bold text-lg tracking-tight text-primary">Medicio</span>
+                      </NextLink>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Close navigation"
+                        onPress={() => setIsDrawerOpen(false)}
+                        className="p-1 rounded-lg text-text-secondary hover:text-text-primary focus:outline-none"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </Drawer.Header>
+
+                    <Drawer.Body className="flex-1 overflow-y-auto p-4 space-y-2">
+                      {siteConfig.navMenuItems.map((item, index) => (
+                        <Button
+                          key={`${item.label}-${index}`}
+                          variant="ghost"
+                          onPress={() => handleNavigate(item.href)}
+                          className="w-full flex items-center justify-start py-2.5 px-3 rounded-lg text-sm text-text-primary hover:bg-surface/50 hover:text-primary transition-colors font-medium h-auto"
+                        >
+                          {item.label}
+                        </Button>
+                      ))}
+                    </Drawer.Body>
+
+                    {user && (
+                      <div className="p-4 border-t border-border-custom flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-xs px-1">
+                          <span className="font-semibold text-text-primary truncate">{user.name}</span>
+                          <span className="font-mono text-text-secondary uppercase text-[10px]">{user.role}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onPress={() => {
+                            setIsDrawerOpen(false);
+                            handleLogout();
+                          }}
+                          className="w-full mt-1 font-semibold text-danger text-xs py-2 border border-danger/30 rounded-lg hover:bg-danger/10 text-center"
+                        >
+                          Logout
+                        </Button>
+                      </div>
+                    )}
+                  </Drawer.Dialog>
+                </Drawer.Content>
+              </Drawer.Backdrop>
+            </Drawer.Root>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 };

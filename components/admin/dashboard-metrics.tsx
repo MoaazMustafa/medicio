@@ -90,8 +90,8 @@ export function DashboardMetrics() {
     const areaPath = `${dPath} L ${width} ${height} L 0 ${height} Z`;
 
     return (
-      <div className="w-full h-64 relative flex flex-col justify-end pt-4">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+      <div className="w-full h-64 relative flex flex-col justify-end pt-4 min-w-0 overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-hidden" preserveAspectRatio="none">
           <defs>
             <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.4" />
@@ -131,11 +131,11 @@ export function DashboardMetrics() {
         </svg>
 
         {/* Dynamic Month Labels */}
-        <div className="flex items-center justify-between text-[11px] text-text-secondary font-mono pt-3 border-t border-border-custom/40">
+        <div className="flex items-center justify-between text-[9px] sm:text-[11px] text-text-secondary font-mono pt-3 border-t border-border-custom/40 overflow-x-auto gap-1">
           {stats.monthlyRegistrations.map((m, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <span>{m.month}</span>
-              <span className="text-[10px] text-primary font-bold">{m.count}</span>
+            <div key={i} className="flex flex-col items-center min-w-0">
+              <span className="truncate">{m.month}</span>
+              <span className="text-[9px] sm:text-[10px] text-primary font-bold">{m.count}</span>
             </div>
           ))}
         </div>
