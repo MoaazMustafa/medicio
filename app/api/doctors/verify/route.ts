@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const session = auth.session;
 
     const body = await request.json();
-    const { doctorId, approve, rejectionReason } = body;
+    const { doctorId, approve, action, rejectionReason } = body;
 
     if (!doctorId) {
       return NextResponse.json({ error: "doctorId is required" }, { status: 400 });
@@ -25,14 +25,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Doctor profile not found" }, { status: 404 });
     }
 
-    const isVerified = Boolean(approve);
-
+    const targetAction = action || (approve ? "approve" : "reject");
     let updatedDoctor = null;
 
-    if (isVerified) {
+    if (targetAction === "approve") {
       updatedDoctor = await prisma.doctor.update({
         where: { id: doctorId },
-        data: { isVerified: true },
+        data: {
+          isVerified: true,
+          verificationStatus: "APPROVED",
+          rejectionReason: null,
+          isReviewRequested: false,
+        } as any,
       });
 
       if (doctor.userId) {
@@ -41,22 +45,46 @@ export async function POST(request: NextRequest) {
           data: { isVerified: true },
         });
       }
-    } else {
-      // Rejection: unverify user and delete doctor application record so doctor can resubmit
+    } else if (targetAction === "archive") {
+      updatedDoctor = await prisma.doctor.update({
+        where: { id: doctorId },
+        data: {
+          isVerified: false,
+          verificationStatus: "ARCHIVED",
+          isReviewRequested: false,
+        } as any,
+      });
+
       if (doctor.userId) {
         await prisma.user.update({
           where: { id: doctor.userId },
           data: { isVerified: false },
         });
       }
-
-      await prisma.doctor.delete({
+    } else {
+      // Rejection: set status to REJECTED with rejectionReason
+      updatedDoctor = await prisma.doctor.update({
         where: { id: doctorId },
+        data: {
+          isVerified: false,
+          verificationStatus: "REJECTED",
+          rejectionReason: rejectionReason || "Credentials failed verification audit. Please review and resubmit.",
+          isReviewRequested: false,
+        } as any,
       });
+
+      if (doctor.userId) {
+        await prisma.user.update({
+          where: { id: doctor.userId },
+          data: { isVerified: false },
+        });
+      }
     }
 
+    const isApproved = targetAction === "approve";
+
     await writeAudit({
-      action: isVerified ? "DOCTOR_VERIFIED" : "DOCTOR_REJECTED",
+      action: isApproved ? "DOCTOR_VERIFIED" : targetAction === "archive" ? "DOCTOR_ARCHIVED" : "DOCTOR_REJECTED",
       actorId: session.userId,
       actorRole: session.role,
       entityType: "DOCTOR",
@@ -65,13 +93,16 @@ export async function POST(request: NextRequest) {
         doctorName: doctor.user?.name || "Doctor",
         doctorEmail: doctor.user?.email,
         licenseNumber: doctor.licenseNumber,
+        action: targetAction,
         rejectionReason: rejectionReason || null,
       },
     });
 
     return NextResponse.json({
-      message: isVerified
+      message: isApproved
         ? `Credentials for ${doctor.user?.name || "Doctor"} verified successfully.`
+        : targetAction === "archive"
+        ? `Application for ${doctor.user?.name || "Doctor"} archived.`
         : `Verification request for ${doctor.user?.name || "Doctor"} was rejected.`,
       doctor: updatedDoctor,
     });

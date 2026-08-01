@@ -18,23 +18,31 @@ export async function GET() {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatarUrl: true,
-        role: true,
-        isVerified: true,
-        isActive: true,
-        createdAt: true,
-      },
+      include: { doctorProfile: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User profile not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, user });
+    const isDoctor = user.role === "DOCTOR" || Boolean(user.doctorProfile);
+    const isVerified = isDoctor
+      ? Boolean(user.isVerified && user.doctorProfile?.isVerified)
+      : Boolean(user.isVerified);
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        isVerified,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+      },
+    });
   } catch (error: any) {
     console.error("Fetch profile error: ", error);
     return NextResponse.json(

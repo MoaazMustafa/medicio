@@ -45,10 +45,18 @@ model Doctor {
   id                     String      @id @default(cuid())
   userId                 String      @unique
   specialty              String
+  subSpecialty           String?
   education              String
   experience             Int
   licenseNumber          String
+  issuingBoard           String?     // Medical Council / Issuing Board (authenticity)
+  nationalIdNumber       String?     // National ID / Passport number (authenticity)
+  documentUrl            String?     // License Certificate Document Link (authenticity)
   isVerified             Boolean     @default(false)
+  verificationStatus     String?     @default("PENDING") // PENDING, APPROVED, REJECTED, ARCHIVED
+  rejectionReason        String?
+  isReviewRequested      Boolean     @default(false)     // Doctor requested appeal/review
+  reviewNotes            String?     // Appeal notes submitted by doctor
   availability           String?     // JSON representation of working slots
   bio                    String?
   clinicAddress          String?
@@ -63,8 +71,31 @@ model Doctor {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   hospital     Hospital?    @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
   appointments Appointment[]
+  applicationHistories DoctorApplicationHistory[]
 
   @@map("doctors")
+}
+
+model DoctorApplicationHistory {
+  id               String   @id @default(cuid())
+  doctorId         String
+  specialty        String
+  subSpecialty     String?
+  education        String
+  experience       Int
+  licenseNumber    String
+  issuingBoard     String?
+  nationalIdNumber String?
+  documentUrl      String?
+  status           String   // PENDING, APPROVED, REJECTED, ARCHIVED
+  rejectionReason  String?
+  reviewNotes      String?
+  submittedAt      DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, submittedAt])
+  @@map("doctor_application_histories")
 }
 
 model Hospital {

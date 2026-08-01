@@ -14,17 +14,31 @@ export interface DoctorContextType {
   // Verification & Submission Status
   isProfileSubmitted: boolean;
   isVerified: boolean;
+  isRejected: boolean;
+  verificationStatus: string;
+  rejectionReason: string | null;
   canAccessDependentTabs: boolean;
 
-  // Profile Form States
+  // Enriched Authenticity & Profile Form States
   specialty: string;
   setSpecialty: (val: string) => void;
+  subSpecialty: string;
+  setSubSpecialty: (val: string) => void;
   education: string;
   setEducation: (val: string) => void;
   experience: number;
   setExperience: (val: number) => void;
   licenseNumber: string;
   setLicenseNumber: (val: string) => void;
+  issuingBoard: string;
+  setIssuingBoard: (val: string) => void;
+  nationalIdNumber: string;
+  setNationalIdNumber: (val: string) => void;
+  documentUrl: string;
+  setDocumentUrl: (val: string) => void;
+  reviewNotes: string;
+  setReviewNotes: (val: string) => void;
+
   bio: string;
   setBio: (val: string) => void;
   clinicAddress: string;
@@ -34,6 +48,10 @@ export interface DoctorContextType {
   selectedHospitalId: string;
   setSelectedHospitalId: (val: string) => void;
   handleSaveProfile: (e: React.FormEvent) => Promise<void>;
+
+  // History & Review Request
+  applicationHistories: any[];
+  fetchApplicationHistory: () => Promise<void>;
 
   // Availability States
   workingDays: string[];
@@ -86,15 +104,22 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   const [scrapedDirectory, setScrapedDirectory] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  // Form states
+  // Enriched Form & Authenticity states
   const [specialty, setSpecialty] = useState("");
+  const [subSpecialty, setSubSpecialty] = useState("");
   const [education, setEducation] = useState("");
   const [experience, setExperience] = useState(5);
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [issuingBoard, setIssuingBoard] = useState("");
+  const [nationalIdNumber, setNationalIdNumber] = useState("");
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+
   const [bio, setBio] = useState("");
   const [clinicAddress, setClinicAddress] = useState("");
   const [consultationFee, setConsultationFee] = useState(50);
   const [selectedHospitalId, setSelectedHospitalId] = useState("");
+  const [applicationHistories, setApplicationHistories] = useState<any[]>([]);
 
   // Availability state
   const [workingDays, setWorkingDays] = useState<string[]>(["Monday", "Wednesday", "Friday"]);
@@ -136,9 +161,14 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
         const doc = data.doctor;
         setDoctorData(doc);
         setSpecialty(doc.specialty || "");
+        setSubSpecialty(doc.subSpecialty || "");
         setEducation(doc.education || "");
         setExperience(doc.experience || 0);
         setLicenseNumber(doc.licenseNumber || "");
+        setIssuingBoard(doc.issuingBoard || "");
+        setNationalIdNumber(doc.nationalIdNumber || "");
+        setDocumentUrl(doc.documentUrl || "");
+        setReviewNotes(doc.reviewNotes || "");
         setBio(doc.bio || "");
         setClinicAddress(doc.clinicAddress || "");
         setConsultationFee(doc.consultationFee || 50);
@@ -196,10 +226,23 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const fetchApplicationHistory = async () => {
+    try {
+      const res = await fetch("/api/doctors/history");
+      const data = await res.json();
+      if (data.histories) {
+        setApplicationHistories(data.histories);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchDoctorProfile();
     fetchAppointments();
     fetchDirectory();
+    fetchApplicationHistory();
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -211,9 +254,14 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           specialty,
+          subSpecialty,
           education,
           experience: Number(experience),
           licenseNumber,
+          issuingBoard,
+          nationalIdNumber,
+          documentUrl,
+          reviewNotes,
           bio,
           clinicAddress,
           consultationFee: Number(consultationFee),
@@ -226,6 +274,7 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
 
       showToast(data.message || "Profile submitted for review");
       fetchDoctorProfile();
+      fetchApplicationHistory();
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
@@ -353,8 +402,11 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   const isProfileSubmitted = Boolean(
     doctorData && doctorData.specialty && doctorData.licenseNumber && doctorData.education
   );
-  const isVerified = Boolean(doctorData?.isVerified);
-  const canAccessDependentTabs = isProfileSubmitted;
+  const verificationStatus = doctorData?.verificationStatus || (doctorData?.isVerified ? "APPROVED" : isProfileSubmitted ? "PENDING" : "UNSUBMITTED");
+  const isRejected = verificationStatus === "REJECTED";
+  const isVerified = Boolean(doctorData?.isVerified) || verificationStatus === "APPROVED";
+  const rejectionReason = doctorData?.rejectionReason || null;
+  const canAccessDependentTabs = isVerified;
 
   return (
     <DoctorContext.Provider
@@ -368,15 +420,28 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
         showToast,
         isProfileSubmitted,
         isVerified,
+        isRejected,
+        verificationStatus,
+        rejectionReason,
         canAccessDependentTabs,
         specialty,
         setSpecialty,
+        subSpecialty,
+        setSubSpecialty,
         education,
         setEducation,
         experience,
         setExperience,
         licenseNumber,
         setLicenseNumber,
+        issuingBoard,
+        setIssuingBoard,
+        nationalIdNumber,
+        setNationalIdNumber,
+        documentUrl,
+        setDocumentUrl,
+        reviewNotes,
+        setReviewNotes,
         bio,
         setBio,
         clinicAddress,
@@ -386,6 +451,8 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
         selectedHospitalId,
         setSelectedHospitalId,
         handleSaveProfile,
+        applicationHistories,
+        fetchApplicationHistory,
         workingDays,
         setWorkingDays,
         workingHoursStart,

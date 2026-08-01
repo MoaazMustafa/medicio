@@ -67,17 +67,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Standardize combined list
-    const formattedRegistered = registeredDoctors.map((doc) => ({
+    const formattedRegistered = registeredDoctors.map((doc: any) => ({
       id: doc.id,
       userId: doc.userId,
       name: doc.user?.name || "Doctor",
       email: doc.user?.email,
       avatarUrl: doc.user?.avatarUrl,
       specialty: doc.specialty,
+      subSpecialty: doc.subSpecialty,
       education: doc.education,
       experience: doc.experience,
       licenseNumber: doc.licenseNumber,
+      issuingBoard: doc.issuingBoard,
+      nationalIdNumber: doc.nationalIdNumber,
+      documentUrl: doc.documentUrl,
       isVerified: doc.isVerified,
+      verificationStatus: doc.verificationStatus || (doc.isVerified ? "APPROVED" : "PENDING"),
+      rejectionReason: doc.rejectionReason,
+      isReviewRequested: doc.isReviewRequested,
+      reviewNotes: doc.reviewNotes,
       bio: doc.bio,
       clinicAddress: doc.clinicAddress,
       consultationFee: doc.consultationFee,
@@ -134,19 +142,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       specialty,
+      subSpecialty,
       education,
       experience,
       licenseNumber,
+      issuingBoard,
+      nationalIdNumber,
+      documentUrl,
       bio,
       clinicAddress,
       consultationFee,
       hospitalId,
       availability,
+      reviewNotes,
     } = body;
 
     if (!specialty || !education || !licenseNumber) {
       return NextResponse.json(
-        { error: "Specialty, education, and license number are required." },
+        { error: "Specialty, education, and license number are required for verification." },
         { status: 400 }
       );
     }
@@ -155,7 +168,7 @@ export async function POST(request: NextRequest) {
       where: { userId: session.userId },
     });
 
-    let doctor;
+    let doctor: any;
     const availabilityString = availability
       ? typeof availability === "string"
         ? availability
@@ -167,15 +180,24 @@ export async function POST(request: NextRequest) {
         where: { id: existingDoctor.id },
         data: {
           specialty,
+          subSpecialty: subSpecialty || existingDoctor.subSpecialty,
           education,
           experience: Number(experience) || 0,
           licenseNumber,
+          issuingBoard: issuingBoard || existingDoctor.issuingBoard,
+          nationalIdNumber: nationalIdNumber || existingDoctor.nationalIdNumber,
+          documentUrl: documentUrl || existingDoctor.documentUrl,
+          isVerified: false,
+          verificationStatus: "PENDING",
+          rejectionReason: null,
+          isReviewRequested: Boolean(reviewNotes),
+          reviewNotes: reviewNotes || existingDoctor.reviewNotes,
           bio: bio || existingDoctor.bio,
           clinicAddress: clinicAddress || existingDoctor.clinicAddress,
           consultationFee: consultationFee ? Number(consultationFee) : existingDoctor.consultationFee,
           hospitalId: hospitalId !== undefined ? hospitalId : existingDoctor.hospitalId,
           availability: availabilityString ?? existingDoctor.availability,
-        },
+        } as any,
         include: { user: true, hospital: true },
       });
     } else {
@@ -183,10 +205,18 @@ export async function POST(request: NextRequest) {
         data: {
           userId: session.userId,
           specialty,
+          subSpecialty,
           education,
           experience: Number(experience) || 0,
           licenseNumber,
+          issuingBoard,
+          nationalIdNumber,
+          documentUrl,
           isVerified: false, // Requires admin verification (FR-DOC-02)
+          verificationStatus: "PENDING",
+          rejectionReason: null,
+          isReviewRequested: Boolean(reviewNotes),
+          reviewNotes,
           bio,
           clinicAddress,
           consultationFee: consultationFee ? Number(consultationFee) : 0,
@@ -194,13 +224,34 @@ export async function POST(request: NextRequest) {
           availability: availabilityString,
           affiliationStatus: hospitalId ? "PENDING_HOSPITAL_ACCEPT" : "INDEPENDENT",
           affiliationRequestedBy: hospitalId ? "DOCTOR" : null,
-        },
+        } as any,
         include: { user: true, hospital: true },
       });
     }
 
+    // Record submission snapshot in DoctorApplicationHistory
+    try {
+      await (prisma as any).doctorApplicationHistory.create({
+        data: {
+          doctorId: doctor.id,
+          specialty: doctor.specialty,
+          subSpecialty: doctor.subSpecialty || null,
+          education: doctor.education,
+          experience: doctor.experience,
+          licenseNumber: doctor.licenseNumber,
+          issuingBoard: doctor.issuingBoard || null,
+          nationalIdNumber: doctor.nationalIdNumber || null,
+          documentUrl: doctor.documentUrl || null,
+          status: "PENDING",
+          reviewNotes: reviewNotes || null,
+        },
+      });
+    } catch (histErr) {
+      console.error("Failed to log application history entry:", histErr);
+    }
+
     return NextResponse.json({
-      message: "Doctor profile saved successfully. Verification is pending admin review.",
+      message: "Doctor verification credentials submitted. Pending administrator review.",
       doctor,
     });
   } catch (error: any) {
