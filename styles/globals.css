@@ -169,6 +169,114 @@ body {
   color: transparent;
 }
 
+/* ---------------------------------------------------------------------------
+   Landing v2 design-system utilities
+--------------------------------------------------------------------------- */
+
+/* Glass surface used by the floating navbar and layered cards. */
+.glass {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid color-mix(in srgb, var(--border-custom) 80%, transparent);
+}
+
+/* Soft radial glow accents for section backdrops. */
+.glow-spot {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(110px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Dotted background pattern with radial fade. */
+.bg-dots-fade {
+  background-image: radial-gradient(var(--border-custom) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 78%);
+}
+
+/* Infinite logo marquee. */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 42s linear infinite;
+}
+
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+/* Gentle vertical float for decorative UI chips. */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.float-slow {
+  animation: float-y 7s ease-in-out infinite;
+}
+
+.float-medium {
+  animation: float-y 5s ease-in-out infinite;
+}
+
+/* Live "pulse" indicator dot. */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.pulse-dot {
+  animation: pulse-ring 2.2s cubic-bezier(0.66, 0, 0, 1) infinite;
+}
+
+/* Slow rotating conic gradient used behind the final CTA. */
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cta-halo {
+  animation: spin-slow 24s linear infinite;
+  background: conic-gradient(
+    from 90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--primary) 55%, transparent) 12%,
+    transparent 30%,
+    transparent 55%,
+    color-mix(in srgb, var(--accent) 45%, transparent) 68%,
+    transparent 85%
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .aurora-blob {
     animation: none;
@@ -183,6 +291,14 @@ body {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  .marquee-track,
+  .float-slow,
+  .float-medium,
+  .pulse-dot,
+  .cta-halo {
+    animation: none;
   }
 }
 
