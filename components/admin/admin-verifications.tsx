@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Building2,
   Lock,
+  ClipboardList,
 } from "lucide-react";
 
 export function AdminVerificationsManager() {
@@ -164,7 +165,8 @@ export function AdminVerificationsManager() {
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <span>📋 Pending Queue</span>
+            <ClipboardList className="w-4 h-4 text-amber-400" />
+            <span>Pending Queue</span>
             <Chip size="sm" variant="soft" color="warning" className="text-[10px] px-1 font-mono">
               {pendingDoctors.length}
             </Chip>
@@ -178,7 +180,8 @@ export function AdminVerificationsManager() {
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <span>❌ Rejected Applications</span>
+            <XCircle className="w-4 h-4 text-rose-400" />
+            <span>Rejected Applications</span>
             <Chip size="sm" variant="soft" color="danger" className="text-[10px] px-1 font-mono">
               {rejectedDoctors.length}
             </Chip>
@@ -192,7 +195,8 @@ export function AdminVerificationsManager() {
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <span>✅ Approved Practitioners</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>Approved Practitioners</span>
             <Chip size="sm" variant="soft" color="success" className="text-[10px] px-1 font-mono">
               {approvedDoctors.length}
             </Chip>
@@ -206,7 +210,8 @@ export function AdminVerificationsManager() {
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <span>📦 Archived Records</span>
+            <Archive className="w-4 h-4 text-text-secondary" />
+            <span>Archived Records</span>
             <Chip size="sm" variant="soft" color="default" className="text-[10px] px-1 font-mono">
               {archivedDoctors.length}
             </Chip>

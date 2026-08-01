@@ -66,60 +66,7 @@ function DoctorLayoutHeader() {
         </div>
       )}
 
-      {/* Top Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-6">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary flex items-center gap-2">
-              <Stethoscope className="w-8 h-8 text-primary" />
-              <span>Doctor Control Console</span>
-            </h1>
-            {isVerified ? (
-              <Chip color="success" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
-                Verified Practitioner
-              </Chip>
-            ) : isRejected ? (
-              <div className="flex items-center gap-2">
-                <Chip color="danger" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                  <XCircle className="w-3.5 h-3.5 inline mr-1" />
-                  Application Rejected
-                </Chip>
-                <Chip color="danger" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 inline mr-1" />
-                  Features Locked
-                </Chip>
-              </div>
-            ) : isProfileSubmitted ? (
-              <div className="flex items-center gap-2">
-                <Chip color="warning" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                  <ShieldAlert className="w-3.5 h-3.5 inline mr-1" />
-                  Pending Verification Review
-                </Chip>
-                <Chip color="danger" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 inline mr-1" />
-                  Features Locked
-                </Chip>
-              </div>
-            ) : (
-              <Chip color="danger" variant="soft" className="font-semibold text-xs flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 inline mr-1" />
-                Compulsory Verification Required
-              </Chip>
-            )}
-          </div>
-          <p className="text-xs text-text-secondary mt-1">
-            Professional clinical portal for credential verification, schedule timetable, hospital affiliations, AI training & patient appointments.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" className="text-xs font-semibold" onPress={fetchDoctorProfile}>
-            <RefreshCw className="w-4 h-4 mr-1" />
-            Refresh Portal Data
-          </Button>
-        </div>
-      </div>
 
       {/* Notice Banner 0: Application Rejected Banner */}
       {isRejected && pathname !== "/doctor/profile" && (

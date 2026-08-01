@@ -47,7 +47,7 @@ export interface DoctorContextType {
   setConsultationFee: (val: number) => void;
   selectedHospitalId: string;
   setSelectedHospitalId: (val: string) => void;
-  handleSaveProfile: (e: React.FormEvent) => Promise<void>;
+  handleSaveProfile: (e?: React.FormEvent) => Promise<boolean>;
 
   // History & Review Request
   applicationHistories: any[];
@@ -245,8 +245,10 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
     fetchApplicationHistory();
   }, []);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveProfile = async (e?: React.FormEvent): Promise<boolean> => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/doctors", {
@@ -273,10 +275,12 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
 
       showToast(data.message || "Profile submitted for review");
-      fetchDoctorProfile();
-      fetchApplicationHistory();
+      await fetchDoctorProfile();
+      await fetchApplicationHistory();
+      return true;
     } catch (err: any) {
-      showToast(err.message, "error");
+      showToast(err.message || "Failed to submit application", "error");
+      return false;
     } finally {
       setSaving(false);
     }

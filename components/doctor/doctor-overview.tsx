@@ -2,7 +2,7 @@
 
 import React from "react";
 import NextLink from "next/link";
-import { Button, Card, Chip } from "@heroui/react";
+import { Button, Card, Chip, Skeleton } from "@heroui/react";
 import {
   ShieldCheck,
   Clock,
@@ -87,8 +87,27 @@ function Sparkline({
 }
 
 export function DoctorOverview() {
-  const { doctorData, appointments, isProfileSubmitted, isVerified, isRejected, canAccessDependentTabs } =
+  const { doctorData, appointments, isProfileSubmitted, isVerified, isRejected, canAccessDependentTabs, loading } =
     useDoctorContext();
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+        </div>
+        <Skeleton className="h-64 rounded-2xl w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-44 rounded-2xl" />
+          <Skeleton className="h-44 rounded-2xl" />
+          <Skeleton className="h-44 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
