@@ -47,8 +47,8 @@ export async function getSession(): Promise<SessionPayload | null> {
       select: { id: true, isActive: true, role: true },
     });
 
-    // If account was deleted or deactivated by an admin, return null immediately.
-    if (!account || !account.isActive) {
+    // If account was deleted, deactivated, or role was changed in DB, invalidate session immediately.
+    if (!account || !account.isActive || account.role !== payload.role) {
       // Best-effort cookie deletion (succeeds in Route Handlers / Server Actions)
       try {
         cookieStore.delete(SESSION_COOKIE);

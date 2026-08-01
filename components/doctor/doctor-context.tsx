@@ -11,6 +11,11 @@ export interface DoctorContextType {
   toastMessage: { text: string; type: "success" | "error" } | null;
   showToast: (text: string, type?: "success" | "error") => void;
 
+  // Verification & Submission Status
+  isProfileSubmitted: boolean;
+  isVerified: boolean;
+  canAccessDependentTabs: boolean;
+
   // Profile Form States
   specialty: string;
   setSpecialty: (val: string) => void;
@@ -345,6 +350,12 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isProfileSubmitted = Boolean(
+    doctorData && doctorData.specialty && doctorData.licenseNumber && doctorData.education
+  );
+  const isVerified = Boolean(doctorData?.isVerified);
+  const canAccessDependentTabs = isProfileSubmitted;
+
   return (
     <DoctorContext.Provider
       value={{
@@ -355,6 +366,9 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
         scrapedDirectory,
         toastMessage,
         showToast,
+        isProfileSubmitted,
+        isVerified,
+        canAccessDependentTabs,
         specialty,
         setSpecialty,
         education,

@@ -30,6 +30,8 @@ import {
   Pencil,
   RotateCcw,
   Search,
+  Shield,
+  ShieldCheck,
   ShieldAlert,
   Trash2,
   UserCheck,
@@ -164,7 +166,7 @@ export function UsersManager() {
   const updateUser = async (
     userId: string,
     userName: string,
-    patch: { role?: string; isActive?: boolean; name?: string },
+    patch: { role?: string; isActive?: boolean; isVerified?: boolean; name?: string },
   ) => {
     setSavingId(userId);
 
@@ -766,6 +768,37 @@ export function UsersManager() {
                           Delete User
                         </Tooltip.Content>
                       </Tooltip>
+
+                      {/* Doctor Verification Icon Toggle Control */}
+                      {user.role === "DOCTOR" && (
+                        <Tooltip delay={100}>
+                          <Tooltip.Trigger>
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              variant="outline"
+                              isDisabled={savingId === user.id}
+                              onPress={() =>
+                                updateUser(user.id, user.name, { isVerified: !user.isVerified })
+                              }
+                              className={`border-border-custom ${
+                                user.isVerified
+                                  ? "text-rose-400 hover:text-rose-300 border-rose-500/30 hover:bg-rose-500/10"
+                                  : "text-emerald-400 hover:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/10"
+                              }`}
+                            >
+                              {user.isVerified ? (
+                                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                              ) : (
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              )}
+                            </Button>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content placement="top" className="text-xs font-mono px-2 py-1">
+                            {user.isVerified ? "Revoke Verification (Unverify Doctor)" : "Verify Doctor Credentials"}
+                          </Tooltip.Content>
+                        </Tooltip>
+                      )}
 
                       {/* Deactivate/Activate Toggle */}
                       <Button

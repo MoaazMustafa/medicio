@@ -27,15 +27,31 @@ export async function POST(request: NextRequest) {
 
     const isVerified = Boolean(approve);
 
-    const updatedDoctor = await prisma.doctor.update({
-      where: { id: doctorId },
-      data: { isVerified },
-    });
+    let updatedDoctor = null;
 
-    if (doctor.userId) {
-      await prisma.user.update({
-        where: { id: doctor.userId },
-        data: { isVerified },
+    if (isVerified) {
+      updatedDoctor = await prisma.doctor.update({
+        where: { id: doctorId },
+        data: { isVerified: true },
+      });
+
+      if (doctor.userId) {
+        await prisma.user.update({
+          where: { id: doctor.userId },
+          data: { isVerified: true },
+        });
+      }
+    } else {
+      // Rejection: unverify user and delete doctor application record so doctor can resubmit
+      if (doctor.userId) {
+        await prisma.user.update({
+          where: { id: doctor.userId },
+          data: { isVerified: false },
+        });
+      }
+
+      await prisma.doctor.delete({
+        where: { id: doctorId },
       });
     }
 
@@ -46,8 +62,8 @@ export async function POST(request: NextRequest) {
       entityType: "DOCTOR",
       entityId: doctorId,
       metadata: {
-        doctorName: doctor.user.name,
-        doctorEmail: doctor.user.email,
+        doctorName: doctor.user?.name || "Doctor",
+        doctorEmail: doctor.user?.email,
         licenseNumber: doctor.licenseNumber,
         rejectionReason: rejectionReason || null,
       },
@@ -55,8 +71,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: isVerified
-        ? `Credentials for ${doctor.user.name} verified successfully.`
-        : `Verification for ${doctor.user.name} was rejected.`,
+        ? `Credentials for ${doctor.user?.name || "Doctor"} verified successfully.`
+        : `Verification request for ${doctor.user?.name || "Doctor"} was rejected.`,
       doctor: updatedDoctor,
     });
   } catch (error: any) {

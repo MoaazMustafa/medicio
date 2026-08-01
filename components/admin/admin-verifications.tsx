@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Button, Card, Chip, Input, TextArea } from "@heroui/react";
+import { Button, Card, Chip, Input, Skeleton, TextArea } from "@heroui/react";
 import { ShieldCheck, ShieldAlert, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 
 export function AdminVerificationsManager() {
@@ -54,6 +54,25 @@ export function AdminVerificationsManager() {
 
   const pendingDoctors = doctors.filter((d) => !d.isVerified);
   const verifiedDoctors = doctors.filter((d) => d.isVerified);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <Card className="p-6 border border-border-custom bg-surface/50 flex flex-col gap-4">
+          <Skeleton className="h-6 w-72 rounded" />
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Button, Card, Input, Label, TextArea } from "@heroui/react";
-import { ShieldCheck, FileText } from "lucide-react";
+import { Button, Card, Chip, Input, Label, TextArea } from "@heroui/react";
+import { ShieldCheck, ShieldAlert, Lock, FileText } from "lucide-react";
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorProfileForm() {
@@ -23,18 +23,39 @@ export function DoctorProfileForm() {
     setBio,
     handleSaveProfile,
     saving,
+    isVerified,
+    isProfileSubmitted,
   } = useDoctorContext();
 
   return (
     <Card className="p-6 border border-border-custom bg-surface/40 flex flex-col gap-6 shadow-sm">
-      <div className="border-b border-border-custom pb-3">
-        <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-primary" />
-          <span>Submit & Update Medical Credentials</span>
-        </h2>
-        <p className="text-xs text-text-secondary mt-1">
-          FR-DOC-01: Submit qualifications and license details for administrator verification. FR-DOC-06: Independent clinic doctors maintain standalone profiles.
-        </p>
+      <div className="border-b border-border-custom pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <span>Submit & Update Medical Credentials</span>
+          </h2>
+          <p className="text-xs text-text-secondary mt-1">
+            FR-DOC-01: Submit qualifications and license details for administrator verification. FR-DOC-06: Independent clinic doctors maintain standalone profiles.
+          </p>
+        </div>
+
+        {isVerified ? (
+          <Chip color="success" variant="soft" className="font-semibold text-xs shrink-0 flex items-center gap-1">
+            <ShieldCheck className="w-4 h-4 inline mr-1 text-emerald-400" />
+            Verified Practitioner Credentials
+          </Chip>
+        ) : isProfileSubmitted ? (
+          <Chip color="warning" variant="soft" className="font-semibold text-xs shrink-0 flex items-center gap-1">
+            <ShieldAlert className="w-4 h-4 inline mr-1 text-amber-400" />
+            Credentials Submitted & Pending Review
+          </Chip>
+        ) : (
+          <Chip color="danger" variant="soft" className="font-semibold text-xs shrink-0 flex items-center gap-1">
+            <Lock className="w-4 h-4 inline mr-1 text-rose-400" />
+            Compulsory Form — Not Submitted
+          </Chip>
+        )}
       </div>
 
       <form onSubmit={handleSaveProfile} className="grid grid-cols-1 md:grid-cols-2 gap-4">

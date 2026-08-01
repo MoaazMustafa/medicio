@@ -85,20 +85,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // If role is doctor, create empty doctor profile
-    if (role === UserRole.DOCTOR) {
-      await prisma.doctor.create({
-        data: {
-          userId: newUser.id,
-          specialty: "General Medicine",
-          education: "Not Specified",
-          experience: 0,
-          licenseNumber: `TEMP-${randomToken(8)}`,
-          isVerified: false,
-        },
-      });
-    }
-
     if (!isVerified) {
       const { otp, expiresAt } = createOtp();
 

@@ -36,7 +36,7 @@ export async function PATCH(
       );
     }
 
-    const { role: newRole, name: newName, isActive } = result.data;
+    const { role: newRole, name: newName, isActive, isVerified } = result.data;
 
     const target = await prisma.user.findUnique({
       where: { id: userId },
@@ -84,16 +84,35 @@ export async function PATCH(
         );
         updatedRole = newRole;
       }
+
+      if (newRole !== "DOCTOR") {
+        await prisma.doctor.deleteMany({
+          where: { userId: target.id },
+        });
+      }
     }
 
-    if (isActive !== undefined || newName !== undefined) {
+    if (isActive !== undefined || newName !== undefined || isVerified !== undefined) {
       await prisma.user.update({
         where: { id: target.id },
         data: {
           ...(isActive !== undefined ? { isActive } : {}),
           ...(newName !== undefined ? { name: newName } : {}),
+          ...(isVerified !== undefined ? { isVerified } : {}),
         },
       });
+
+      if (isVerified === false) {
+        // When admin unverifies doctor, delete submitted application so doctor must resubmit
+        await prisma.doctor.deleteMany({
+          where: { userId: target.id },
+        });
+      } else if (isVerified === true) {
+        await prisma.doctor.updateMany({
+          where: { userId: target.id },
+          data: { isVerified: true },
+        });
+      }
     }
 
     const updatedUser = await prisma.user.findUnique({

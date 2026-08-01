@@ -131,6 +131,39 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRoleSwitch = async (newRole: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to switch role.");
+
+      if (data.requiresLogout) {
+        toast.success("Account role updated. Logging out to refresh permissions...");
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1200);
+        return;
+      }
+
+      toast.success(
+        newRole === "PATIENT"
+          ? "Switched to Patient mode. You can now use patient tools and book appointments with other doctors."
+          : "Switched to Doctor mode. Doctor console activated."
+      );
+      setProfile(data.user);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.message || "Role switch failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Persist Password to database
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,12 +359,92 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex items-center justify-between border-t border-border-custom pt-4">
                 <Button variant="primary" type="submit" isDisabled={saving} className="text-xs font-semibold px-5 w-fit">
                   {saving ? "Saving..." : "Save Profile Details to DB"}
                 </Button>
               </div>
             </form>
+          )}
+
+          {/* Doctor Role Conversion & Workspace Mode Switch */}
+          {profile && (profile.role === "DOCTOR" || profile.role === "PATIENT") && (
+            <div className="p-5 rounded-xl border border-border-custom bg-background-custom/40 flex flex-col gap-4 max-w-2xl mt-2">
+              <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    <span>Doctor Role & Mode Controls</span>
+                  </h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {!profile.isVerified && profile.role === "DOCTOR"
+                      ? "Unverified doctor accounts can convert their primary role to Patient."
+                      : "Verified doctors can switch active mode between Doctor and Patient to act as a patient of other doctors."}
+                  </p>
+                </div>
+                <Chip variant="soft" color={profile.isVerified ? "success" : "warning"} className="text-[10px] font-mono">
+                  {profile.isVerified ? "Verified Practitioner" : "Unverified Status"}
+                </Chip>
+              </div>
+
+              {/* Case 1: Unverified doctor -> allow converting role to Patient */}
+              {profile.role === "DOCTOR" && !profile.isVerified && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10">
+                  <div className="text-xs text-amber-200">
+                    <span className="font-bold block">Convert Account Role to Patient:</span>
+                    <span>Change your primary role from Doctor to Patient account.</span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    isDisabled={saving}
+                    onPress={() => handleRoleSwitch("PATIENT")}
+                    className="text-xs font-semibold shrink-0 bg-amber-600 hover:bg-amber-500 text-white"
+                  >
+                    Convert Role to Patient
+                  </Button>
+                </div>
+              )}
+
+              {/* Case 2: Verified doctor -> allow toggling between DOCTOR and PATIENT mode */}
+              {profile.isVerified && (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-primary/30 bg-primary/10">
+                  <div className="text-xs text-text-primary">
+                    <span className="font-bold block">Active Mode: {profile.role}</span>
+                    <span>
+                      {profile.role === "DOCTOR"
+                        ? "Currently acting as Doctor. Switch to Patient mode to book appointments with other practitioners."
+                        : "Currently acting as Patient. Switch to Doctor mode to manage your clinical console."}
+                    </span>
+                  </div>
+                  <Button
+                    variant="primary"
+                    isDisabled={saving}
+                    onPress={() => handleRoleSwitch(profile.role === "DOCTOR" ? "PATIENT" : "DOCTOR")}
+                    className="text-xs font-semibold shrink-0"
+                  >
+                    Switch to {profile.role === "DOCTOR" ? "Patient Mode" : "Doctor Mode"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Case 3: Converted to patient -> allow switching back if profile exists */}
+              {profile.role === "PATIENT" && !profile.isVerified && (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border-custom bg-surface/40">
+                  <div className="text-xs text-text-secondary">
+                    <span className="font-bold text-text-primary block">Switch Back to Doctor Portal:</span>
+                    <span>Re-activate Doctor console to submit or manage verification credentials.</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    isDisabled={saving}
+                    onPress={() => handleRoleSwitch("DOCTOR")}
+                    className="text-xs font-semibold shrink-0"
+                  >
+                    Switch to Doctor Role
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </Card>
       )}

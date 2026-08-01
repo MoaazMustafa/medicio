@@ -1,8 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { getSession } from "@/lib/auth";
+import { clearSessionCookie, getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 /**
  * GET /api/user/profile — fetch current user profile details from PostgreSQL database.
@@ -55,21 +56,48 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, avatarUrl } = body;
+    const { name, avatarUrl, role: targetRole } = body;
 
-    if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json(
-        { error: "Name field cannot be empty." },
-        { status: 400 },
-      );
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: { doctorProfile: true },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found." }, { status: 404 });
+    }
+
+    const updateData: any = {};
+    if (name && typeof name === "string" && name.trim()) {
+      updateData.name = name.trim();
+    }
+    if (avatarUrl !== undefined) {
+      updateData.avatarUrl = avatarUrl;
+    }
+
+    let roleChanged = false;
+
+    // Role conversion / mode switching logic for Doctors
+    if (targetRole && (targetRole === "PATIENT" || targetRole === "DOCTOR")) {
+      const isDoctorAccount = currentUser.role === "DOCTOR" || Boolean(currentUser.doctorProfile);
+
+      if (isDoctorAccount && targetRole !== currentUser.role) {
+        updateData.role = targetRole;
+        roleChanged = true;
+
+        if (targetRole === "PATIENT") {
+          // Unverified doctor changed role -> purge doctor application record completely from verification queue
+          await prisma.doctor.deleteMany({
+            where: { userId: session.userId },
+          });
+          updateData.isVerified = false;
+        }
+      }
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: session.userId },
-      data: {
-        name: name.trim(),
-        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-      },
+      data: updateData,
       select: {
         id: true,
         email: true,
@@ -81,6 +109,18 @@ export async function PATCH(request: NextRequest) {
         createdAt: true,
       },
     });
+
+    if (roleChanged) {
+      await clearSessionCookie();
+      const response = NextResponse.json({
+        success: true,
+        requiresLogout: true,
+        message: "Account role updated successfully. Please log in again with your updated role.",
+        user: updatedUser,
+      });
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
 
     return NextResponse.json({
       success: true,
