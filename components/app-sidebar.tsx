@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   FileSpreadsheet,
   FileText,
   FlaskConical,
@@ -30,6 +31,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  Sparkles,
   Stethoscope,
   User,
   Users,
@@ -57,9 +59,28 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Health Records", href: "/records", icon: FolderHeart, soon: true },
   ],
   DOCTOR: [
-    { label: "Dashboard", href: "/doctor/dashboard", icon: LayoutDashboard },
-    { label: "Appointments", href: "/doctor/appointments", icon: CalendarCheck, soon: true },
-    { label: "AI Agent Training", href: "/doctor/agent", icon: Bot, soon: true },
+    { label: "Dashboard Overview", href: "/doctor/dashboard", icon: LayoutDashboard },
+    {
+      label: "Practice & Profile",
+      href: "/doctor/profile",
+      icon: ShieldCheck,
+      children: [
+        { label: "Credentials & License", href: "/doctor/profile", icon: ShieldCheck },
+        { label: "Clinic & Affiliations", href: "/doctor/profile/affiliations", icon: Building2 },
+      ],
+    },
+    { label: "Schedule & Timetable", href: "/doctor/availability", icon: Clock },
+    { label: "Appointments", href: "/doctor/appointments", icon: CalendarCheck },
+    {
+      label: "AI Clinical Agent",
+      href: "/doctor/agent",
+      icon: Bot,
+      children: [
+        { label: "Protocols & Guardrails", href: "/doctor/agent", icon: Bot },
+        { label: "Agent Simulator", href: "/doctor/agent/playground", icon: Sparkles },
+      ],
+    },
+    { label: "Medical Directory", href: "/doctor/directory", icon: Users },
   ],
   HOSPITAL_ADMIN: [
     { label: "Dashboard", href: "/hospital/dashboard", icon: LayoutDashboard },
@@ -123,6 +144,11 @@ function isRouteActive(href: string, pathname: string): boolean {
   if (href === "/admin/logs") return pathname === "/admin/logs";
   if (href === "/admin/dashboard") return pathname === "/admin/dashboard";
   if (href === "/doctor/dashboard") return pathname === "/doctor/dashboard";
+  if (href === "/doctor/profile") return pathname === "/doctor/profile";
+  if (href === "/doctor/agent") return pathname === "/doctor/agent";
+  if (href === "/doctor/availability") return pathname === "/doctor/availability";
+  if (href === "/doctor/appointments") return pathname === "/doctor/appointments";
+  if (href === "/doctor/directory") return pathname === "/doctor/directory";
   if (href === "/hospital/dashboard") return pathname === "/hospital/dashboard";
   if (href === "/lab/dashboard") return pathname === "/lab/dashboard";
   if (href === "/pharmacy/dashboard") return pathname === "/pharmacy/dashboard";
@@ -137,7 +163,11 @@ export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const items = navForRole(role);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({ "Audit Logs": true });
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    "Audit Logs": true,
+    "Practice & Profile": true,
+    "AI Clinical Agent": true,
+  });
 
   // Auto-collapse sidebar on tablet screen widths to preserve main workspace space
   useEffect(() => {
@@ -172,16 +202,14 @@ export function AppSidebar({ role }: { role: string }) {
   return (
     <aside
       aria-label="Main sidebar"
-      className={`hidden md:flex flex-col sticky top-0 h-screen border-r border-border-custom bg-surface/60 backdrop-blur-xl transition-all duration-300 z-30 shrink-0 ${
-        isCollapsed ? "w-18" : "w-60"
-      }`}
+      className={`hidden md:flex flex-col sticky top-0 h-screen border-r border-border-custom bg-surface/60 backdrop-blur-xl transition-all duration-300 z-30 shrink-0 ${isCollapsed ? "w-18" : "w-60"
+        }`}
     >
       <Surface className="flex flex-col h-full bg-transparent">
         {/* Brand Header */}
         <div
-          className={`flex items-center h-16 border-b border-border-custom shrink-0 transition-all ${
-            isCollapsed ? "justify-center px-2" : "justify-between px-4"
-          }`}
+          className={`flex items-center h-16 border-b border-border-custom shrink-0 transition-all ${isCollapsed ? "justify-center px-2" : "justify-between px-4"
+            }`}
         >
           {isCollapsed ? (
             <Button
@@ -244,11 +272,10 @@ export function AppSidebar({ role }: { role: string }) {
                     <Tooltip key={item.label} delay={100}>
                       <Tooltip.Trigger className="w-full flex justify-center">
                         <div
-                          className={`flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all ${
-                            isParentActive
+                          className={`flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all ${isParentActive
                               ? "bg-primary/15 text-primary border border-primary/30"
                               : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-                          }`}
+                            }`}
                         >
                           <item.icon className="w-5 h-5 shrink-0" />
                         </div>
@@ -280,9 +307,8 @@ export function AppSidebar({ role }: { role: string }) {
                               <NextLink
                                 key={child.href}
                                 href={child.href}
-                                className={`flex items-center gap-2 text-xs font-semibold py-1 px-1.5 rounded transition-colors ${
-                                  isChildActive ? "text-primary font-bold bg-primary/10" : "text-text-primary hover:text-primary"
-                                }`}
+                                className={`flex items-center gap-2 text-xs font-semibold py-1 px-1.5 rounded transition-colors ${isChildActive ? "text-primary font-bold bg-primary/10" : "text-text-primary hover:text-primary"
+                                  }`}
                               >
                                 <child.icon className="w-3.5 h-3.5" />
                                 <span>{child.label}</span>
@@ -299,22 +325,19 @@ export function AppSidebar({ role }: { role: string }) {
                   <div key={item.label} className="space-y-1">
                     <button
                       onClick={() => toggleSubmenu(item.label)}
-                      className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                        isParentActive
+                      className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isParentActive
                           ? "bg-primary/10 text-primary border border-primary/20 font-semibold"
                           : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-                      }`}
+                        }`}
                     >
                       <item.icon
-                        className={`w-5 h-5 shrink-0 ${
-                          isParentActive ? "text-primary" : "text-text-secondary"
-                        }`}
+                        className={`w-5 h-5 shrink-0 ${isParentActive ? "text-primary" : "text-text-secondary"
+                          }`}
                       />
                       <span className="flex-1 text-left truncate">{item.label}</span>
                       <ChevronDown
-                        className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
-                          isExpanded ? "rotate-180 text-primary" : "text-text-secondary"
-                        }`}
+                        className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180 text-primary" : "text-text-secondary"
+                          }`}
                       />
                     </button>
 
@@ -346,16 +369,14 @@ export function AppSidebar({ role }: { role: string }) {
                             <NextLink
                               key={child.href}
                               href={child.href}
-                              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-all ${
-                                isChildActive
+                              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-all ${isChildActive
                                   ? "bg-primary/15 text-primary border border-primary/30 font-semibold shadow-xs"
                                   : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-                              }`}
+                                }`}
                             >
                               <child.icon
-                                className={`w-4 h-4 shrink-0 ${
-                                  isChildActive ? "text-primary" : "text-text-secondary"
-                                }`}
+                                className={`w-4 h-4 shrink-0 ${isChildActive ? "text-primary" : "text-text-secondary"
+                                  }`}
                               />
                               <span className="flex-1 truncate">{child.label}</span>
                             </NextLink>
@@ -373,9 +394,8 @@ export function AppSidebar({ role }: { role: string }) {
               const navContent = item.soon ? (
                 <div
                   aria-disabled
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary/50 cursor-not-allowed select-none transition-colors ${
-                    isCollapsed ? "justify-center px-0 w-full" : ""
-                  }`}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-secondary/50 cursor-not-allowed select-none transition-colors ${isCollapsed ? "justify-center px-0 w-full" : ""
+                    }`}
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
                   {!isCollapsed && (
@@ -393,18 +413,15 @@ export function AppSidebar({ role }: { role: string }) {
               ) : (
                 <NextLink
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                    isCollapsed ? "justify-center px-0 w-full" : ""
-                  } ${
-                    isActive
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isCollapsed ? "justify-center px-0 w-full" : ""
+                    } ${isActive
                       ? "bg-primary/15 text-primary border border-primary/30 font-semibold shadow-sm"
                       : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-                  }`}
+                    }`}
                 >
                   <item.icon
-                    className={`w-5 h-5 shrink-0 ${
-                      isActive ? "text-primary" : "text-text-secondary"
-                    }`}
+                    className={`w-5 h-5 shrink-0 ${isActive ? "text-primary" : "text-text-secondary"
+                      }`}
                   />
                   {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
                 </NextLink>
@@ -437,11 +454,10 @@ export function AppSidebar({ role }: { role: string }) {
               <Tooltip.Trigger className="w-full flex justify-center">
                 <NextLink
                   href="/settings"
-                  className={`flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all ${
-                    pathname.startsWith("/settings")
+                  className={`flex items-center justify-center rounded-xl p-2.5 text-sm font-medium transition-all ${pathname.startsWith("/settings")
                       ? "bg-primary/15 text-primary border border-primary/30"
                       : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-                  }`}
+                    }`}
                 >
                   <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
                 </NextLink>
@@ -453,11 +469,10 @@ export function AppSidebar({ role }: { role: string }) {
           ) : (
             <NextLink
               href="/settings"
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                pathname.startsWith("/settings")
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname.startsWith("/settings")
                   ? "bg-primary/15 text-primary border border-primary/30 font-semibold shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-border-custom/40"
-              }`}
+                }`}
             >
               <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
               <span className="flex-1 truncate">Settings</span>
@@ -565,11 +580,10 @@ export function MobileNav({ role }: { role: string }) {
                                   key={child.href}
                                   variant="ghost"
                                   onPress={() => handleNavigate(child.href)}
-                                  className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-xs font-medium h-auto ${
-                                    isChildActive
+                                  className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-xs font-medium h-auto ${isChildActive
                                       ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
                                       : "text-text-secondary hover:text-text-primary"
-                                  }`}
+                                    }`}
                                 >
                                   <child.icon className="w-4 h-4 shrink-0" />
                                   <span className="flex-1 truncate text-left">{child.label}</span>
@@ -607,11 +621,10 @@ export function MobileNav({ role }: { role: string }) {
                         key={item.label}
                         variant="ghost"
                         onPress={() => handleNavigate(item.href)}
-                        className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${
-                          isActive
+                        className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${isActive
                             ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
                             : "text-text-secondary hover:text-text-primary"
-                        }`}
+                          }`}
                       >
                         <item.icon className="w-5 h-5 shrink-0" />
                         <span className="flex-1 truncate text-left">{item.label}</span>
@@ -628,11 +641,10 @@ export function MobileNav({ role }: { role: string }) {
                 <Button
                   variant="ghost"
                   onPress={() => handleNavigate("/settings")}
-                  className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${
-                    pathname.startsWith("/settings")
+                  className={`w-full flex items-center justify-start gap-3 rounded-xl px-3 py-3 text-sm font-medium h-auto ${pathname.startsWith("/settings")
                       ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
                       : "text-text-secondary hover:text-text-primary"
-                  }`}
+                    }`}
                 >
                   <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
                   <span className="flex-1 truncate text-left">Settings</span>

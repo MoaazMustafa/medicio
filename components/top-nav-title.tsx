@@ -28,8 +28,36 @@ const ROUTE_TITLES: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Transactional email delivery history, SMTP headers & dispatch status",
   },
   "/doctor/dashboard": {
-    title: "Doctor Console",
-    subtitle: "Appointments, schedule & emergency agent training",
+    title: "Doctor Overview & Metrics",
+    subtitle: "Practitioner overview, credential status & booking summary",
+  },
+  "/doctor/profile": {
+    title: "Credentials & License",
+    subtitle: "Medical license verification, specialty & practitioner bio",
+  },
+  "/doctor/profile/affiliations": {
+    title: "Clinic & Hospital Network",
+    subtitle: "Standalone clinic address & hospital affiliation requests",
+  },
+  "/doctor/availability": {
+    title: "Schedule & Timetable",
+    subtitle: "Working days, shift hours & appointment slot duration",
+  },
+  "/doctor/appointments": {
+    title: "Patient Appointments",
+    subtitle: "Review, accept, or update patient appointment statuses",
+  },
+  "/doctor/agent": {
+    title: "AI Agent Protocols",
+    subtitle: "Specialty triage rules, emergency red flags & clinical boundaries",
+  },
+  "/doctor/agent/playground": {
+    title: "AI Agent Simulator",
+    subtitle: "Interactive prompt sandbox & live triage preview",
+  },
+  "/doctor/directory": {
+    title: "Medical Directory",
+    subtitle: "Scraped practitioner directory & verified provider listings",
   },
   "/hospital/dashboard": {
     title: "Hospital Management",
