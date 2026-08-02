@@ -1,5 +1,5 @@
-import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 import { DoctorDirectoryView } from "@/components/doctor/doctor-directory-view";
+import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 
 export const metadata = {
   title: "Medical Directory — Doctor Portal | Medicio",

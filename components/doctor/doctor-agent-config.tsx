@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import NextLink from "next/link";
 import { Button, Card, Input, Label, TextArea } from "@heroui/react";
 import { Bot, Sparkles, ArrowRight } from "lucide-react";
+import NextLink from "next/link";
+import React from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorAgentConfig() {

@@ -1,24 +1,19 @@
 "use client";
 
-import React from "react";
-import NextLink from "next/link";
 import { Button, Card, Chip, Skeleton } from "@heroui/react";
 import {
-  ShieldCheck,
   Clock,
   Bot,
   UserCheck,
   CalendarCheck,
-  Building2,
-  Sparkles,
   ArrowRight,
-  Stethoscope,
   Lock,
-  FileCheck,
-  TrendingUp,
   Activity,
   ShieldAlert,
 } from "lucide-react";
+import NextLink from "next/link";
+import React from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 /**

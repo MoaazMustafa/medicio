@@ -1,5 +1,5 @@
-import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 import { DoctorAvailabilityForm } from "@/components/doctor/doctor-availability-form";
+import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 
 export const metadata = {
   title: "Schedule & Timetable — Doctor Portal | Medicio",

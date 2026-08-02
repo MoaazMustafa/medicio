@@ -11,6 +11,20 @@ import {
   Skeleton,
 } from "@heroui/react";
 import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileSpreadsheet,
+  Mail,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,20 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Download,
-  FileSpreadsheet,
-  Mail,
-  RefreshCw,
-  Send,
-  ShieldCheck,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 interface EmailLogItem {
   id: string;

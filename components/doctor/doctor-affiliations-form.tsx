@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
 import { Button, Card, Chip, Input, Label } from "@heroui/react";
 import { Building2, MapPin } from "lucide-react";
+import React from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorAffiliationsForm() {

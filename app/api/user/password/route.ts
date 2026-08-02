@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
+import { sendPasswordChangedEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -52,6 +53,10 @@ export async function PATCH(request: NextRequest) {
       where: { id: user.id },
       data: { passwordHash: newPasswordHash },
     });
+
+    sendPasswordChangedEmail(session.email, session.name || "User").catch((err) =>
+      console.error("[email] Error sending password change notification:", err)
+    );
 
     return NextResponse.json({
       success: true,

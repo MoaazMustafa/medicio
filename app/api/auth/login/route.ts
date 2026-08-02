@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { signSessionToken } from "@/lib/auth";
 import { createOtp, verifyPassword } from "@/lib/crypto";
-import { sendOtpEmail } from "@/lib/email";
+import { sendLoginDetectedEmail, sendOtpEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -146,6 +146,13 @@ export async function POST(request: NextRequest) {
       ip,
       metadata: { name: user.name, email: user.email, role: user.role, reason: "DIRECT_LOGIN" },
     });
+
+    const userAgent = request.headers.get("user-agent") || undefined;
+    sendLoginDetectedEmail(user.email, user.name, {
+      time: new Date().toLocaleString(),
+      ip,
+      userAgent,
+    }).catch((err) => console.error("[email] Error sending login notification:", err));
 
     const response = NextResponse.json({
       success: true,

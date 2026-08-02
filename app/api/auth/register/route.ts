@@ -3,8 +3,8 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
 import { getSession, hasRole } from "@/lib/auth";
-import { createOtp, hashPassword, randomToken } from "@/lib/crypto";
-import { sendOtpEmail } from "@/lib/email";
+import { createOtp, hashPassword } from "@/lib/crypto";
+import { sendOtpEmail, sendWelcomeEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -120,6 +120,10 @@ export async function POST(request: NextRequest) {
       "USER_REGISTER_SUCCESS_AUTO_VERIFIED",
       { name: newUser.name, email: newUser.email, role: newUser.role, reason: "ADMIN_PROVISIONED" },
       { actorId: newUser.id, actorRole: newUser.role, entityId: newUser.id, ip }
+    );
+
+    sendWelcomeEmail(newUser.email, newUser.name, newUser.role).catch((err) =>
+      console.error("[email] Error sending welcome email:", err)
     );
 
     return NextResponse.json({

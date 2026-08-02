@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
 import { Button, Card, Input, Label } from "@heroui/react";
 import { Clock } from "lucide-react";
+import React from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorAvailabilityForm() {

@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
 import { Button, Card, Chip, Input, Label, TextArea, Modal } from "@heroui/react";
 import {
   ShieldCheck,
@@ -13,11 +12,11 @@ import {
   PlusCircle,
   ExternalLink,
   CheckCircle2,
-  Calendar,
-  Building2,
   Award,
   X,
 } from "lucide-react";
+import React, { useState } from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorProfileForm() {

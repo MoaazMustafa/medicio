@@ -13,14 +13,6 @@ import {
   Tooltip,
 } from "@heroui/react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
@@ -30,7 +22,6 @@ import {
   Pencil,
   RotateCcw,
   Search,
-  Shield,
   ShieldCheck,
   ShieldAlert,
   Trash2,
@@ -41,6 +32,15 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function GoogleLogoIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (

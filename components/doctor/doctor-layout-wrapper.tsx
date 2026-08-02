@@ -1,14 +1,7 @@
 "use client";
 
-import React from "react";
-import NextLink from "next/link";
-import { usePathname } from "next/navigation";
 import { Button, Card, Chip, Skeleton } from "@heroui/react";
 import {
-  ShieldCheck,
-  ShieldAlert,
-  Stethoscope,
-  RefreshCw,
   AlertCircle,
   CheckCircle2,
   Lock,
@@ -16,6 +9,10 @@ import {
   ArrowRight,
   XCircle,
 } from "lucide-react";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
+import React from "react";
+
 import { DoctorProvider, useDoctorContext } from "./doctor-context";
 
 function DoctorLayoutHeader() {

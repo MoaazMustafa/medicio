@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { writeAudit } from "@/lib/audit";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 
 export async function GET() {

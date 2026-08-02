@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { getSession } from "@/lib/auth";
+import { sendAppointmentBookedEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    let whereCondition: any = {};
+    const whereCondition: any = {};
     if (session.role === "DOCTOR") {
       const doctor = await prisma.doctor.findUnique({ where: { userId: session.userId } });
       if (!doctor) {
@@ -94,11 +97,25 @@ export async function POST(request: NextRequest) {
         notes: notes || null,
       },
       include: {
+        patient: {
+          select: { name: true, email: true },
+        },
         doctor: {
           include: { user: true },
         },
       },
     });
+
+    if (appointment.patient?.email && appointment.doctor?.user?.email) {
+      sendAppointmentBookedEmail({
+        patientEmail: appointment.patient.email,
+        patientName: appointment.patient.name || "Patient",
+        doctorEmail: appointment.doctor.user.email,
+        doctorName: appointment.doctor.user.name || "Doctor",
+        dateTime: appointment.dateTime.toLocaleString(),
+        notes: appointment.notes || undefined,
+      }).catch((err) => console.error("[email] Error sending appointment booked notification:", err));
+    }
 
     return NextResponse.json({
       message: `Appointment request submitted with Dr. ${appointment.doctor.user.name}.`,

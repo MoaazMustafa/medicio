@@ -1,7 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/authorize";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { writeAudit } from "@/lib/audit";
+import { requireRole } from "@/lib/authorize";
+import {
+  sendDoctorApplicationApprovedEmail,
+  sendDoctorApplicationRejectedEmail,
+} from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +103,23 @@ export async function POST(request: NextRequest) {
         rejectionReason: rejectionReason || null,
       },
     });
+
+    if (doctor.user?.email) {
+      if (isApproved) {
+        sendDoctorApplicationApprovedEmail(
+          doctor.user.email,
+          doctor.user.name || "Practitioner",
+          doctor.specialty
+        ).catch((err) => console.error("[email] Error sending doctor approved email:", err));
+      } else if (targetAction === "reject") {
+        sendDoctorApplicationRejectedEmail(
+          doctor.user.email,
+          doctor.user.name || "Practitioner",
+          doctor.specialty,
+          rejectionReason
+        ).catch((err) => console.error("[email] Error sending doctor rejected email:", err));
+      }
+    }
 
     return NextResponse.json({
       message: isApproved

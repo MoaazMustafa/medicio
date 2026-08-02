@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/authorize";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { writeAudit } from "@/lib/audit";
+import { requireRole } from "@/lib/authorize";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,21 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Button, Card, Chip, Input, Skeleton, TextArea } from "@heroui/react";
+import { Button, Card, Chip, Input, Skeleton } from "@heroui/react";
 import {
-  ShieldCheck,
   ShieldAlert,
   CheckCircle2,
   XCircle,
   RefreshCw,
   Archive,
   ExternalLink,
-  FileCheck,
   RotateCcw,
-  Building2,
-  Lock,
   ClipboardList,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 export function AdminVerificationsManager() {
   const [loading, setLoading] = useState(true);

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
 import { Button, Card, Chip, Input } from "@heroui/react";
 import { Search, ShieldCheck, MapPin, Stethoscope, RefreshCw } from "lucide-react";
+import React, { useState } from "react";
+
 import { useDoctorContext } from "./doctor-context";
 
 export function DoctorDirectoryView() {

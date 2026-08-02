@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { writeAudit } from "@/lib/audit";
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { sendAppointmentStatusEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 
 export async function PATCH(
@@ -70,6 +73,18 @@ export async function PATCH(
         doctorSpecialty: updatedAppointment.doctor?.specialty,
       },
     });
+
+    if (updatedAppointment.patient?.email && updatedAppointment.doctor?.user?.email) {
+      sendAppointmentStatusEmail({
+        patientEmail: updatedAppointment.patient.email,
+        patientName: updatedAppointment.patient.name || "Patient",
+        doctorEmail: updatedAppointment.doctor.user.email,
+        doctorName: updatedAppointment.doctor.user.name || "Doctor",
+        dateTime: updatedAppointment.dateTime.toLocaleString(),
+        status: updatedAppointment.status,
+        notes: updatedAppointment.notes || undefined,
+      }).catch((err) => console.error("[email] Error sending appointment status notification:", err));
+    }
 
     return NextResponse.json({
       message: `Appointment updated to status: ${updatedAppointment.status}.`,

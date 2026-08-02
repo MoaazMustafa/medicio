@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { writeAudit } from "@/lib/audit";
-import { getClientIp } from "@/lib/rate-limit";
 import {
   GUEST_ROUTES,
   PROTECTED_ROUTES,
   dashboardForRole,
 } from "@/config/roles";
+import { writeAudit } from "@/lib/audit";
 import { verifyJwt } from "@/lib/jwt";
+import { getClientIp } from "@/lib/rate-limit";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 export async function middleware(request: NextRequest) {

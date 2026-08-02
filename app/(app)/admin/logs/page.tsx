@@ -8,18 +8,9 @@ import {
   Input,
   Label,
   ListBox,
-  Modal,
   Select,
   Skeleton,
 } from "@heroui/react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Activity,
   AlertCircle,
@@ -30,15 +21,22 @@ import {
   FileSpreadsheet,
   Mail,
   RefreshCw,
-  Search,
   Send,
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { downloadData } from "@/lib/export-helper";
 
 interface SystemLogItem {

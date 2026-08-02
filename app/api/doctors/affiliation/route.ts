@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { getSession } from "@/lib/auth";
+import { sendHospitalAffiliationEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +72,17 @@ export async function POST(request: NextRequest) {
         include: { user: true, hospital: true },
       });
 
+      if (updated.user?.email) {
+        sendHospitalAffiliationEmail({
+          recipientEmail: updated.user.email,
+          recipientName: updated.user.name || "Doctor",
+          hospitalName: updated.hospital?.name || "Hospital",
+          doctorName: updated.user.name || "Doctor",
+          status: "PENDING_DOCTOR_ACCEPT",
+          actionRequestedBy: "HOSPITAL",
+        }).catch((err) => console.error("[email] Error sending affiliation email:", err));
+      }
+
       return NextResponse.json({
         message: `Affiliation invitation sent to Dr. ${updated.user.name}. Pending doctor confirmation.`,
         doctor: updated,
@@ -94,6 +108,16 @@ export async function POST(request: NextRequest) {
         },
         include: { hospital: true, user: true },
       });
+
+      if (updated.user?.email) {
+        sendHospitalAffiliationEmail({
+          recipientEmail: updated.user.email,
+          recipientName: updated.user.name || "Doctor",
+          hospitalName: updated.hospital?.name || "Hospital",
+          doctorName: updated.user.name || "Doctor",
+          status: "AFFILIATED",
+        }).catch((err) => console.error("[email] Error sending affiliation email:", err));
+      }
 
       return NextResponse.json({
         message: `Hospital affiliation confirmed with ${updated.hospital?.name || "Hospital"}.`,

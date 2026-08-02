@@ -1,5 +1,6 @@
-import { AdminVerificationsManager } from "@/components/admin/admin-verifications";
 import { ShieldCheck } from "lucide-react";
+
+import { AdminVerificationsManager } from "@/components/admin/admin-verifications";
 
 export const metadata = {
   title: "Doctor Verifications — Admin",

@@ -1,5 +1,5 @@
-import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 import { DoctorAppointmentsManager } from "@/components/doctor/doctor-appointments-manager";
+import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 
 export const metadata = {
   title: "Patient Appointments — Doctor Portal | Medicio",

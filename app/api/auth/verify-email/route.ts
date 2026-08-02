@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { signSessionToken } from "@/lib/auth";
+import { sendWelcomeEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -83,6 +84,11 @@ export async function POST(request: NextRequest) {
     await prisma.verificationToken.delete({
       where: { id: verificationRecord.id },
     });
+
+    // Send Welcome Email asynchronously
+    sendWelcomeEmail(updatedUser.email, updatedUser.name, updatedUser.role).catch((err) =>
+      console.error("[email] Error sending welcome email:", err)
+    );
 
     // Sign a JWT and set it explicitly on the response object.
     // Using cookies().set() inside Route Handlers does not reliably propagate

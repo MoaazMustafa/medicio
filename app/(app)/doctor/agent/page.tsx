@@ -1,5 +1,5 @@
-import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 import { DoctorAgentConfig } from "@/components/doctor/doctor-agent-config";
+import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 
 export const metadata = {
   title: "AI Clinical Agent Protocols — Doctor Portal | Medicio",

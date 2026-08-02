@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
 import { Logo } from "@/components/icons";
+import { TopNavTitle } from "@/components/top-nav-title";
 import { UserMenu } from "@/components/user-menu";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TopNavTitle } from "@/components/top-nav-title";
 
 /**
  * Authenticated app shell: role-aware sidebar + header with the user menu.

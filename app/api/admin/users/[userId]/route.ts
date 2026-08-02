@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { writeAudit } from "@/lib/audit";
 import { requireRole } from "@/lib/authorize";
+import { sendRoleChangedEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 import { updateUserSchema } from "@/lib/validations/admin";
@@ -156,6 +157,15 @@ export async function PATCH(
         after: { role: updatedUser?.role || updatedRole, isActive: updatedUser?.isActive },
       },
     });
+
+    if (roleChanged && updatedUser) {
+      sendRoleChangedEmail(
+        updatedUser.email,
+        updatedUser.name,
+        target.role as string,
+        updatedUser.role as string
+      ).catch((err) => console.error("[email] Error sending role changed notification:", err));
+    }
 
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error: any) {

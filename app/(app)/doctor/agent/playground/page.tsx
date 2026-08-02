@@ -1,5 +1,5 @@
-import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 import { DoctorAgentPlayground } from "@/components/doctor/doctor-agent-playground";
+import { DoctorLayoutWrapper } from "@/components/doctor/doctor-layout-wrapper";
 
 export const metadata = {
   title: "AI Agent Simulator & Testing Sandbox — Doctor Portal | Medicio",

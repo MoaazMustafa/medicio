@@ -2,17 +2,13 @@
 
 import { Button, Card, Chip, Skeleton } from "@heroui/react";
 import {
-  Activity,
   ArrowDownRight,
   ArrowUpRight,
   CheckCircle2,
   Database,
-  Globe,
   RefreshCw,
   ShieldCheck,
   TrendingUp,
-  UserCheck,
-  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";

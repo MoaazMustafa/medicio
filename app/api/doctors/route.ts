@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { writeAudit } from "@/lib/audit";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authorize";
-import { getSession } from "@/lib/auth";
+import { sendDoctorApplicationSubmittedEmail } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -268,6 +270,14 @@ export async function POST(request: NextRequest) {
         verificationStatus: doctor.verificationStatus,
       },
     });
+
+    if (doctor.user?.email) {
+      sendDoctorApplicationSubmittedEmail(
+        doctor.user.email,
+        doctor.user.name || "Practitioner",
+        doctor.specialty
+      ).catch((err) => console.error("[email] Error sending doctor application submitted email:", err));
+    }
 
     return NextResponse.json({
       message: "Doctor verification credentials submitted. Pending administrator review.",
