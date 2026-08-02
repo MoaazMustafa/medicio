@@ -163,11 +163,7 @@ export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const items = navForRole(role);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    "Audit Logs": true,
-    "Practice & Profile": true,
-    "AI Clinical Agent": true,
-  });
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
   // Auto-collapse sidebar on tablet screen widths to preserve main workspace space
   useEffect(() => {

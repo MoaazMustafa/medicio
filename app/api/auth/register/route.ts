@@ -102,7 +102,11 @@ export async function POST(request: NextRequest) {
 
       const emailSent = await sendOtpEmail(newUser.email, otp, "Email Verification");
 
-      logAuthEvent("USER_REGISTER_PENDING_VERIFICATION", { email: newUser.email, role: newUser.role });
+      logAuthEvent(
+        "USER_REGISTER_PENDING_VERIFICATION",
+        { name: newUser.name, email: newUser.email, role: newUser.role, reason: "NEW_REGISTRATION" },
+        { actorId: newUser.id, actorRole: newUser.role, entityId: newUser.id, ip }
+      );
 
       return NextResponse.json({
         success: true,
@@ -112,7 +116,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    logAuthEvent("USER_REGISTER_SUCCESS_AUTO_VERIFIED", { email: newUser.email, role: newUser.role });
+    logAuthEvent(
+      "USER_REGISTER_SUCCESS_AUTO_VERIFIED",
+      { name: newUser.name, email: newUser.email, role: newUser.role, reason: "ADMIN_PROVISIONED" },
+      { actorId: newUser.id, actorRole: newUser.role, entityId: newUser.id, ip }
+    );
 
     return NextResponse.json({
       success: true,

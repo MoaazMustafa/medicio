@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authorize";
 import { getSession } from "@/lib/auth";
+import { getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -249,6 +251,23 @@ export async function POST(request: NextRequest) {
     } catch (histErr) {
       console.error("Failed to log application history entry:", histErr);
     }
+
+    await writeAudit({
+      action: "DOCTOR_PROFILE_SUBMITTED",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "DOCTOR",
+      entityId: doctor.id,
+      ip: getClientIp(request),
+      metadata: {
+        doctorId: doctor.id,
+        specialty: doctor.specialty,
+        licenseNumber: doctor.licenseNumber,
+        education: doctor.education,
+        hospitalId: doctor.hospitalId,
+        verificationStatus: doctor.verificationStatus,
+      },
+    });
 
     return NextResponse.json({
       message: "Doctor verification credentials submitted. Pending administrator review.",

@@ -94,7 +94,11 @@ export async function POST(request: NextRequest) {
       role: updatedUser.role,
     });
 
-    logAuthEvent("USER_EMAIL_VERIFICATION_SUCCESS", { email: updatedUser.email, role: updatedUser.role });
+    logAuthEvent(
+      "USER_EMAIL_VERIFICATION_SUCCESS",
+      { name: updatedUser.name, email: updatedUser.email, role: updatedUser.role, reason: "OTP_VERIFIED" },
+      { actorId: updatedUser.id, actorRole: updatedUser.role, entityId: updatedUser.id, ip }
+    );
 
     const response = NextResponse.json({
       success: true,

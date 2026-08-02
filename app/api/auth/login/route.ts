@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { signSessionToken } from "@/lib/auth";
 import { createOtp, verifyPassword } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
@@ -47,7 +48,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      logAuthEvent("USER_LOGIN_FAILURE", { email, reason: "Email not found" });
+      await writeAudit({
+        action: "USER_LOGIN_FAILURE",
+        ip,
+        metadata: { email, reason: "Email not found" },
+      });
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
@@ -56,7 +61,15 @@ export async function POST(request: NextRequest) {
 
     const isMatch = verifyPassword(password, user.passwordHash);
     if (!isMatch) {
-      logAuthEvent("USER_LOGIN_FAILURE", { email, reason: "Incorrect password" });
+      await writeAudit({
+        action: "USER_LOGIN_FAILURE",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { email: user.email, reason: "Incorrect password" },
+      });
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
@@ -64,7 +77,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.isActive) {
-      logAuthEvent("USER_LOGIN_BLOCKED_DEACTIVATED", { email });
+      await writeAudit({
+        action: "USER_LOGIN_BLOCKED_DEACTIVATED",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { name: user.name, email: user.email, role: user.role, reason: "ACCOUNT_DEACTIVATED" },
+      });
       return NextResponse.json(
         { error: "This account has been deactivated. Please contact support." },
         { status: 403 }
@@ -88,7 +109,15 @@ export async function POST(request: NextRequest) {
 
       await sendOtpEmail(user.email, otp, "Email Verification");
 
-      logAuthEvent("USER_LOGIN_BLOCKED_UNVERIFIED", { email: user.email });
+      await writeAudit({
+        action: "USER_LOGIN_BLOCKED_UNVERIFIED",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { name: user.name, email: user.email, role: user.role, reason: "UNVERIFIED_EMAIL" },
+      });
 
       return NextResponse.json(
         { 
@@ -101,8 +130,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Sign a JWT and set it explicitly on the response object.
-    // Using cookies().set() inside Route Handlers does not reliably propagate
-    // the Set-Cookie header to the final response on Vercel's serverless runtime.
     const token = await signSessionToken({
       id: user.id,
       email: user.email,
@@ -110,7 +137,15 @@ export async function POST(request: NextRequest) {
       role: user.role,
     });
 
-    logAuthEvent("USER_LOGIN_SUCCESS", { email: user.email, role: user.role });
+    await writeAudit({
+      action: "USER_LOGIN_SUCCESS",
+      actorId: user.id,
+      actorRole: user.role,
+      entityType: "USER",
+      entityId: user.id,
+      ip,
+      metadata: { name: user.name, email: user.email, role: user.role, reason: "DIRECT_LOGIN" },
+    });
 
     const response = NextResponse.json({
       success: true,

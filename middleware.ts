@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/rate-limit";
 import {
   GUEST_ROUTES,
   PROTECTED_ROUTES,
@@ -27,6 +29,29 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.searchParams.has("force") ||
       request.nextUrl.searchParams.has("redirectTo")
     ) {
+      if (session && !request.nextUrl.searchParams.has("logout")) {
+        const reason =
+          request.nextUrl.searchParams.get("reason") ||
+          request.nextUrl.searchParams.get("error") ||
+          (request.nextUrl.searchParams.has("force") ? "FORCE_LOGOUT" : null) ||
+          "SESSION_PURGED";
+
+        void writeAudit({
+          action: "USER_LOGOUT_PURGED",
+          actorId: session.userId,
+          actorRole: session.role,
+          entityType: "USER",
+          entityId: session.userId,
+          ip: getClientIp(request),
+          metadata: {
+            name: session.name,
+            email: session.email,
+            role: session.role,
+            reason: reason.toUpperCase(),
+          },
+        });
+      }
+
       const response = NextResponse.next();
       if (token) response.cookies.delete(SESSION_COOKIE);
       return response;

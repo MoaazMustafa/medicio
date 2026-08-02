@@ -128,15 +128,30 @@ export async function PATCH(
       },
     });
 
+    const roleChanged = target.role !== (updatedUser?.role || updatedRole);
+    const deactivationChanged = target.isActive !== updatedUser?.isActive;
+    const actionName = roleChanged
+      ? "ADMIN_USER_ROLE_CHANGED"
+      : deactivationChanged
+      ? "ADMIN_USER_DEACTIVATED"
+      : "ADMIN_USER_UPDATED";
+
     await writeAudit({
-      action: "ADMIN_USER_UPDATED",
+      action: actionName,
       actorId: session.userId,
       actorRole: session.role,
       entityType: "USER",
       entityId: target.id,
       ip: getClientIp(request),
       metadata: {
+        targetName: target.name,
         targetEmail: target.email,
+        targetUserId: target.id,
+        beforeRole: target.role,
+        afterRole: updatedUser?.role || updatedRole,
+        beforeActive: target.isActive,
+        afterActive: updatedUser?.isActive,
+        reason: roleChanged ? "ADMIN_ROLE_CHANGE" : deactivationChanged ? "ADMIN_DEACTIVATION" : "ADMIN_USER_UPDATE",
         before: { role: target.role, isActive: target.isActive },
         after: { role: updatedUser?.role || updatedRole, isActive: updatedUser?.isActive },
       },

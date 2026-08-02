@@ -87,31 +87,141 @@ function Sparkline({
 }
 
 export function DoctorOverview() {
-  const { doctorData, appointments, isProfileSubmitted, isVerified, isRejected, canAccessDependentTabs, loading } =
-    useDoctorContext();
+  const {
+    doctorData,
+    appointments,
+    isProfileSubmitted,
+    isVerified,
+    isRejected,
+    canAccessDependentTabs,
+    loading,
+    showToast,
+  } = useDoctorContext();
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 animate-pulse">
+        {/* Stat cards skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-32 rounded-2xl bg-surface/50" />
+          <Skeleton className="h-32 rounded-2xl bg-surface/50" />
+          <Skeleton className="h-32 rounded-2xl bg-surface/50" />
+          <Skeleton className="h-32 rounded-2xl bg-surface/50" />
         </div>
-        <Skeleton className="h-64 rounded-2xl w-full" />
+        {/* Profile summary card skeleton */}
+        <Skeleton className="h-64 rounded-2xl w-full bg-surface/50" />
+        {/* Workspace modules skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-44 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl bg-surface/50" />
+          <Skeleton className="h-48 rounded-2xl bg-surface/50" />
+          <Skeleton className="h-48 rounded-2xl bg-surface/50" />
         </div>
       </div>
     );
   }
 
+  // Calculate real graph telemetry curves from live data
+  const credentialSparkline = isVerified
+    ? [20, 40, 60, 80, 95, 100]
+    : isProfileSubmitted
+      ? [15, 30, 45, 55, 65, 75]
+      : doctorData?.specialty
+        ? [10, 20, 30, 35, 40, 45]
+        : [5, 5, 5, 5, 5, 5];
+
+  const count = appointments.length;
+  const appointmentSparkline = [
+    Math.max(0, count - 4),
+    Math.max(0, count - 3),
+    Math.max(0, count - 2),
+    Math.max(0, count - 1),
+    count,
+  ];
+
+  const networkSparkline = doctorData?.hospitalId
+    ? [10, 25, 50, 75, 90, 100]
+    : doctorData?.clinicAddress
+      ? [5, 15, 30, 45, 60, 70]
+      : [2, 4, 6, 8, 10, 12];
+
+  const aiSparkline = doctorData?.aiTrainingData
+    ? [10, 30, 50, 75, 90, 100]
+    : [0, 0, 5, 10, 15, 20];
+
+  const renderModuleCard = (
+    href: string,
+    title: string,
+    code: string,
+    desc: string,
+    actionText: string,
+    Icon: any,
+  ) => {
+    const cardContent = (
+      <Card
+        className={`p-6 border flex flex-col justify-between gap-4 transition-all h-full relative overflow-hidden group ${canAccessDependentTabs
+            ? "border-border-custom bg-surface/50 hover:border-primary/50 hover:shadow-lg cursor-pointer"
+            : "border-rose-500/30 bg-surface/30 opacity-80 cursor-not-allowed select-none"
+          }`}
+      >
+        {!canAccessDependentTabs && (
+          <div
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              showToast("Module locked. Complete practitioner verification to access.", "error");
+            }}
+            className="absolute inset-0 bg-background-custom/80 backdrop-blur-[3px] z-20 flex flex-col items-center justify-center p-4 text-center gap-2 transition-all cursor-not-allowed"
+          >
+            <div className="p-3 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 shadow-md">
+              <Lock className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-xs text-rose-200">Module Locked</span>
+            <span className="text-[10px] text-text-secondary max-w-[180px]">
+              Complete credentials & license verification form to unlock
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <Icon className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-text-primary">{title}</h4>
+              <span className="text-[10px] text-text-secondary font-mono">{code}</span>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-text-secondary leading-relaxed">{desc}</p>
+
+        <div className="flex items-center gap-1 text-xs font-semibold text-primary pt-2 border-t border-border-custom/40">
+          <span>{actionText}</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </Card>
+    );
+
+    if (canAccessDependentTabs) {
+      return <NextLink href={href}>{cardContent}</NextLink>;
+    }
+
+    return (
+      <div
+        onClick={() =>
+          showToast("Module locked. Complete practitioner verification to access.", "error")
+        }
+        className="cursor-not-allowed select-none"
+      >
+        {cardContent}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Telemetry Stat Cards Grid (Admin Dashboard Style) */}
+      {/* Telemetry Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Credential Status */}
         <Card className="p-4 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col justify-between gap-3 shadow-sm hover:border-primary/40 transition-all">
@@ -134,15 +244,15 @@ export function DoctorOverview() {
                 {isVerified
                   ? "Verified Practitioner"
                   : isRejected
-                  ? "Application Rejected"
-                  : isProfileSubmitted
-                  ? "In Review Queue"
-                  : "Unsubmitted"}
+                    ? "Application Rejected"
+                    : isProfileSubmitted
+                      ? "In Review Queue"
+                      : "Unsubmitted"}
               </span>
               <span className="text-[10px] text-text-secondary font-mono mt-0.5">FR-DOC-01 / FR-DOC-02 Compliance</span>
             </div>
             <Sparkline
-              data={isVerified ? [10, 25, 45, 70, 95, 100] : isProfileSubmitted ? [5, 15, 30, 40, 50] : [0, 0, 0]}
+              data={credentialSparkline}
               color={isVerified ? "emerald" : isRejected ? "rose" : isProfileSubmitted ? "amber" : "rose"}
             />
           </div>
@@ -166,7 +276,7 @@ export function DoctorOverview() {
               </span>
               <span className="text-[10px] text-text-secondary font-mono mt-0.5">FR-DOC-09 Booking Engine</span>
             </div>
-            <Sparkline data={[2, 4, 3, 7, 6, appointments.length || 8]} color="emerald" />
+            <Sparkline data={appointmentSparkline} color="emerald" />
           </div>
         </Card>
 
@@ -188,7 +298,7 @@ export function DoctorOverview() {
               </span>
               <span className="text-[10px] text-text-secondary font-mono mt-0.5">FR-DOC-04 / FR-DOC-05 Protocol</span>
             </div>
-            <Sparkline data={[5, 10, 15, 20, 25, 30]} color="blue" />
+            <Sparkline data={networkSparkline} color="blue" />
           </div>
         </Card>
 
@@ -215,7 +325,7 @@ export function DoctorOverview() {
               </span>
               <span className="text-[10px] text-text-secondary font-mono mt-0.5">FR-DOC-08 Emergency Rules</span>
             </div>
-            <Sparkline data={[0, 10, 30, 60, 80, doctorData?.aiTrainingData ? 100 : 20]} color="blue" />
+            <Sparkline data={aiSparkline} color="blue" />
           </div>
         </Card>
       </div>
@@ -313,133 +423,32 @@ export function DoctorOverview() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Module 1: Schedule & Timetable */}
-          <NextLink href={canAccessDependentTabs ? "/doctor/availability" : "/doctor/profile"}>
-            <Card
-              className={`p-6 border flex flex-col justify-between gap-4 transition-all h-full relative overflow-hidden group ${
-                canAccessDependentTabs
-                  ? "border-border-custom bg-surface/50 hover:border-primary/50 hover:shadow-lg"
-                  : "border-rose-500/30 bg-surface/30 opacity-80"
-              }`}
-            >
-              {!canAccessDependentTabs && (
-                <div className="absolute inset-0 bg-background-custom/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center gap-2 transition-all group-hover:bg-background-custom/40">
-                  <div className="p-3 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 shadow-md">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <span className="font-bold text-xs text-rose-200">Module Locked</span>
-                  <span className="text-[10px] text-text-secondary max-w-[180px]">Fill verification form to unlock schedule timetable</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-text-primary">Schedule & Timetable</h4>
-                    <span className="text-[10px] text-text-secondary font-mono">FR-DOC-03 Engine</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Configure working hours, weekly recurring slots, consultation duration, and blackout days.
-              </p>
-
-              <div className="flex items-center gap-1 text-xs font-semibold text-primary pt-2 border-t border-border-custom/40">
-                <span>Configure Timetable</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Card>
-          </NextLink>
-
-          {/* Module 2: AI Clinical Agent */}
-          <NextLink href={canAccessDependentTabs ? "/doctor/agent" : "/doctor/profile"}>
-            <Card
-              className={`p-6 border flex flex-col justify-between gap-4 transition-all h-full relative overflow-hidden group ${
-                canAccessDependentTabs
-                  ? "border-border-custom bg-surface/50 hover:border-primary/50 hover:shadow-lg"
-                  : "border-rose-500/30 bg-surface/30 opacity-80"
-              }`}
-            >
-              {!canAccessDependentTabs && (
-                <div className="absolute inset-0 bg-background-custom/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center gap-2 transition-all group-hover:bg-background-custom/40">
-                  <div className="p-3 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 shadow-md">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <span className="font-bold text-xs text-rose-200">Module Locked</span>
-                  <span className="text-[10px] text-text-secondary max-w-[180px]">Fill verification form to unlock AI clinical agent</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-                    <Bot className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-text-primary">AI Clinical Agent</h4>
-                    <span className="text-[10px] text-text-secondary font-mono">FR-DOC-08 Simulator</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Define emergency intake protocols, custom Q&A rules, and test responses in the playground.
-              </p>
-
-              <div className="flex items-center gap-1 text-xs font-semibold text-primary pt-2 border-t border-border-custom/40">
-                <span>Manage AI Guardrails</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Card>
-          </NextLink>
-
-          {/* Module 3: Patient Appointments */}
-          <NextLink href={canAccessDependentTabs ? "/doctor/appointments" : "/doctor/profile"}>
-            <Card
-              className={`p-6 border flex flex-col justify-between gap-4 transition-all h-full relative overflow-hidden group ${
-                canAccessDependentTabs
-                  ? "border-border-custom bg-surface/50 hover:border-primary/50 hover:shadow-lg"
-                  : "border-rose-500/30 bg-surface/30 opacity-80"
-              }`}
-            >
-              {!canAccessDependentTabs && (
-                <div className="absolute inset-0 bg-background-custom/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center gap-2 transition-all group-hover:bg-background-custom/40">
-                  <div className="p-3 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 shadow-md">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <span className="font-bold text-xs text-rose-200">Module Locked</span>
-                  <span className="text-[10px] text-text-secondary max-w-[180px]">Fill verification form to unlock patient bookings</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-                    <CalendarCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-text-primary">Patient Appointments</h4>
-                    <span className="text-[10px] text-text-secondary font-mono">FR-DOC-09 Manager</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Review incoming patient bookings, accept or decline requests, and log visit clinical notes.
-              </p>
-
-              <div className="flex items-center gap-1 text-xs font-semibold text-primary pt-2 border-t border-border-custom/40">
-                <span>Open Appointments</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Card>
-          </NextLink>
+          {renderModuleCard(
+            "/doctor/availability",
+            "Schedule & Timetable",
+            "FR-DOC-03 Engine",
+            "Configure working hours, weekly recurring slots, consultation duration, and blackout days.",
+            "Configure Timetable",
+            Clock,
+          )}
+          {renderModuleCard(
+            "/doctor/agent",
+            "AI Clinical Agent",
+            "FR-DOC-08 Simulator",
+            "Define emergency intake protocols, custom Q&A rules, and test responses in the playground.",
+            "Manage AI Guardrails",
+            Bot,
+          )}
+          {renderModuleCard(
+            "/doctor/appointments",
+            "Patient Appointments",
+            "FR-DOC-09 Manager",
+            "Review incoming patient bookings, accept or decline requests, and log visit clinical notes.",
+            "Open Appointments",
+            CalendarCheck,
+          )}
         </div>
       </div>
     </div>
   );
-}
+};

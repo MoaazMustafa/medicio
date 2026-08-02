@@ -46,9 +46,28 @@ interface SystemLogItem {
   action: string;
   actorRole: string;
   actorEmail: string;
-  entityType: string;
+  actorName?: string;
+  doctorDetails?: {
+    specialty?: string;
+    licenseNumber?: string;
+    isVerified?: boolean;
+    status?: string;
+  } | null;
+  targetDetails?: {
+    id?: string | null;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    isVerified?: boolean | null;
+    doctorSpecialty?: string | null;
+    doctorLicense?: string | null;
+    verificationStatus?: string | null;
+  } | null;
+  entityType?: string;
+  entityId?: string;
   clientIp: string;
   timestamp: string;
+  metadata?: Record<string, any>;
 }
 
 interface EmailLogItem {
@@ -94,6 +113,9 @@ export default function AdminLogsPage() {
   const [emailCategoryFilter, setEmailCategoryFilter] = useState("ALL");
   const [emailPage, setEmailPage] = useState(1);
   const emailPageSize = 10;
+
+  // System Audit Log Side Drawer Modal state
+  const [selectedSystemLog, setSelectedSystemLog] = useState<SystemLogItem | null>(null);
 
   // Email Preview Drawer Modal state
   const [previewEmail, setPreviewEmail] = useState<EmailLogItem | null>(null);
@@ -411,14 +433,29 @@ export default function AdminLogsPage() {
                     </TableRow>
                   ) : (
                     paginatedSystemLogs.map((log) => (
-                      <TableRow key={log.id} className="hover:bg-surface/50 transition-colors text-text-primary">
+                      <TableRow
+                        key={log.id}
+                        onClick={() => setSelectedSystemLog(log)}
+                        className="hover:bg-surface/70 transition-colors text-text-primary cursor-pointer group"
+                      >
                         <TableCell className="px-4 py-3.5 font-mono font-bold text-emerald-400">
                           {log.action}
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-text-primary">{log.actorEmail}</span>
-                            <span className="text-[10px] text-text-secondary font-mono">{log.actorRole}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-text-primary">
+                              {log.actorName ? `${log.actorName} (${log.actorEmail})` : log.actorEmail}
+                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-text-secondary font-mono bg-border-custom/50 px-1 py-0.2 rounded">
+                                {log.actorRole}
+                              </span>
+                              {log.doctorDetails?.specialty && (
+                                <Chip variant="soft" color="accent" className="text-[9px] font-mono px-1 py-0 h-4">
+                                  Dr. {log.doctorDetails.specialty} {log.doctorDetails.licenseNumber ? `[Lic: ${log.doctorDetails.licenseNumber}]` : ""}
+                                </Chip>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
@@ -463,6 +500,179 @@ export default function AdminLogsPage() {
               </div>
             )}
           </Card>
+
+          {/* SYSTEM AUDIT LOG DETAIL EXPANDABLE SIDE DRAWER MODAL */}
+          {selectedSystemLog && (
+            <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="w-full max-w-2xl h-full bg-surface border-l border-border-custom p-6 shadow-2xl flex flex-col gap-6 overflow-y-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-border-custom pb-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-base font-bold text-text-primary">
+                        System Audit Log Entry
+                      </h3>
+                      <Chip color="success" variant="soft" className="text-[10px] font-mono font-bold uppercase">
+                        {selectedSystemLog.action}
+                      </Chip>
+                    </div>
+                    <span className="text-xs font-mono text-text-secondary">Log ID: {selectedSystemLog.id}</span>
+                  </div>
+
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => setSelectedSystemLog(null)}
+                    className="text-text-secondary hover:text-text-primary"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Event Summary Bar */}
+                <div className="p-4 rounded-xl bg-background-custom/40 border border-border-custom/80 flex items-center justify-between text-xs gap-4 flex-wrap">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Event Action</span>
+                    <span className="font-mono font-bold text-emerald-400 text-sm mt-0.5">{selectedSystemLog.action}</span>
+                  </div>
+                  {selectedSystemLog.metadata?.reason && (
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Trigger Reason</span>
+                      <Chip variant="soft" color="warning" className="text-[10px] font-mono font-bold uppercase mt-0.5">
+                        {selectedSystemLog.metadata.reason}
+                      </Chip>
+                    </div>
+                  )}
+                  <div className="flex flex-col text-right">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Recorded At</span>
+                    <span className="font-mono text-text-primary text-xs mt-0.5">{selectedSystemLog.timestamp}</span>
+                  </div>
+                </div>
+
+                {/* Section 1: ACTOR DETAILS (WHO PERFORMED THE ACTION?) */}
+                <div className="flex flex-col gap-2.5">
+                  <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-primary flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Actor Details — Initiating Agent / User</span>
+                  </h4>
+                  <div className="p-4 rounded-xl bg-background-custom/40 border border-border-custom/60 flex flex-col gap-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Actor Name:</span>
+                      <strong className="text-text-primary">{selectedSystemLog.actorName || "System User"}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Actor Email:</span>
+                      <strong className="text-primary font-mono">{selectedSystemLog.actorEmail}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Assigned Role:</span>
+                      <Chip variant="soft" className="text-[10px] font-mono font-bold">
+                        {selectedSystemLog.actorRole}
+                      </Chip>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-secondary">Client IP Address:</span>
+                      <span className="font-mono text-text-primary">{selectedSystemLog.clientIp}</span>
+                    </div>
+
+                    {selectedSystemLog.doctorDetails && (
+                      <div className="mt-2 pt-2 border-t border-border-custom/40 flex flex-col gap-1.5 bg-primary/5 p-2.5 rounded-lg border border-primary/20">
+                        <span className="text-[10px] uppercase font-mono font-bold text-primary">Doctor Practitioner Profile</span>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-text-secondary">Medical Specialty:</span>
+                          <strong className="text-text-primary">{selectedSystemLog.doctorDetails.specialty || "N/A"}</strong>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-text-secondary">License Number:</span>
+                          <span className="font-mono text-text-primary">{selectedSystemLog.doctorDetails.licenseNumber || "N/A"}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 2: TARGET ENTITY DETAILS (WHOM WAS ACTED UPON / APPROVED?) */}
+                <div className="flex flex-col gap-2.5">
+                  <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <Activity className="w-4 h-4" />
+                    <span>Target Entity Details — Action Subject ("Who Approved Whom")</span>
+                  </h4>
+                  <div className="p-4 rounded-xl bg-background-custom/40 border border-border-custom/60 flex flex-col gap-2 text-xs">
+                    {selectedSystemLog.targetDetails ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-secondary">Target Name:</span>
+                          <strong className="text-text-primary">{selectedSystemLog.targetDetails.name || "N/A"}</strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-secondary">Target Email:</span>
+                          <strong className="text-primary font-mono">{selectedSystemLog.targetDetails.email || "N/A"}</strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-secondary">Target Role:</span>
+                          <Chip variant="soft" className="text-[10px] font-mono font-bold">
+                            {selectedSystemLog.targetDetails.role || selectedSystemLog.entityType || "N/A"}
+                          </Chip>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-secondary">Target Entity ID:</span>
+                          <span className="font-mono text-text-secondary text-[11px]">{selectedSystemLog.targetDetails.id || selectedSystemLog.entityId || "N/A"}</span>
+                        </div>
+
+                        {selectedSystemLog.targetDetails.doctorSpecialty && (
+                          <div className="mt-2 pt-2 border-t border-border-custom/40 flex flex-col gap-1.5 bg-emerald-500/5 p-2.5 rounded-lg border border-emerald-500/20">
+                            <span className="text-[10px] uppercase font-mono font-bold text-emerald-400">Target Practitioner License Info</span>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-text-secondary">Specialty:</span>
+                              <strong className="text-text-primary">{selectedSystemLog.targetDetails.doctorSpecialty}</strong>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-text-secondary">License Number:</span>
+                              <span className="font-mono text-text-primary">{selectedSystemLog.targetDetails.doctorLicense || "N/A"}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-text-secondary">Verification Status:</span>
+                              <Chip variant="soft" color={selectedSystemLog.targetDetails.isVerified ? "success" : "warning"} className="text-[9px] font-mono">
+                                {selectedSystemLog.targetDetails.verificationStatus || (selectedSystemLog.targetDetails.isVerified ? "APPROVED" : "PENDING")}
+                              </Chip>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-border-custom/30 text-center flex flex-col items-center gap-1 text-text-secondary">
+                        <span className="font-mono font-bold text-[11px] text-amber-400">null</span>
+                        <span className="text-[11px]">Target details null — Legacy Audit Log Entry (Created prior to Who-Approved-Whom tracking feature)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 3: METADATA & STATE DIFF */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-bold text-text-primary flex items-center justify-between">
+                    <span>Audit Event Metadata & State Diff</span>
+                    <span className="text-[10px] font-mono text-text-secondary">JSON Object</span>
+                  </span>
+                  <div className="p-4 rounded-xl bg-background-custom/80 border border-border-custom text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60">
+                    <pre>{JSON.stringify(selectedSystemLog.metadata || {}, null, 2)}</pre>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-border-custom flex justify-end">
+                  <Button
+                    variant="outline"
+                    onPress={() => setSelectedSystemLog(null)}
+                    className="text-xs font-semibold px-4"
+                  >
+                    Close Detail View
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

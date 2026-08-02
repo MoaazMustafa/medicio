@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { getClientIp } from "@/lib/rate-limit";
 
 export async function PATCH(
   request: NextRequest,
@@ -49,6 +51,23 @@ export async function PATCH(
         doctor: {
           include: { user: true },
         },
+      },
+    });
+
+    await writeAudit({
+      action: "DOCTOR_APPOINTMENT_STATUS_UPDATED",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "APPOINTMENT",
+      entityId: appointmentId,
+      ip: getClientIp(request),
+      metadata: {
+        appointmentId,
+        status: updatedAppointment.status,
+        patientName: updatedAppointment.patient?.name,
+        patientEmail: updatedAppointment.patient?.email,
+        doctorName: updatedAppointment.doctor?.user?.name,
+        doctorSpecialty: updatedAppointment.doctor?.specialty,
       },
     });
 

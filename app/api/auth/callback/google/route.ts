@@ -176,7 +176,16 @@ export async function GET(request: NextRequest) {
       avatarUrl: user.avatarUrl,
     });
 
-    logAuthEvent("OAUTH_GOOGLE_LOGIN_SUCCESS", { email: user.email, role: user.role });
+    logAuthEvent(
+      "OAUTH_GOOGLE_LOGIN_SUCCESS",
+      { name: user.name, email: user.email, role: user.role, reason: "OAUTH_GOOGLE_LOGIN" },
+      {
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+      }
+    );
 
     // 5. Redirect the user directly to their role dashboard
     const response = NextResponse.redirect(new URL(dashboardForRole(user.role), request.url));

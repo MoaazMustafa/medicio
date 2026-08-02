@@ -1,8 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { clearSessionCookie, getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/rate-limit";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 /**
@@ -115,6 +117,23 @@ export async function PATCH(request: NextRequest) {
         isVerified: true,
         isActive: true,
         createdAt: true,
+      },
+    });
+
+    await writeAudit({
+      action: roleChanged ? "USER_ROLE_SELF_CHANGED" : "USER_PROFILE_UPDATED",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "USER",
+      entityId: session.userId,
+      ip: getClientIp(request),
+      metadata: {
+        name: updatedUser.name,
+        email: updatedUser.email,
+        beforeRole: currentUser.role,
+        afterRole: updatedUser.role,
+        roleChanged,
+        reason: roleChanged ? "SELF_ROLE_SWITCH" : "PROFILE_UPDATE",
       },
     });
 

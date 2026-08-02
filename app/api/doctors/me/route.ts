@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { getClientIp } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -110,6 +112,21 @@ export async function PATCH(request: NextRequest) {
       include: {
         user: true,
         hospital: true,
+      },
+    });
+
+    await writeAudit({
+      action: "DOCTOR_AVAILABILITY_UPDATED",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "DOCTOR",
+      entityId: doctor.id,
+      ip: getClientIp(request),
+      metadata: {
+        doctorId: doctor.id,
+        specialty: updatedDoctor.specialty,
+        licenseNumber: updatedDoctor.licenseNumber,
+        availability: updatedDoctor.availability ? JSON.parse(updatedDoctor.availability) : null,
       },
     });
 

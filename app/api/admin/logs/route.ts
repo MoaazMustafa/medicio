@@ -40,26 +40,179 @@ export async function GET() {
       },
     });
 
-    // Fetch actor emails
+    // Fetch actor user and doctor details (by actorId or metadata.email fallback)
     const actorIds = Array.from(new Set(logs.map((l) => l.actorId).filter(Boolean))) as string[];
+    const actorEmails = Array.from(
+      new Set(
+        logs
+          .map((l) => {
+            const meta = l.metadata as any;
+            return meta?.email || null;
+          })
+          .filter(Boolean),
+      ),
+    ) as string[];
+
     const users = await prisma.user.findMany({
-      where: { id: { in: actorIds } },
-      select: { id: true, email: true },
+      where: {
+        OR: [
+          { id: { in: actorIds } },
+          { email: { in: actorEmails } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        doctorProfile: {
+          select: {
+            specialty: true,
+            licenseNumber: true,
+            isVerified: true,
+            verificationStatus: true,
+          },
+        },
+      },
     });
 
-    const userMap = new Map(users.map((u) => [u.id, u.email]));
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const userByEmailMap = new Map(users.map((u) => [u.email, u]));
 
-    const formattedLogs = logs.map((log) => ({
-      id: log.id,
-      action: log.action,
-      actorRole: log.actorRole,
-      actorEmail: log.actorId ? (userMap.get(log.actorId) ?? log.actorId) : "SYSTEM",
-      entityType: log.entityType,
-      entityId: log.entityId,
-      clientIp: log.ip ?? "127.0.0.1",
-      timestamp: log.createdAt.toISOString().replace("T", " ").substring(0, 19),
-      metadata: log.metadata,
-    }));
+    // Collect target IDs and emails to resolve Who-Approved-Whom
+    const targetUserIds = Array.from(
+      new Set(
+        logs
+          .map((l) => {
+            if (l.entityType === "USER" && l.entityId) return l.entityId;
+            const meta = l.metadata as any;
+            if (meta?.targetUserId) return meta.targetUserId;
+            return null;
+          })
+          .filter(Boolean),
+      ),
+    ) as string[];
+
+    const targetDoctorIds = Array.from(
+      new Set(
+        logs
+          .map((l) => {
+            if (l.entityType === "DOCTOR" && l.entityId) return l.entityId;
+            const meta = l.metadata as any;
+            if (meta?.doctorId) return meta.doctorId;
+            return null;
+          })
+          .filter(Boolean),
+      ),
+    ) as string[];
+
+    const targetEmails = Array.from(
+      new Set(
+        logs
+          .map((l) => {
+            const meta = l.metadata as any;
+            if (meta?.targetEmail) return meta.targetEmail;
+            return null;
+          })
+          .filter(Boolean),
+      ),
+    ) as string[];
+
+    const targetUsers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: { in: targetUserIds } },
+          { email: { in: targetEmails } },
+          { doctorProfile: { id: { in: targetDoctorIds } } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isVerified: true,
+        doctorProfile: {
+          select: {
+            id: true,
+            specialty: true,
+            licenseNumber: true,
+            isVerified: true,
+            verificationStatus: true,
+          },
+        },
+      },
+    });
+
+    const targetUserById = new Map(targetUsers.map((u) => [u.id, u]));
+    const targetUserByEmail = new Map(targetUsers.map((u) => [u.email, u]));
+    const targetUserByDocId = new Map(
+      targetUsers.filter((u) => u.doctorProfile).map((u) => [u.doctorProfile!.id, u]),
+    );
+
+    const formattedLogs = logs.map((log) => {
+      const meta = (log.metadata ?? {}) as any;
+      const u = (log.actorId ? userMap.get(log.actorId) : null) || (meta?.email ? userByEmailMap.get(meta.email) : null);
+
+      let targetUser = null;
+      if (log.entityType === "USER" && log.entityId) {
+        targetUser = targetUserById.get(log.entityId);
+      } else if (log.entityType === "DOCTOR" && log.entityId) {
+        targetUser = targetUserByDocId.get(log.entityId);
+      }
+      if (!targetUser && meta?.targetUserId) {
+        targetUser = targetUserById.get(meta.targetUserId);
+      }
+      if (!targetUser && meta?.targetEmail) {
+        targetUser = targetUserByEmail.get(meta.targetEmail);
+      }
+
+      const targetDetails = targetUser
+        ? {
+            id: targetUser.id,
+            name: targetUser.name,
+            email: targetUser.email,
+            role: targetUser.role,
+            isVerified: targetUser.isVerified,
+            doctorSpecialty: targetUser.doctorProfile?.specialty ?? null,
+            doctorLicense: targetUser.doctorProfile?.licenseNumber ?? null,
+            verificationStatus: targetUser.doctorProfile?.verificationStatus ?? null,
+          }
+        : meta?.targetEmail || meta?.targetName || (log.entityId && log.entityId !== log.actorId)
+        ? {
+            id: log.entityId ?? null,
+            name: meta?.targetName ?? null,
+            email: meta?.targetEmail ?? null,
+            role: null,
+            isVerified: null,
+            doctorSpecialty: null,
+            doctorLicense: null,
+            verificationStatus: null,
+          }
+        : null; // Legacy log entry or no target entity (marked null)
+
+      return {
+        id: log.id,
+        action: log.action,
+        actorRole: log.actorRole || u?.role || "SYSTEM",
+        actorEmail: u?.email || log.actorId || "SYSTEM",
+        actorName: u?.name || "System User",
+        doctorDetails: u?.doctorProfile
+          ? {
+              specialty: u.doctorProfile.specialty,
+              licenseNumber: u.doctorProfile.licenseNumber,
+              isVerified: u.doctorProfile.isVerified,
+              status: u.doctorProfile.verificationStatus,
+            }
+          : null,
+        targetDetails,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        clientIp: log.ip ?? "127.0.0.1",
+        timestamp: log.createdAt.toISOString().replace("T", " ").substring(0, 19),
+        metadata: log.metadata,
+      };
+    });
 
     // Query real VerificationTokens & recent User registrations for Email Log telemetry
     const verificationTokens = await prisma.verificationToken.findMany({
