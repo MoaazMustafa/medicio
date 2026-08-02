@@ -35,12 +35,23 @@ export const PROTECTED_ROUTES: ReadonlyArray<{
   prefix: string;
   allowedRoles: readonly string[];
 }> = [
-  { prefix: "/chatbot", allowedRoles: ["PATIENT", "ADMIN", "SUPER_ADMIN"] },
+  {
+    prefix: "/chatbot",
+    allowedRoles: [
+      "PATIENT",
+      "DOCTOR",
+      "HOSPITAL_ADMIN",
+      "LAB_ADMIN",
+      "PHARMACY_ADMIN",
+      "ADMIN",
+      "SUPER_ADMIN",
+    ],
+  },
   { prefix: "/admin", allowedRoles: ["ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/doctor/dashboard", allowedRoles: ["DOCTOR", "ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/pharmacy/dashboard", allowedRoles: ["PHARMACY_ADMIN", "ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/lab/dashboard", allowedRoles: ["LAB_ADMIN", "ADMIN", "SUPER_ADMIN"] },
-  { prefix: "/hospital/dashboard", allowedRoles: ["HOSPITAL_ADMIN", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/doctor", allowedRoles: ["DOCTOR", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/pharmacy", allowedRoles: ["PHARMACY_ADMIN", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/lab", allowedRoles: ["LAB_ADMIN", "ADMIN", "SUPER_ADMIN"] },
+  { prefix: "/hospital", allowedRoles: ["HOSPITAL_ADMIN", "ADMIN", "SUPER_ADMIN"] },
   {
     prefix: "/settings",
     allowedRoles: [

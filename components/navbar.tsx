@@ -19,14 +19,29 @@ export const Navbar = () => {
 
   useEffect(() => {
     fetch("/api/auth/me")
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          setUser(null);
+          if (
+            pathname.startsWith("/doctor") ||
+            pathname.startsWith("/admin") ||
+            pathname.startsWith("/hospital") ||
+            pathname.startsWith("/lab") ||
+            pathname.startsWith("/pharmacy")
+          ) {
+            window.location.href = "/login?reason=role_changed";
+          }
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (data.user) {
+        if (data?.user) {
           setUser(data.user);
         }
       })
       .catch((err) => console.error("Error fetching session: ", err));
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);

@@ -19,6 +19,19 @@ export async function middleware(request: NextRequest) {
 
   // 1. Guest-only pages (/login, /register, /forgot-password, /verify-email)
   if (GUEST_ROUTES.some((route) => route === pathname)) {
+    // If reason, error, logout, force, or redirectTo is present in query parameters, purge session cookie and serve guest page cleanly
+    if (
+      request.nextUrl.searchParams.has("reason") ||
+      request.nextUrl.searchParams.has("error") ||
+      request.nextUrl.searchParams.has("logout") ||
+      request.nextUrl.searchParams.has("force") ||
+      request.nextUrl.searchParams.has("redirectTo")
+    ) {
+      const response = NextResponse.next();
+      if (token) response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
+
     if (session) {
       return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url));
     }
@@ -46,7 +59,11 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!matchedRoute.allowedRoles.includes(userRole as string)) {
-      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url));
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("reason", "role_changed");
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
     }
   }
 
@@ -62,9 +79,9 @@ export const config = {
     "/chatbot/:path*",
     "/settings/:path*",
     "/admin/:path*",
-    "/doctor/dashboard/:path*",
-    "/pharmacy/dashboard/:path*",
-    "/lab/dashboard/:path*",
-    "/hospital/dashboard/:path*",
+    "/doctor/:path*",
+    "/pharmacy/:path*",
+    "/lab/:path*",
+    "/hospital/:path*",
   ],
 };

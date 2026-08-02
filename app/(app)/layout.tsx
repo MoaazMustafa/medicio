@@ -11,7 +11,7 @@ import { TopNavTitle } from "@/components/top-nav-title";
 /**
  * Authenticated app shell: role-aware sidebar + header with the user menu.
  * Session is resolved server-side; validates live account in database.
- * If user was deleted or deactivated, immediately redirects to /login.
+ * If user was deleted, deactivated, or role changed, immediately redirects to /login.
  */
 export default async function AppLayout({
   children,
@@ -21,18 +21,18 @@ export default async function AppLayout({
   const session = await getSession();
 
   if (!session) {
-    redirect("/login");
+    redirect("/login?reason=role_changed");
   }
 
-  // Fetch current user record from database to verify active status
+  // Fetch current user record from database to verify active status and matching role
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: { name: true, email: true, role: true, avatarUrl: true, isActive: true },
   });
 
-  // If user was deleted or deactivated, force immediate logout & redirect
-  if (!user || !user.isActive) {
-    redirect("/login");
+  // If user was deleted, deactivated, or role changed in DB, force immediate logout & redirect
+  if (!user || !user.isActive || user.role !== session.role) {
+    redirect("/login?reason=role_changed");
   }
 
   const name = user.name;

@@ -22,11 +22,11 @@ export async function GET() {
       select: { id: true, email: true, name: true, role: true, isActive: true, avatarUrl: true },
     });
 
-    if (!dbUser || !dbUser.isActive) {
+    if (!dbUser || !dbUser.isActive || dbUser.role !== session.role) {
       const cookieStore = await cookies();
       cookieStore.delete(SESSION_COOKIE);
       const res = NextResponse.json(
-        { user: null, error: "Account is deleted or deactivated." },
+        { user: null, error: "Your account role has changed or account was deactivated. Please sign in again." },
         { status: 401 }
       );
       res.cookies.delete(SESSION_COOKIE);

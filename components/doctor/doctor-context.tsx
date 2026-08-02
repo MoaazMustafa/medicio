@@ -151,10 +151,20 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const handleUnauthorized = (res: Response) => {
+    if (res.status === 401) {
+      window.location.href = "/login?reason=role_changed";
+      return true;
+    }
+    return false;
+  };
+
   const fetchDoctorProfile = async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/doctors/me");
+      if (handleUnauthorized(res)) return;
+
       const data = await res.json();
 
       if (data.exists && data.doctor) {
@@ -205,6 +215,7 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   const fetchAppointments = async () => {
     try {
       const res = await fetch("/api/appointments");
+      if (handleUnauthorized(res)) return;
       const data = await res.json();
       if (data.appointments) {
         setAppointments(data.appointments);
@@ -217,6 +228,7 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   const fetchDirectory = async () => {
     try {
       const res = await fetch("/api/doctors?includeScraped=true");
+      if (handleUnauthorized(res)) return;
       const data = await res.json();
       if (data.doctors) {
         setScrapedDirectory(data.doctors);
@@ -229,6 +241,7 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   const fetchApplicationHistory = async () => {
     try {
       const res = await fetch("/api/doctors/history");
+      if (handleUnauthorized(res)) return;
       const data = await res.json();
       if (data.histories) {
         setApplicationHistories(data.histories);

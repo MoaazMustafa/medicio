@@ -48,7 +48,7 @@ export function UserMenu({ user }: UserMenuProps) {
           await fetch("/api/auth/logout", { method: "POST" });
         } finally {
           // Full reload clears any client state tied to the session.
-          window.location.href = "/login";
+          window.location.href = "/login?logout=true";
         }
         break;
     }
