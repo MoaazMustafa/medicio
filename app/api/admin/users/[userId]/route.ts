@@ -159,12 +159,28 @@ export async function PATCH(
     });
 
     if (roleChanged && updatedUser) {
-      sendRoleChangedEmail(
+      const emailSent = await sendRoleChangedEmail(
         updatedUser.email,
         updatedUser.name,
         target.role as string,
         updatedUser.role as string
-      ).catch((err) => console.error("[email] Error sending role changed notification:", err));
+      );
+
+      await writeAudit({
+        action: "ROLE_CHANGED_EMAIL_SENT",
+        actorId: session.userId,
+        actorRole: session.role,
+        entityType: "USER",
+        entityId: target.id,
+        ip: getClientIp(request),
+        metadata: {
+          targetEmail: updatedUser.email,
+          targetName: updatedUser.name,
+          beforeRole: target.role,
+          afterRole: updatedUser.role,
+          emailSent,
+        },
+      });
     }
 
     return NextResponse.json({ success: true, user: updatedUser });

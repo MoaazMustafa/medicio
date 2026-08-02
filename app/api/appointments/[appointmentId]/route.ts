@@ -75,7 +75,7 @@ export async function PATCH(
     });
 
     if (updatedAppointment.patient?.email && updatedAppointment.doctor?.user?.email) {
-      sendAppointmentStatusEmail({
+      const emailSent = await sendAppointmentStatusEmail({
         patientEmail: updatedAppointment.patient.email,
         patientName: updatedAppointment.patient.name || "Patient",
         doctorEmail: updatedAppointment.doctor.user.email,
@@ -83,7 +83,22 @@ export async function PATCH(
         dateTime: updatedAppointment.dateTime.toLocaleString(),
         status: updatedAppointment.status,
         notes: updatedAppointment.notes || undefined,
-      }).catch((err) => console.error("[email] Error sending appointment status notification:", err));
+      });
+
+      await writeAudit({
+        action: "APPOINTMENT_STATUS_EMAIL_SENT",
+        actorId: session.userId,
+        actorRole: session.role,
+        entityType: "APPOINTMENT",
+        entityId: appointmentId,
+        ip: getClientIp(request),
+        metadata: {
+          patientEmail: updatedAppointment.patient.email,
+          doctorEmail: updatedAppointment.doctor.user.email,
+          status: updatedAppointment.status,
+          emailSent,
+        },
+      });
     }
 
     return NextResponse.json({

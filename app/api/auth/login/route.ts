@@ -148,11 +148,26 @@ export async function POST(request: NextRequest) {
     });
 
     const userAgent = request.headers.get("user-agent") || undefined;
-    sendLoginDetectedEmail(user.email, user.name, {
-      time: new Date().toLocaleString(),
+    const loginEmailSent = await sendLoginDetectedEmail(
+      user.email,
+      user.name,
+      {
+        time: new Date().toLocaleString(),
+        ip,
+        userAgent,
+      },
+      user.role
+    );
+
+    await writeAudit({
+      action: "USER_LOGIN_EMAIL_SENT",
+      actorId: user.id,
+      actorRole: user.role,
+      entityType: "USER",
+      entityId: user.id,
       ip,
-      userAgent,
-    }).catch((err) => console.error("[email] Error sending login notification:", err));
+      metadata: { name: user.name, email: user.email, role: user.role, emailSent: loginEmailSent },
+    });
 
     const response = NextResponse.json({
       success: true,

@@ -105,20 +105,34 @@ export async function POST(request: NextRequest) {
     });
 
     if (doctor.user?.email) {
+      let emailSent = false;
       if (isApproved) {
-        sendDoctorApplicationApprovedEmail(
+        emailSent = await sendDoctorApplicationApprovedEmail(
           doctor.user.email,
           doctor.user.name || "Practitioner",
           doctor.specialty
-        ).catch((err) => console.error("[email] Error sending doctor approved email:", err));
+        );
       } else if (targetAction === "reject") {
-        sendDoctorApplicationRejectedEmail(
+        emailSent = await sendDoctorApplicationRejectedEmail(
           doctor.user.email,
           doctor.user.name || "Practitioner",
           doctor.specialty,
           rejectionReason
-        ).catch((err) => console.error("[email] Error sending doctor rejected email:", err));
+        );
       }
+
+      await writeAudit({
+        action: isApproved ? "DOCTOR_APPROVED_EMAIL_SENT" : "DOCTOR_REJECTED_EMAIL_SENT",
+        actorId: session.userId,
+        actorRole: session.role,
+        entityType: "DOCTOR",
+        entityId: doctorId,
+        metadata: {
+          doctorEmail: doctor.user.email,
+          action: targetAction,
+          emailSent,
+        },
+      });
     }
 
     return NextResponse.json({

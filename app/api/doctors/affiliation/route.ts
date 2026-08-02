@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { sendHospitalAffiliationEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
@@ -73,14 +74,27 @@ export async function POST(request: NextRequest) {
       });
 
       if (updated.user?.email) {
-        sendHospitalAffiliationEmail({
+        const emailSent = await sendHospitalAffiliationEmail({
           recipientEmail: updated.user.email,
           recipientName: updated.user.name || "Doctor",
           hospitalName: updated.hospital?.name || "Hospital",
           doctorName: updated.user.name || "Doctor",
           status: "PENDING_DOCTOR_ACCEPT",
           actionRequestedBy: "HOSPITAL",
-        }).catch((err) => console.error("[email] Error sending affiliation email:", err));
+        });
+
+        await writeAudit({
+          action: "HOSPITAL_AFFILIATION_EMAIL_SENT",
+          actorId: session.userId,
+          actorRole: session.role,
+          entityType: "DOCTOR",
+          entityId: updated.id,
+          metadata: {
+            recipientEmail: updated.user.email,
+            status: "PENDING_DOCTOR_ACCEPT",
+            emailSent,
+          },
+        });
       }
 
       return NextResponse.json({
@@ -110,13 +124,26 @@ export async function POST(request: NextRequest) {
       });
 
       if (updated.user?.email) {
-        sendHospitalAffiliationEmail({
+        const emailSent = await sendHospitalAffiliationEmail({
           recipientEmail: updated.user.email,
           recipientName: updated.user.name || "Doctor",
           hospitalName: updated.hospital?.name || "Hospital",
           doctorName: updated.user.name || "Doctor",
           status: "AFFILIATED",
-        }).catch((err) => console.error("[email] Error sending affiliation email:", err));
+        });
+
+        await writeAudit({
+          action: "HOSPITAL_AFFILIATION_EMAIL_SENT",
+          actorId: session.userId,
+          actorRole: session.role,
+          entityType: "DOCTOR",
+          entityId: updated.id,
+          metadata: {
+            recipientEmail: updated.user.email,
+            status: "AFFILIATED",
+            emailSent,
+          },
+        });
       }
 
       return NextResponse.json({

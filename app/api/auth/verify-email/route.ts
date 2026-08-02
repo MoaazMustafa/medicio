@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { writeAudit } from "@/lib/audit";
 import { signSessionToken } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
@@ -85,10 +86,18 @@ export async function POST(request: NextRequest) {
       where: { id: verificationRecord.id },
     });
 
-    // Send Welcome Email asynchronously
-    sendWelcomeEmail(updatedUser.email, updatedUser.name, updatedUser.role).catch((err) =>
-      console.error("[email] Error sending welcome email:", err)
-    );
+    // Send Welcome Email and record audit log
+    const welcomeSent = await sendWelcomeEmail(updatedUser.email, updatedUser.name, updatedUser.role);
+
+    await writeAudit({
+      action: "USER_WELCOME_EMAIL_SENT",
+      actorId: updatedUser.id,
+      actorRole: updatedUser.role,
+      entityType: "USER",
+      entityId: updatedUser.id,
+      ip,
+      metadata: { name: updatedUser.name, email: updatedUser.email, role: updatedUser.role, emailSent: welcomeSent },
+    });
 
     // Sign a JWT and set it explicitly on the response object.
     // Using cookies().set() inside Route Handlers does not reliably propagate

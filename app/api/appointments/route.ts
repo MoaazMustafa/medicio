@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { sendAppointmentBookedEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
@@ -107,14 +108,28 @@ export async function POST(request: NextRequest) {
     });
 
     if (appointment.patient?.email && appointment.doctor?.user?.email) {
-      sendAppointmentBookedEmail({
+      const emailSent = await sendAppointmentBookedEmail({
         patientEmail: appointment.patient.email,
         patientName: appointment.patient.name || "Patient",
         doctorEmail: appointment.doctor.user.email,
         doctorName: appointment.doctor.user.name || "Doctor",
         dateTime: appointment.dateTime.toLocaleString(),
         notes: appointment.notes || undefined,
-      }).catch((err) => console.error("[email] Error sending appointment booked notification:", err));
+      });
+
+      await writeAudit({
+        action: "APPOINTMENT_BOOKED_EMAIL_SENT",
+        actorId: session.userId,
+        actorRole: session.role,
+        entityType: "APPOINTMENT",
+        entityId: appointment.id,
+        metadata: {
+          patientEmail: appointment.patient.email,
+          doctorEmail: appointment.doctor.user.email,
+          dateTime: appointment.dateTime,
+          emailSent,
+        },
+      });
     }
 
     return NextResponse.json({

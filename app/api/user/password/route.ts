@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
 import { sendPasswordChangedEmail } from "@/lib/email";
@@ -54,9 +55,19 @@ export async function PATCH(request: NextRequest) {
       data: { passwordHash: newPasswordHash },
     });
 
-    sendPasswordChangedEmail(session.email, session.name || "User").catch((err) =>
-      console.error("[email] Error sending password change notification:", err)
-    );
+    const emailSent = await sendPasswordChangedEmail(session.email, session.name || "User");
+
+    await writeAudit({
+      action: "USER_PASSWORD_CHANGED_EMAIL_SENT",
+      actorId: session.userId,
+      actorRole: session.role,
+      entityType: "USER",
+      entityId: session.userId,
+      metadata: {
+        email: session.email,
+        emailSent,
+      },
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { dashboardForRole } from "@/config/roles";
 
 /**
  * Common configuration interface for email template generation
@@ -200,7 +201,8 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string):
  * 2. Dispatches welcome email for new signups.
  */
 export async function sendWelcomeEmail(email: string, name: string, role: string): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const targetPath = dashboardForRole(role);
 
   const html = buildEmailHtml({
     title: "Welcome to Medicio!",
@@ -212,7 +214,7 @@ export async function sendWelcomeEmail(email: string, name: string, role: string
       { label: "Account Email", value: email },
       { label: "Assigned Role", value: role.replace("_", " ") },
     ],
-    ctaButton: { text: "Access Medicio Dashboard", url: `${appUrl}/login` },
+    ctaButton: { text: "Access Medicio Portal", url: `${appUrl}${targetPath}` },
   });
 
   return sendEmail(email, "Welcome to Medicio Healthcare Platform", html);
@@ -224,9 +226,11 @@ export async function sendWelcomeEmail(email: string, name: string, role: string
 export async function sendLoginDetectedEmail(
   email: string,
   name: string,
-  details: { time: string; ip?: string; userAgent?: string }
+  details: { time: string; ip?: string; userAgent?: string },
+  role?: string
 ): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const targetPath = dashboardForRole(role);
 
   const table = [
     { label: "Date & Time", value: details.time },
@@ -244,7 +248,7 @@ export async function sendLoginDetectedEmail(
     bodyContent: `We detected a successful sign-in to your Medicio account. If this was you, no action is required.`,
     detailsTable: table,
     securityNote: `If you did not sign in recently, please reset your password immediately or contact Medicio security team.`,
-    ctaButton: { text: "Manage Security Settings", url: `${appUrl}/dashboard` },
+    ctaButton: { text: "Go to Dashboard", url: `${appUrl}${targetPath}` },
   });
 
   return sendEmail(email, "[Medicio Security] New Sign-In to Your Account", html);
@@ -259,7 +263,8 @@ export async function sendRoleChangedEmail(
   oldRole: string,
   newRole: string
 ): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const targetPath = dashboardForRole(newRole);
 
   const html = buildEmailHtml({
     title: "Account Role Updated",
@@ -270,7 +275,7 @@ export async function sendRoleChangedEmail(
       { label: "Previous Role", value: oldRole.replace("_", " ") },
       { label: "New Access Role", value: newRole.replace("_", " ") },
     ],
-    ctaButton: { text: "Go to Portal", url: `${appUrl}/dashboard` },
+    ctaButton: { text: "Go to Portal", url: `${appUrl}${targetPath}` },
   });
 
   return sendEmail(email, "[Medicio] Your Account Role Has Been Updated", html);
@@ -307,7 +312,7 @@ export async function sendDoctorApplicationApprovedEmail(
   name: string,
   specialty: string
 ): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const html = buildEmailHtml({
     title: "Doctor Credentials Approved!",
@@ -319,7 +324,7 @@ export async function sendDoctorApplicationApprovedEmail(
       { label: "Specialty", value: specialty },
       { label: "Verification Status", value: "Approved & Live" },
     ],
-    ctaButton: { text: "Open Doctor Portal", url: `${appUrl}/doctor` },
+    ctaButton: { text: "Open Doctor Dashboard", url: `${appUrl}/doctor/dashboard` },
   });
 
   return sendEmail(email, "Congratulations! Your Medicio Doctor Profile is Verified", html);
@@ -334,7 +339,7 @@ export async function sendDoctorApplicationRejectedEmail(
   specialty: string,
   reason?: string
 ): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const html = buildEmailHtml({
     title: "Verification Application Decision",
@@ -345,7 +350,7 @@ export async function sendDoctorApplicationRejectedEmail(
       { label: "Specialty", value: specialty },
       { label: "Reason / Notes", value: reason || "Credentials could not be validated. Please check license details." },
     ],
-    ctaButton: { text: "Resubmit Credentials", url: `${appUrl}/doctor` },
+    ctaButton: { text: "Resubmit Credentials", url: `${appUrl}/doctor/dashboard` },
   });
 
   return sendEmail(email, "[Medicio] Doctor Verification Application Status Update", html);
@@ -362,7 +367,7 @@ export async function sendAppointmentBookedEmail(params: {
   dateTime: string;
   notes?: string;
 }): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   // Patient Email
   const patientHtml = buildEmailHtml({
@@ -376,7 +381,7 @@ export async function sendAppointmentBookedEmail(params: {
       { label: "Notes", value: params.notes || "None" },
       { label: "Status", value: "Pending Confirmation" },
     ],
-    ctaButton: { text: "View Appointment", url: `${appUrl}/appointments` },
+    ctaButton: { text: "View Clinical Assistant", url: `${appUrl}/chatbot` },
   });
 
   // Doctor Email
@@ -391,7 +396,7 @@ export async function sendAppointmentBookedEmail(params: {
       { label: "Date & Time", value: params.dateTime },
       { label: "Patient Notes", value: params.notes || "None" },
     ],
-    ctaButton: { text: "Manage Appointments", url: `${appUrl}/doctor` },
+    ctaButton: { text: "Manage Appointments", url: `${appUrl}/doctor/dashboard` },
   });
 
   const pSent = await sendEmail(params.patientEmail, `[Medicio] Appointment Request: Dr. ${params.doctorName}`, patientHtml);
@@ -412,7 +417,7 @@ export async function sendAppointmentStatusEmail(params: {
   status: string;
   notes?: string;
 }): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const colorMap: Record<string, "green" | "amber" | "red" | "blue"> = {
     CONFIRMED: "green",
@@ -434,7 +439,7 @@ export async function sendAppointmentStatusEmail(params: {
       { label: "Updated Status", value: params.status },
       ...(params.notes ? [{ label: "Notes", value: params.notes }] : []),
     ],
-    ctaButton: { text: "View Appointment Details", url: `${appUrl}/appointments` },
+    ctaButton: { text: "Open Medicio Portal", url: `${appUrl}/chatbot` },
   });
 
   return sendEmail(params.patientEmail, `[Medicio] Appointment Update: ${params.status}`, html);
@@ -448,10 +453,10 @@ export async function sendHospitalAffiliationEmail(params: {
   recipientName: string;
   hospitalName: string;
   doctorName: string;
-  status: string; // e.g. REQUESTED, AFFILIATED, REJECTED
+  status: string;
   actionRequestedBy?: string;
 }): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const html = buildEmailHtml({
     title: "Hospital Affiliation Notice",
@@ -463,7 +468,7 @@ export async function sendHospitalAffiliationEmail(params: {
       { label: "Hospital", value: params.hospitalName },
       { label: "Affiliation Status", value: params.status },
     ],
-    ctaButton: { text: "Open Clinical Portal", url: `${appUrl}/dashboard` },
+    ctaButton: { text: "Open Clinical Dashboard", url: `${appUrl}/hospital/dashboard` },
   });
 
   return sendEmail(params.recipientEmail, `[Medicio] Hospital Affiliation Update: ${params.status}`, html);
@@ -473,7 +478,7 @@ export async function sendHospitalAffiliationEmail(params: {
  * 11. Dispatches password change security alert.
  */
 export async function sendPasswordChangedEmail(email: string, name: string): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const html = buildEmailHtml({
     title: "Password Changed",
@@ -496,7 +501,7 @@ export async function sendLabReportUploadedEmail(params: {
   labName: string;
   testName: string;
 }): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://medicio-platform.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const html = buildEmailHtml({
     title: "New Diagnostic Lab Report Ready",
@@ -508,7 +513,7 @@ export async function sendLabReportUploadedEmail(params: {
       { label: "Diagnostic Facility", value: params.labName },
       { label: "Status", value: "Ready to Download" },
     ],
-    ctaButton: { text: "View Report in Portal", url: `${appUrl}/patient` },
+    ctaButton: { text: "View Report in Portal", url: `${appUrl}/chatbot` },
   });
 
   return sendEmail(params.patientEmail, `[Medicio] Diagnostic Report Ready: ${params.testName}`, html);

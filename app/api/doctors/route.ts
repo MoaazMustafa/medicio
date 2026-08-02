@@ -272,11 +272,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (doctor.user?.email) {
-      sendDoctorApplicationSubmittedEmail(
+      const emailSent = await sendDoctorApplicationSubmittedEmail(
         doctor.user.email,
         doctor.user.name || "Practitioner",
         doctor.specialty
-      ).catch((err) => console.error("[email] Error sending doctor application submitted email:", err));
+      );
+
+      await writeAudit({
+        action: "DOCTOR_APPLICATION_SUBMITTED_EMAIL_SENT",
+        actorId: session.userId,
+        actorRole: session.role,
+        entityType: "DOCTOR",
+        entityId: doctor.id,
+        ip: getClientIp(request),
+        metadata: {
+          email: doctor.user.email,
+          specialty: doctor.specialty,
+          emailSent,
+        },
+      });
     }
 
     return NextResponse.json({

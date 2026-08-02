@@ -2,6 +2,7 @@ import { UserRole } from "@prisma/client";
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { getSession, hasRole } from "@/lib/auth";
 import { createOtp, hashPassword } from "@/lib/crypto";
 import { sendOtpEmail, sendWelcomeEmail } from "@/lib/email";
@@ -102,6 +103,16 @@ export async function POST(request: NextRequest) {
 
       const emailSent = await sendOtpEmail(newUser.email, otp, "Email Verification");
 
+      await writeAudit({
+        action: "USER_REGISTER_OTP_EMAIL_SENT",
+        actorId: newUser.id,
+        actorRole: newUser.role,
+        entityType: "USER",
+        entityId: newUser.id,
+        ip,
+        metadata: { name: newUser.name, email: newUser.email, role: newUser.role, emailSent },
+      });
+
       logAuthEvent(
         "USER_REGISTER_PENDING_VERIFICATION",
         { name: newUser.name, email: newUser.email, role: newUser.role, reason: "NEW_REGISTRATION" },
@@ -122,9 +133,17 @@ export async function POST(request: NextRequest) {
       { actorId: newUser.id, actorRole: newUser.role, entityId: newUser.id, ip }
     );
 
-    sendWelcomeEmail(newUser.email, newUser.name, newUser.role).catch((err) =>
-      console.error("[email] Error sending welcome email:", err)
-    );
+    const welcomeSent = await sendWelcomeEmail(newUser.email, newUser.name, newUser.role);
+
+    await writeAudit({
+      action: "USER_WELCOME_EMAIL_SENT",
+      actorId: newUser.id,
+      actorRole: newUser.role,
+      entityType: "USER",
+      entityId: newUser.id,
+      ip,
+      metadata: { name: newUser.name, email: newUser.email, role: newUser.role, emailSent: welcomeSent },
+    });
 
     return NextResponse.json({
       success: true,
