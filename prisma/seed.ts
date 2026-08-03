@@ -1,6 +1,7 @@
 import { PrismaClient, UserRole } from "@prisma/client";
 
 import { hashPassword } from "../lib/crypto";
+import { SPECIALIST_DEFS } from "../lib/specialist-agents";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,7 @@ async function main() {
 
   // 1. Clean existing records (Optional, safe for development resets)
   await prisma.aIConversation.deleteMany({});
+  await prisma.specialistAgent.deleteMany({});
   await prisma.scrapedRecord.deleteMany({});
   await prisma.medicineTrackerEntry.deleteMany({});
   await prisma.appointment.deleteMany({});
@@ -197,6 +199,18 @@ async function main() {
         source: "Public Registry Crawler",
       }),
     },
+  });
+
+  // 11. Seed specialist AI agent models (GENERAL pre-trained, others "Soon")
+  await prisma.specialistAgent.createMany({
+    data: SPECIALIST_DEFS.map((def) => ({
+      specialty: def.specialty,
+      displayName: def.displayName,
+      description: def.description,
+      trainingData: def.defaultTrainingData,
+      suggestedQuestions: JSON.stringify(def.defaultSuggestedQuestions),
+    })),
+    skipDuplicates: true,
   });
 
   console.log("Database seeded successfully!");

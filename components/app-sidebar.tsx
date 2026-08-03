@@ -54,6 +54,7 @@ export interface NavItem {
 export const ROLE_NAV: Record<string, NavItem[]> = {
   PATIENT: [
     { label: "Symptom Checker", href: "/chatbot", icon: MessageSquareText },
+    { label: "AI Triage Records", href: "/ai-records", icon: ScrollText },
     { label: "Appointments", href: "/appointments", icon: CalendarCheck, soon: true },
     { label: "Medicine Tracker", href: "/medicines", icon: Pill, soon: true },
     { label: "Health Records", href: "/records", icon: FolderHeart, soon: true },
@@ -99,6 +100,7 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "AI Specialist Models", href: "/admin/agents", icon: Bot },
     {
       label: "Audit Logs",
       href: "/admin/logs",
@@ -118,6 +120,7 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "AI Specialist Models", href: "/admin/agents", icon: Bot },
     { label: "Scraper Engine", href: "/admin/scrapers", icon: Globe },
     {
       label: "Audit Logs",

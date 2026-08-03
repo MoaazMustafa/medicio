@@ -226,12 +226,28 @@ model AIConversation {
   id               String   @id @default(cuid())
   userId           String?
   conversationType String   // SYMPTOM_CHECKER, SPECIALTY_AGENT
+  title            String?  // Short chat title derived from the first symptom prompt
   messages         String   // JSON message list
   createdAt        DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("ai_conversations")
+}
+
+model SpecialistAgent {
+  id                 String   @id @default(cuid())
+  specialty          String   @unique // GENERAL, DERMATOLOGY, CARDIOLOGY, ...
+  displayName        String
+  description        String
+  trainingData       String?  // Admin-authored clinical training context
+  suggestedQuestions String   @default("[]") // JSON string[] of preset patient questions
+  attachedDoctorIds  String   @default("[]") // JSON string[] of Doctor ids whose training powers this model
+  isEnabled          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("specialist_agents")
 }
 
 model VerificationToken {
