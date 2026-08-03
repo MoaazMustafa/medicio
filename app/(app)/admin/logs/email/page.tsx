@@ -39,7 +39,7 @@ interface EmailLogItem {
   subject: string;
   category: "OTP Verification" | "Password Reset" | "Appointment Reminder" | "Welcome Email" | "System Alert";
   status: "DELIVERED" | "PENDING" | "FAILED";
-  provider: "Resend SMTP" | "AWS SES" | "SendGrid";
+  provider: "Gmail SMTP" | "Resend SMTP" | "AWS SES" | "SendGrid";
   sentAt: string;
 }
 

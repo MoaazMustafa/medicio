@@ -4,11 +4,14 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { dashboardForRole } from "@/config/roles";
+import { writeAudit } from "@/lib/audit";
 import { signSessionToken } from "@/lib/auth";
 import { randomToken } from "@/lib/crypto";
+import { sendWelcomeEmail, sendLoginDetectedEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { OAUTH_ONLY_PASSWORD_HASH, OAUTH_STATE_COOKIE, OAUTH_ROLE_COOKIE } from "@/lib/oauth";
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/rate-limit";
 import {
   SESSION_COOKIE,
   SESSION_COOKIE_OPTIONS,
@@ -117,6 +120,9 @@ export async function GET(request: NextRequest) {
       where: { email: normalizedEmail },
     });
 
+    const isNewRegistration = !user;
+    const ip = getClientIp(request);
+
     if (!user) {
       // Google already verified the address, so the account starts activated.
       user = await prisma.user.create({
@@ -165,6 +171,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL("/login?error=This+account+has+been+deactivated", request.url),
       );
+    }
+
+    // Dispatch email notification
+    if (isNewRegistration) {
+      const emailSent = await sendWelcomeEmail(user.email, user.name, user.role);
+
+      await writeAudit({
+        action: "USER_WELCOME_EMAIL_SENT",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { name: user.name, email: user.email, role: user.role, provider: "Google OAuth", emailSent },
+      });
+    } else {
+      const userAgent = request.headers.get("user-agent") || undefined;
+      const emailSent = await sendLoginDetectedEmail(
+        user.email,
+        user.name,
+        {
+          time: new Date().toLocaleString(),
+          ip,
+          userAgent,
+        },
+        user.role
+      );
+
+      await writeAudit({
+        action: "USER_LOGIN_EMAIL_SENT",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { name: user.name, email: user.email, role: user.role, provider: "Google OAuth", emailSent },
+      });
     }
 
     // 4. Issue the local session cookie
