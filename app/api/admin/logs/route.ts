@@ -234,9 +234,15 @@ export async function GET() {
       let category: "OTP Verification" | "Password Reset" | "Appointment Reminder" | "Welcome Email" | "System Alert" = "System Alert";
       let subject = log.action.replace(/_/g, " ");
 
-      if (log.action.includes("OTP")) {
+      if (log.action.includes("PASSWORD_RESET_OTP")) {
+        category = "Password Reset";
+        subject = "[Medicio Security] Password Reset OTP Code";
+      } else if (log.action.includes("PASSWORD")) {
+        category = "Password Reset";
+        subject = "[Medicio Security] Your Password Was Changed";
+      } else if (log.action.includes("OTP")) {
         category = "OTP Verification";
-        subject = "[Medicio] Verification Code Required";
+        subject = "[Medicio] Account Verification Code Required";
       } else if (log.action.includes("WELCOME")) {
         category = "Welcome Email";
         subject = "Welcome to Medicio Healthcare Platform";
@@ -246,12 +252,21 @@ export async function GET() {
       } else if (log.action.includes("ROLE")) {
         category = "System Alert";
         subject = "[Medicio] Your Account Role Has Been Updated";
-      } else if (log.action.includes("PASSWORD")) {
-        category = "Password Reset";
-        subject = "[Medicio Security] Your Password Was Changed";
       } else if (log.action.includes("APPOINTMENT")) {
         category = "Appointment Reminder";
-        subject = "[Medicio] Appointment Notification";
+        subject = "[Medicio] Appointment Status Notification";
+      } else if (log.action.includes("DOCTOR_APPROVED")) {
+        category = "System Alert";
+        subject = "[Medicio] Practitioner Profile Verification Approved";
+      } else if (log.action.includes("DOCTOR_REJECTED")) {
+        category = "System Alert";
+        subject = "[Medicio] Practitioner Application Update";
+      } else if (log.action.includes("DOCTOR")) {
+        category = "System Alert";
+        subject = "[Medicio] Doctor Verification Application Received";
+      } else if (log.action.includes("AFFILIATION")) {
+        category = "System Alert";
+        subject = "[Medicio] Hospital Affiliation Notification";
       }
 
       return {
@@ -262,8 +277,9 @@ export async function GET() {
         status: (isFailed ? "FAILED" : "DELIVERED") as "DELIVERED" | "PENDING" | "FAILED",
         provider: "Gmail SMTP" as const,
         sentAt: log.createdAt.toISOString().replace("T", " ").substring(0, 19),
-        bodyPreview: `Email notification dispatched via Gmail SMTP to ${recipient}. Status: ${isFailed ? "Failed" : "Delivered"}.`,
+        bodyPreview: `Email notification dispatched via Gmail SMTP to ${recipient}. Action: ${log.action}. Status: ${isFailed ? "Failed" : "Delivered"}.`,
         smtpHeader: `Message-ID: <${log.id}.medicio@gmail.com> | ${isFailed ? "550 Delivery Failure" : "TLS 1.3 Verified | 250 OK"}`,
+        rawMetadata: meta,
       };
     });
 
@@ -287,6 +303,7 @@ export async function GET() {
           sentAt: vt.createdAt.toISOString().replace("T", " ").substring(0, 19),
           bodyPreview: `Your Medicio verification code is [${vt.token.substring(0, 6)}]. Expiration: ${vt.expiresAt.toISOString().substring(0, 16)}.`,
           smtpHeader: `Message-ID: <${vt.id}.medicio@gmail.com> | ${isExpired ? "550 Token Expired" : "TLS 1.3 Verified | 250 OK"}`,
+          rawMetadata: null,
         });
       });
     }

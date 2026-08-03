@@ -14,11 +14,14 @@ import {
 import {
   Activity,
   AlertCircle,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   Database,
   Download,
   FileSpreadsheet,
+  Lock,
   Mail,
   RefreshCw,
   Send,
@@ -78,6 +81,7 @@ interface EmailLogItem {
   sentAt: string;
   bodyPreview: string;
   smtpHeader: string;
+  rawMetadata?: any;
 }
 
 export default function AdminLogsPage() {
@@ -117,6 +121,26 @@ export default function AdminLogsPage() {
 
   // Email Preview Drawer Modal state
   const [previewEmail, setPreviewEmail] = useState<EmailLogItem | null>(null);
+
+  // Drawer copy state
+  const [copiedSystemJson, setCopiedSystemJson] = useState(false);
+  const [copiedEmailJson, setCopiedEmailJson] = useState(false);
+
+  const copyToClipboard = (text: string, type: "system" | "email") => {
+    try {
+      navigator.clipboard.writeText(text);
+      if (type === "system") {
+        setCopiedSystemJson(true);
+        setTimeout(() => setCopiedSystemJson(false), 2000);
+      } else {
+        setCopiedEmailJson(true);
+        setTimeout(() => setCopiedEmailJson(false), 2000);
+      }
+      toast.success("JSON Metadata copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy metadata.");
+    }
+  };
 
   const [loading, setLoading] = useState(true);
 
@@ -650,10 +674,27 @@ export default function AdminLogsPage() {
 
                 {/* Section 3: METADATA & STATE DIFF */}
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-text-primary flex items-center justify-between">
-                    <span>Audit Event Metadata & State Diff</span>
-                    <span className="text-[10px] font-mono text-text-secondary">JSON Object</span>
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-text-primary">Audit Event Metadata & State Diff</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => copyToClipboard(JSON.stringify(selectedSystemLog.metadata || {}, null, 2), "system")}
+                      className="text-[10px] font-mono text-primary flex items-center gap-1.5 h-7 px-2.5"
+                    >
+                      {copiedSystemJson ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="text-emerald-400">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-primary" />
+                          <span>Copy Metadata</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <div className="p-4 rounded-xl bg-background-custom/80 border border-border-custom text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60">
                     <pre>{JSON.stringify(selectedSystemLog.metadata || {}, null, 2)}</pre>
                   </div>
@@ -971,14 +1012,19 @@ export default function AdminLogsPage() {
           {/* EMAIL PREVIEW EXPANDABLE SIDE DRAWER MODAL */}
           {previewEmail && (
             <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm animate-in fade-in">
-              <div className="w-full max-w-xl h-full bg-surface border-l border-border-custom p-6 shadow-2xl flex flex-col gap-6 overflow-y-auto">
-                {/* Header */}
+              <div className="w-full max-w-2xl h-full bg-surface border-l border-border-custom p-6 shadow-2xl flex flex-col gap-6 overflow-y-auto">
+                {/* Drawer Header */}
                 <div className="flex items-center justify-between border-b border-border-custom pb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
                       <Mail className="w-5 h-5 text-primary" />
-                      Email Dispatch Preview
-                    </h3>
+                      <h3 className="text-base font-bold text-text-primary">
+                        Email Dispatch Inspector
+                      </h3>
+                      <Chip color="accent" variant="soft" className="text-[10px] font-mono font-bold uppercase">
+                        {previewEmail.category}
+                      </Chip>
+                    </div>
                     <span className="text-xs font-mono text-text-secondary">Log ID: {previewEmail.id}</span>
                   </div>
 
@@ -993,20 +1039,16 @@ export default function AdminLogsPage() {
                   </Button>
                 </div>
 
-                {/* Metadata Details */}
-                <div className="flex flex-col gap-3 bg-background-custom/40 p-4 rounded-xl border border-border-custom/50 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-secondary">Recipient:</span>
-                    <strong className="text-primary font-mono">{previewEmail.recipient}</strong>
+                {/* Metadata Summary Banner */}
+                <div className="p-4 rounded-xl bg-background-custom/40 border border-border-custom/80 flex items-center justify-between text-xs gap-4 flex-wrap">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Recipient</span>
+                    <strong className="text-primary font-mono text-sm mt-0.5">{previewEmail.recipient}</strong>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-secondary">Subject:</span>
-                    <strong className="text-text-primary">{previewEmail.subject}</strong>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-secondary">Delivery Status:</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Delivery Status</span>
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
+                      className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border mt-0.5 ${
                         previewEmail.status === "DELIVERED"
                           ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
                           : previewEmail.status === "PENDING"
@@ -1014,34 +1056,129 @@ export default function AdminLogsPage() {
                             : "text-rose-400 border-rose-500/40 bg-rose-500/10"
                       }`}
                     >
+                      {previewEmail.status === "DELIVERED" && <CheckCircle2 className="w-3 h-3" />}
+                      {previewEmail.status === "PENDING" && <Clock className="w-3 h-3" />}
+                      {previewEmail.status === "FAILED" && <AlertCircle className="w-3 h-3" />}
                       {previewEmail.status}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-secondary">SMTP Provider:</span>
-                    <span className="font-mono text-text-primary">{previewEmail.provider}</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">SMTP Provider</span>
+                    <span className="font-mono text-text-primary text-xs mt-0.5 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-emerald-400" />
+                      {previewEmail.provider} (Port 465 SSL)
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-secondary">Timestamp:</span>
-                    <span className="font-mono text-text-primary">{previewEmail.sentAt}</span>
-                  </div>
-                </div>
-
-                {/* Email Body Preview Content Box */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-text-primary">Email Content Body</span>
-                  <div className="p-4 rounded-xl bg-background-custom/60 border border-border-custom text-xs text-text-primary font-sans leading-relaxed">
-                    <p>{previewEmail.bodyPreview}</p>
+                  <div className="flex flex-col text-right">
+                    <span className="text-[10px] text-text-secondary uppercase font-mono font-bold">Dispatched At</span>
+                    <span className="font-mono text-text-primary text-xs mt-0.5">{previewEmail.sentAt}</span>
                   </div>
                 </div>
 
-                {/* Technical SMTP Headers */}
+                {/* Section 1: VISUAL EMAIL TEMPLATE PREVIEW */}
+                <div className="flex flex-col gap-2.5">
+                  <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-primary flex items-center gap-1.5">
+                    <Mail className="w-4 h-4" />
+                    <span>Visual Inbox Preview — User Template Rendering</span>
+                  </h4>
+
+                  <div className="rounded-2xl border border-border-custom overflow-hidden shadow-lg bg-surface">
+                    {/* Simulated Email Client Bar */}
+                    <div className="bg-background-custom/90 px-4 py-3 border-b border-border-custom flex flex-col gap-1.5 text-xs font-sans">
+                      <div className="flex items-center justify-between text-text-secondary">
+                        <span className="flex items-center gap-1">
+                          <strong className="text-text-primary">From:</strong> Medicio Portal &lt;noreply@medicio.com&gt;
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" /> TLS 1.3 Signed
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <strong className="text-text-primary">To:</strong>
+                        <span className="font-mono text-primary">{previewEmail.recipient}</span>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1 border-t border-border-custom/50">
+                        <strong className="text-text-primary">Subject:</strong>
+                        <span className="font-semibold text-text-primary">{previewEmail.subject}</span>
+                      </div>
+                    </div>
+
+                    {/* Email Card Body */}
+                    <div className="p-6 bg-surface text-text-primary flex flex-col gap-4 font-sans text-xs">
+                      {/* Medicio Brand Header */}
+                      <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
+                            M
+                          </div>
+                          <span className="text-base font-extrabold tracking-tight text-text-primary">MEDICIO</span>
+                        </div>
+                        <Chip variant="soft" color="accent" className="text-[10px] font-mono uppercase font-bold">
+                          {previewEmail.category}
+                        </Chip>
+                      </div>
+
+                      {/* Content Preview */}
+                      <div className="flex flex-col gap-2 py-2">
+                        <h4 className="text-sm font-bold text-text-primary">{previewEmail.subject}</h4>
+                        <p className="text-text-secondary leading-relaxed text-xs">
+                          {previewEmail.bodyPreview}
+                        </p>
+                      </div>
+
+                      {/* Simulated Action CTA Button */}
+                      <div className="my-2 text-center">
+                        <div className="inline-block px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-xs shadow-md">
+                          Open Medicio Portal Dashboard
+                        </div>
+                      </div>
+
+                      {/* Disclaimer Footer */}
+                      <div className="pt-4 border-t border-border-custom/60 text-[10px] text-text-secondary flex flex-col gap-1 text-center font-mono">
+                        <p>© 2026 Medicio Healthcare Inc. Confidential Clinical Notification.</p>
+                        <p className="text-text-secondary/70">Ref: {previewEmail.smtpHeader}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: TECHNICAL SMTP HEADERS */}
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-bold text-text-primary">SMTP Headers & TLS Verification</span>
+                  <span className="text-xs font-bold text-text-primary">Technical SMTP Envelope Headers</span>
                   <div className="p-3 rounded-xl bg-background-custom/80 border border-border-custom text-[11px] font-mono text-text-secondary break-all">
                     {previewEmail.smtpHeader}
                   </div>
                 </div>
+
+                {/* Section 3: RAW METADATA INSPECTOR WITH COPY BUTTON */}
+                {previewEmail.rawMetadata && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-primary">Raw Audit Metadata</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onPress={() => copyToClipboard(JSON.stringify(previewEmail.rawMetadata, null, 2), "email")}
+                        className="text-[10px] font-mono text-primary flex items-center gap-1.5 h-7 px-2.5"
+                      >
+                        {copiedEmailJson ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 text-primary" />
+                            <span>Copy Metadata</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="p-4 rounded-xl bg-background-custom/80 border border-border-custom text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-48">
+                      <pre>{JSON.stringify(previewEmail.rawMetadata, null, 2)}</pre>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-auto pt-4 border-t border-border-custom flex justify-end">
                   <Button

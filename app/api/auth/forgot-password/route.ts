@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { createOtp } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
@@ -61,6 +62,16 @@ export async function POST(request: NextRequest) {
 
       // Send the email with the OTP code and surface failures
       const emailSent = await sendOtpEmail(email, otp, "Password Reset Request");
+
+      await writeAudit({
+        action: "PASSWORD_RESET_OTP_EMAIL_SENT",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { email, purpose: "Password Reset Request", emailSent },
+      });
 
       if (!emailSent) {
         logAuthEvent("PASSWORD_RESET_EMAIL_DISPATCH_FAILURE", { email });

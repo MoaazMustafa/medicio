@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { createOtp } from "@/lib/crypto";
 import { sendOtpEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
@@ -65,6 +66,16 @@ export async function POST(request: NextRequest) {
       });
 
       const emailSent = await sendOtpEmail(email, otp, "Email Verification");
+
+      await writeAudit({
+        action: "RESEND_OTP_EMAIL_SENT",
+        actorId: user.id,
+        actorRole: user.role,
+        entityType: "USER",
+        entityId: user.id,
+        ip,
+        metadata: { email, purpose: "Resend Verification Code", emailSent },
+      });
 
       if (!emailSent) {
         logAuthEvent("RESEND_OTP_EMAIL_DISPATCH_FAILURE", { email });

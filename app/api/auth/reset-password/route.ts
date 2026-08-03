@@ -1,7 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 
+import { writeAudit } from "@/lib/audit";
 import { hashPassword } from "@/lib/crypto";
+import { sendPasswordChangedEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -71,14 +73,27 @@ export async function POST(request: NextRequest) {
     // permanently locked out of login.
     const passwordHash = hashPassword(newPassword);
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { email },
       data: { passwordHash, isVerified: true },
+      select: { id: true, name: true, role: true, email: true },
     });
 
     // Delete the token so it cannot be used again
     await prisma.verificationToken.delete({
       where: { id: verificationRecord.id },
+    });
+
+    const emailSent = await sendPasswordChangedEmail(updatedUser.email, updatedUser.name || "User");
+
+    await writeAudit({
+      action: "USER_PASSWORD_CHANGED_EMAIL_SENT",
+      actorId: updatedUser.id,
+      actorRole: updatedUser.role,
+      entityType: "USER",
+      entityId: updatedUser.id,
+      ip,
+      metadata: { email: updatedUser.email, reason: "PASSWORD_RESET_OTP", emailSent },
     });
 
     logAuthEvent("PASSWORD_RESET_SUCCESS", { email });
