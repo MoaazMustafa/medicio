@@ -55,9 +55,9 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
   PATIENT: [
     { label: "Symptom Checker", href: "/chatbot", icon: MessageSquareText },
     { label: "AI Triage Records", href: "/ai-records", icon: ScrollText },
-    { label: "Appointments", href: "/appointments", icon: CalendarCheck, soon: true },
-    { label: "Medicine Tracker", href: "/medicines", icon: Pill, soon: true },
-    { label: "Health Records", href: "/records", icon: FolderHeart, soon: true },
+    { label: "Appointments", href: "/appointments", icon: CalendarCheck },
+    { label: "Medicine Tracker", href: "/medicines", icon: Pill },
+    { label: "Health Records", href: "/records", icon: FolderHeart },
   ],
   DOCTOR: [
     { label: "Dashboard Overview", href: "/doctor/dashboard", icon: LayoutDashboard },
