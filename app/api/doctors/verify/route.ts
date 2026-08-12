@@ -7,6 +7,7 @@ import {
   sendDoctorApplicationApprovedEmail,
   sendDoctorApplicationRejectedEmail,
 } from "@/lib/email";
+import { notify } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -88,6 +89,26 @@ export async function POST(request: NextRequest) {
     }
 
     const isApproved = targetAction === "approve";
+
+    // In-app + push notification for the practitioner.
+    if (doctor.userId) {
+      await notify({
+        userId: doctor.userId,
+        type: "VERIFICATION",
+        title: isApproved
+          ? "Credentials verified"
+          : targetAction === "archive"
+            ? "Application archived"
+            : "Credentials rejected",
+        body: isApproved
+          ? `Your ${doctor.specialty} credentials passed verification. Your profile is now visible to patients and open for bookings.`
+          : targetAction === "archive"
+            ? "Your credential application was archived by the review team. Contact support if you believe this is a mistake."
+            : `Your credential submission was rejected: ${rejectionReason || "Credentials failed verification audit."} You can review and resubmit from your profile.`,
+        href: "/doctor/profile",
+        metadata: { action: targetAction, doctorId },
+      });
+    }
 
     await writeAudit({
       action: isApproved ? "DOCTOR_VERIFIED" : targetAction === "archive" ? "DOCTOR_ARCHIVED" : "DOCTOR_REJECTED",

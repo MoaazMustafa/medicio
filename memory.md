@@ -25,6 +25,10 @@ This document serves as a persistent context log for AI agents working on the Me
   - Scraped record integration with priority verified badges (`FR-DOC-07`).
   - Personal Specialty AI Agent emergency question set trainer (`FR-DOC-08`).
   - Doctor appointment status management (`FR-DOC-09`).
+- [x] **Notifications (Completed)**:
+  - In-app notification center: bell with live unread badge in the app header, right-side drawer panel, expandable notification rows, All/Unread filter, time grouping, mark read/unread, mark-all-read, clear-read, load-more pagination.
+  - Web Push (VAPID) delivery via `public/sw.js` + `web-push`; per-browser opt-in toggle in the panel footer; subscriptions stored in `push_subscriptions`.
+  - `lib/notifications.ts` is the single notification write path (mirrors `lib/audit` never-throw semantics). Events wired: appointment booked/status changed, doctor credential decisions, hospital affiliations, account welcome, admin review-queue alerts.
 - [ ] Simplify navigation headers (`components/navbar.tsx`) to strictly use HeroUI components.
 - [ ] Update landing pages (`app/page.tsx`, `app/not-found.tsx`, `app/error.tsx`) to match Medicio clinical motifs and enforce HeroUI usage.
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
 import { Logo } from "@/components/icons";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { TopNavTitle } from "@/components/top-nav-title";
 import { UserMenu } from "@/components/user-menu";
 import { getSession } from "@/lib/auth";
@@ -59,7 +60,8 @@ export default async function AppLayout({
             <TopNavTitle />
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <NotificationBell />
             <UserMenu
               user={{
                 name,

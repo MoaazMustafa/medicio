@@ -2,10 +2,12 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { dashboardForRole } from "@/config/roles";
 import { writeAudit } from "@/lib/audit";
 import { signSessionToken } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/email";
 import { logAuthEvent } from "@/lib/logger";
+import { notify, notifyMany } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import {
@@ -98,6 +100,41 @@ export async function POST(request: NextRequest) {
       ip,
       metadata: { name: updatedUser.name, email: updatedUser.email, role: updatedUser.role, emailSent: welcomeSent },
     });
+
+    // Seed the in-app notification center (no push yet — the user has not
+    // had a chance to opt in to browser notifications at this point).
+    await notify({
+      userId: updatedUser.id,
+      type: "ACCOUNT",
+      title: `Welcome to Medicio, ${updatedUser.name.split(" ")[0] || updatedUser.name}`,
+      body:
+        updatedUser.role === "PATIENT"
+          ? "Your account is verified. Start with the AI Symptom Checker, or find a verified doctor and book your first appointment."
+          : updatedUser.role === "DOCTOR"
+            ? "Your account is verified. Complete your credential submission — our review team verifies it before your profile goes live to patients."
+            : "Your account is verified and ready to use.",
+      href: dashboardForRole(updatedUser.role),
+      push: false,
+    });
+
+    // Let administrators know a new practitioner is waiting for verification.
+    if (updatedUser.role === "DOCTOR") {
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, isActive: true },
+        select: { id: true },
+      });
+
+      await notifyMany(
+        admins.map((admin) => ({
+          userId: admin.id,
+          type: "VERIFICATION" as const,
+          title: "New doctor awaiting verification",
+          body: `Dr. ${updatedUser.name} verified their email and joined the credential review queue.`,
+          href: "/admin/verifications",
+          metadata: { doctorUserId: updatedUser.id },
+        })),
+      );
+    }
 
     // Sign a JWT and set it explicitly on the response object.
     // Using cookies().set() inside Route Handlers does not reliably propagate

@@ -4,8 +4,18 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { sendAppointmentStatusEmail } from "@/lib/email";
+import { notifyMany } from "@/lib/notifications";
+import type { NotifyInput } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
+
+const APPOINTMENT_STATUS_TITLES: Record<string, string> = {
+  CONFIRMED: "Appointment confirmed",
+  CANCELLED: "Appointment cancelled",
+  COMPLETED: "Appointment completed",
+  RESCHEDULED: "Appointment rescheduled",
+  PENDING: "Appointment updated",
+};
 
 export async function PATCH(
   request: NextRequest,
@@ -73,6 +83,53 @@ export async function PATCH(
         doctorSpecialty: updatedAppointment.doctor?.specialty,
       },
     });
+
+    // In-app + push notifications for everyone involved except the actor.
+    const statusChanged = Boolean(status && status !== existingAppointment.status);
+    const rescheduled = Boolean(
+      dateTime &&
+        new Date(dateTime).getTime() !== existingAppointment.dateTime.getTime(),
+    );
+
+    if (statusChanged || rescheduled) {
+      const title = statusChanged
+        ? APPOINTMENT_STATUS_TITLES[updatedAppointment.status] || "Appointment updated"
+        : "Appointment rescheduled";
+      const when = updatedAppointment.dateTime.toLocaleString();
+      const doctorName = updatedAppointment.doctor?.user?.name || "your doctor";
+      const patientName = updatedAppointment.patient?.name || "the patient";
+      const statusLabel = updatedAppointment.status.toLowerCase();
+
+      const recipients: NotifyInput[] = [];
+
+      if (updatedAppointment.patientId !== session.userId) {
+        recipients.push({
+          userId: updatedAppointment.patientId,
+          type: "APPOINTMENT",
+          title,
+          body: statusChanged
+            ? `Your appointment with Dr. ${doctorName} on ${when} is now ${statusLabel}.`
+            : `Your appointment with Dr. ${doctorName} was moved to ${when}.`,
+          href: "/appointments",
+          metadata: { appointmentId, status: updatedAppointment.status },
+        });
+      }
+
+      if (updatedAppointment.doctor.userId !== session.userId) {
+        recipients.push({
+          userId: updatedAppointment.doctor.userId,
+          type: "APPOINTMENT",
+          title,
+          body: statusChanged
+            ? `The appointment with ${patientName} on ${when} is now ${statusLabel}.`
+            : `The appointment with ${patientName} was moved to ${when}.`,
+          href: "/doctor/appointments",
+          metadata: { appointmentId, status: updatedAppointment.status },
+        });
+      }
+
+      await notifyMany(recipients);
+    }
 
     if (updatedAppointment.patient?.email && updatedAppointment.doctor?.user?.email) {
       const emailSent = await sendAppointmentStatusEmail({

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { sendAppointmentBookedEmail } from "@/lib/email";
+import { notify } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -105,6 +106,16 @@ export async function POST(request: NextRequest) {
           include: { user: true },
         },
       },
+    });
+
+    // In-app + push notification for the doctor (FR-DOC-09 companion).
+    await notify({
+      userId: appointment.doctor.userId,
+      type: "APPOINTMENT",
+      title: "New appointment request",
+      body: `${appointment.patient?.name || "A patient"} requested an appointment on ${appointment.dateTime.toLocaleString()}.${appointment.notes ? ` Note: "${appointment.notes}"` : ""}`,
+      href: "/doctor/appointments",
+      metadata: { appointmentId: appointment.id, status: "PENDING" },
     });
 
     if (appointment.patient?.email && appointment.doctor?.user?.email) {

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { sendHospitalAffiliationEmail } from "@/lib/email";
+import { notify } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,18 @@ export async function POST(request: NextRequest) {
         include: { hospital: true },
       });
 
+      // Notify the hospital administrator about the pending request.
+      if (hospital.userId) {
+        await notify({
+          userId: hospital.userId,
+          type: "AFFILIATION",
+          title: "New affiliation request",
+          body: `Dr. ${session.name || "A practitioner"} requested to affiliate with ${hospital.name}. Review and confirm the request.`,
+          href: "/hospital/dashboard",
+          metadata: { doctorId: doctor.id, hospitalId, status: "PENDING_HOSPITAL_ACCEPT" },
+        });
+      }
+
       return NextResponse.json({
         message: `Affiliation request sent to ${hospital.name}. Pending hospital confirmation.`,
         doctor: updated,
@@ -71,6 +84,16 @@ export async function POST(request: NextRequest) {
           affiliationRequestedBy: "HOSPITAL",
         },
         include: { user: true, hospital: true },
+      });
+
+      // Notify the practitioner about the invitation.
+      await notify({
+        userId: updated.userId,
+        type: "AFFILIATION",
+        title: "Hospital affiliation invitation",
+        body: `${updated.hospital?.name || "A hospital"} invited you to join as an affiliated practitioner. Accept or decline from your profile.`,
+        href: "/doctor/profile/affiliations",
+        metadata: { doctorId: updated.id, hospitalId, status: "PENDING_DOCTOR_ACCEPT" },
       });
 
       if (updated.user?.email) {
@@ -123,6 +146,31 @@ export async function POST(request: NextRequest) {
         include: { hospital: true, user: true },
       });
 
+      // Notify both sides; skip whoever performed the acceptance.
+      const confirmedHospitalName = updated.hospital?.name || "the hospital";
+
+      if (updated.userId !== session.userId) {
+        await notify({
+          userId: updated.userId,
+          type: "AFFILIATION",
+          title: "Affiliation confirmed",
+          body: `Your affiliation with ${confirmedHospitalName} is now active.`,
+          href: "/doctor/profile/affiliations",
+          metadata: { doctorId: updated.id, status: "AFFILIATED" },
+        });
+      }
+
+      if (updated.hospital?.userId && updated.hospital.userId !== session.userId) {
+        await notify({
+          userId: updated.hospital.userId,
+          type: "AFFILIATION",
+          title: "Affiliation confirmed",
+          body: `Dr. ${updated.user?.name || "A practitioner"} is now affiliated with ${confirmedHospitalName}.`,
+          href: "/hospital/dashboard",
+          metadata: { doctorId: updated.id, status: "AFFILIATED" },
+        });
+      }
+
       if (updated.user?.email) {
         const emailSent = await sendHospitalAffiliationEmail({
           recipientEmail: updated.user.email,
@@ -164,6 +212,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "doctorId is required" }, { status: 400 });
       }
 
+      // Snapshot the relationship before it is severed so the counterpart
+      // can still be notified about who ended it.
+      const before = await prisma.doctor.findUnique({
+        where: { id: targetDoctorId },
+        include: { hospital: true, user: { select: { id: true, name: true } } },
+      });
+
       const updated = await prisma.doctor.update({
         where: { id: targetDoctorId },
         data: {
@@ -172,6 +227,37 @@ export async function POST(request: NextRequest) {
           affiliationRequestedBy: null,
         },
       });
+
+      if (before) {
+        const isRejection = action === "REJECT";
+        const hospitalName = before.hospital?.name || "the hospital";
+        const doctorName = before.user?.name || "the practitioner";
+        const actorIsDoctor = before.userId === session.userId;
+
+        if (!actorIsDoctor) {
+          await notify({
+            userId: before.userId,
+            type: "AFFILIATION",
+            title: isRejection ? "Affiliation request declined" : "Affiliation terminated",
+            body: isRejection
+              ? `${hospitalName} declined the affiliation request. You remain listed as an independent practitioner.`
+              : `Your affiliation with ${hospitalName} was terminated. You are now listed as an independent practitioner.`,
+            href: "/doctor/profile/affiliations",
+            metadata: { doctorId: before.id, action },
+          });
+        } else if (before.hospital?.userId) {
+          await notify({
+            userId: before.hospital.userId,
+            type: "AFFILIATION",
+            title: isRejection ? "Affiliation invitation declined" : "Affiliation terminated",
+            body: isRejection
+              ? `Dr. ${doctorName} declined the affiliation invitation from ${hospitalName}.`
+              : `Dr. ${doctorName} ended the affiliation with ${hospitalName}.`,
+            href: "/hospital/dashboard",
+            metadata: { doctorId: before.id, action },
+          });
+        }
+      }
 
       return NextResponse.json({
         message: action === "REJECT" ? "Affiliation request rejected." : "Hospital affiliation terminated.",
