@@ -518,3 +518,29 @@ export async function sendLabReportUploadedEmail(params: {
 
   return sendEmail(params.patientEmail, `[Medicio] Diagnostic Report Ready: ${params.testName}`, html);
 }
+
+/**
+ * 13. Dispatches general administrative broadcast notification email.
+ */
+export async function sendBroadcastEmail(params: {
+  recipientEmail: string;
+  recipientName: string;
+  title: string;
+  bodyContent: string;
+  href?: string;
+  category?: string;
+}): Promise<boolean> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  const html = buildEmailHtml({
+    title: params.title,
+    greetingName: params.recipientName,
+    badge: { text: params.category || "Official Announcement", color: "teal" },
+    bodyContent: `<p style="white-space: pre-line; margin: 0;">${params.bodyContent}</p>`,
+    ctaButton: params.href
+      ? { text: "Open Notification Link", url: params.href.startsWith("http") ? params.href : `${appUrl}${params.href}` }
+      : { text: "Open Medicio Portal", url: `${appUrl}/chatbot` },
+  });
+
+  return sendEmail(params.recipientEmail, `[Medicio Alert] ${params.title}`, html);
+}

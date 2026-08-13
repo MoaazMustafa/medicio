@@ -11,6 +11,7 @@ import {
 } from "@heroui/react";
 import type { LucideIcon } from "lucide-react";
 import {
+  BellRing,
   Bot,
   Building2,
   CalendarCheck,
@@ -100,6 +101,7 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "Broadcast Alerts", href: "/admin/notifications", icon: BellRing },
     { label: "AI Specialist Models", href: "/admin/agents", icon: Bot },
     {
       label: "Audit Logs",
@@ -120,6 +122,7 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "User Management", href: "/admin/users", icon: Users },
     { label: "Verification Queue", href: "/admin/verifications", icon: ShieldCheck },
+    { label: "Broadcast Alerts", href: "/admin/notifications", icon: BellRing },
     { label: "AI Specialist Models", href: "/admin/agents", icon: Bot },
     { label: "Scraper Engine", href: "/admin/scrapers", icon: Globe },
     {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
 import { Logo } from "@/components/icons";
+import { LoginNotificationsNotifier } from "@/components/notifications/login-notifications-notifier";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { PushPromptDialog } from "@/components/notifications/push-prompt-dialog";
 import { TopNavTitle } from "@/components/top-nav-title";
@@ -78,6 +79,7 @@ export default async function AppLayout({
       </div>
 
       <PushPromptDialog />
+      <LoginNotificationsNotifier />
     </div>
   );
 }
