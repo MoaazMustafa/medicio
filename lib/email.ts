@@ -175,6 +175,53 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   }
 }
 
+/**
+ * Bulk BCC email dispatch helper. Sends a single email to all recipient addresses via BCC.
+ */
+async function sendBulkBccEmail(bccEmails: string[], subject: string, html: string): Promise<boolean> {
+  if (!bccEmails || bccEmails.length === 0) return true;
+
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    if (process.env.NODE_ENV === "production") {
+      console.error(`[email] GMAIL_USER / GMAIL_APP_PASSWORD not set in production — cannot send bulk email "${subject}".`);
+      return false;
+    }
+    console.warn(`[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping bulk dispatch for "${subject}" to ${bccEmails.length} recipients (dev mode).`);
+    return true;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  try {
+    const rawFrom = process.env.GMAIL_FROM || "";
+    const cleanFrom = rawFrom
+      .replace(/\\"/g, "")
+      .replace(/"/g, "")
+      .replace(/\u201C|\u201D/g, "")
+      .replace(/'/g, "")
+      .trim();
+    const from = cleanFrom || `Medicio Portal <${process.env.GMAIL_USER}>`;
+
+    await transporter.sendMail({
+      from,
+      to: from,
+      bcc: bccEmails,
+      subject,
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error(`[email] Error sending bulk BCC email (${subject}) to ${bccEmails.length} recipients:`, error);
+    return false;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Specialized Email Dispatch Functions
 // -----------------------------------------------------------------------------
@@ -543,4 +590,32 @@ export async function sendBroadcastEmail(params: {
   });
 
   return sendEmail(params.recipientEmail, `[Medicio Alert] ${params.title}`, html);
+}
+
+/**
+ * 14. Bulk Administrative Broadcast Email Dispatcher.
+ * Dispatches a single email message containing all targeted recipient email addresses via BCC.
+ */
+export async function sendBulkBroadcastEmail(params: {
+  recipientEmails: string[];
+  title: string;
+  bodyContent: string;
+  href?: string;
+  category?: string;
+}): Promise<boolean> {
+  if (!params.recipientEmails || params.recipientEmails.length === 0) return true;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  const html = buildEmailHtml({
+    title: params.title,
+    greetingName: "Medicio Member",
+    badge: { text: params.category || "Official Announcement", color: "teal" },
+    bodyContent: `<p style="white-space: pre-line; margin: 0;">${params.bodyContent}</p>`,
+    ctaButton: params.href
+      ? { text: "Open Notification Link", url: params.href.startsWith("http") ? params.href : `${appUrl}${params.href}` }
+      : { text: "Open Medicio Portal", url: `${appUrl}/chatbot` },
+  });
+
+  return sendBulkBccEmail(params.recipientEmails, `[Medicio Alert] ${params.title}`, html);
 }

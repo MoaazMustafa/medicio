@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { sendBroadcastEmail } from "@/lib/email";
+import { sendBulkBroadcastEmail } from "@/lib/email";
 import { NOTIFICATION_TYPES, sendPushToUser } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
@@ -113,44 +113,25 @@ export async function POST(request: Request) {
       select: { name: true, email: true, role: true },
     });
 
-    // 3. Email dispatch logging & transport if enabled
+    // 3. Single Bulk Email Dispatch via BCC if enabled
     if (channels.email) {
-      await Promise.all(
-        recipients.map(async (user) => {
-          const sent = await sendBroadcastEmail({
-            recipientEmail: user.email,
-            recipientName: user.name,
-            title: title.trim(),
-            bodyContent: messageBody.trim(),
-            href: href?.trim() || undefined,
-            category: type,
-          }).catch(() => false);
-
-          await prisma.auditLog.create({
-            data: {
-              actorId: session.userId,
-              actorRole: session.role,
-              action: "EMAIL_NOTIFICATION_DISPATCH",
-              entityType: "USER",
-              entityId: user.id,
-              metadata: {
-                senderName: adminUser?.name || "System Admin",
-                senderEmail: adminUser?.email || "admin@medicio.app",
-                senderRole: session.role,
-                recipientName: user.name,
-                recipientEmail: user.email,
-                recipientRole: user.role,
-                subject: title.trim(),
-                body: messageBody.trim(),
-                href: href?.trim() || null,
-                delivered: sent,
-                dispatchedAt: new Date().toISOString(),
-              },
-            },
-          }).catch(() => undefined);
-          emailDispatched += 1;
-        })
+      const recipientEmails = Array.from(
+        new Set(recipients.map((r) => r.email).filter(Boolean))
       );
+
+      if (recipientEmails.length > 0) {
+        const sent = await sendBulkBroadcastEmail({
+          recipientEmails,
+          title: title.trim(),
+          bodyContent: messageBody.trim(),
+          href: href?.trim() || undefined,
+          category: type,
+        }).catch(() => false);
+
+        if (sent) {
+          emailDispatched = recipientEmails.length;
+        }
+      }
     }
 
     // Log admin activity audit record with detailed execution summary
