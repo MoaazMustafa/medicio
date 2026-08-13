@@ -26,6 +26,7 @@ import {
   Globe,
   LayoutDashboard,
   Mail,
+  Megaphone,
   Menu as MenuIcon,
   MessageSquareText,
   Pill,
@@ -131,6 +132,7 @@ export const ROLE_NAV: Record<string, NavItem[]> = {
       icon: ScrollText,
       children: [
         { label: "System Audit Logs", href: "/admin/logs", icon: FileSpreadsheet },
+        { label: "Broadcast History", href: "/admin/audit-logs/broadcasts", icon: Megaphone },
         { label: "Email Dispatch Logs", href: "/admin/logs/email", icon: Mail },
       ],
     },
