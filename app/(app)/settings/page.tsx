@@ -14,22 +14,36 @@ import {
 } from "@heroui/react";
 import {
   Bell,
+  BellOff,
+  BellRing,
   CheckCircle2,
   Download,
   Globe,
+  Loader2,
   Lock,
   Moon,
   Shield,
   ShieldAlert,
+  Sparkles,
   Sun,
   Trash2,
   User,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { PUSH_DONT_ASK_KEY } from "@/components/notifications/push-prompt-dialog";
 import { downloadData } from "@/lib/export-helper";
+import {
+  getExistingPushSubscription,
+  getNotificationPermission,
+  isPushSupported,
+  registerServiceWorker,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-client";
 
 interface UserProfile {
   id: string;
@@ -44,11 +58,21 @@ interface UserProfile {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
 
   // Active Subtab state
   const [activeTab, setActiveTab] = useState<
     "profile" | "security" | "notifications" | "appearance" | "account"
-  >("profile");
+  >(
+    initialTab === "notifications" ||
+      initialTab === "security" ||
+      initialTab === "appearance" ||
+      initialTab === "account" ||
+      initialTab === "profile"
+      ? initialTab
+      : "profile"
+  );
 
   // Profile Form States
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -71,6 +95,113 @@ export default function SettingsPage() {
   const [notifySecurity, setNotifySecurity] = useState(true);
   const [notifySystem, setNotifySystem] = useState(true);
   const [notifySms, setNotifySms] = useState(false);
+
+  // Web Push Browser State
+  type PushState = "loading" | "unsupported" | "denied" | "off" | "on";
+  const [pushState, setPushState] = useState<PushState>("loading");
+  const [isPushBusy, setIsPushBusy] = useState(false);
+  const [isTestBusy, setIsTestBusy] = useState(false);
+  const [dontAskPrompt, setDontAskPrompt] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initPush = async () => {
+      if (typeof window !== "undefined") {
+        setDontAskPrompt(localStorage.getItem(PUSH_DONT_ASK_KEY) === "true");
+      }
+
+      if (!isPushSupported()) {
+        setPushState("unsupported");
+        return;
+      }
+
+      await registerServiceWorker();
+      if (cancelled) return;
+
+      const permission = getNotificationPermission();
+      if (permission === "denied") {
+        setPushState("denied");
+        return;
+      }
+
+      const subscription = await getExistingPushSubscription();
+      if (cancelled) return;
+
+      setPushState(subscription && permission === "granted" ? "on" : "off");
+    };
+
+    void initPush();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePushToggle = async () => {
+    if (isPushBusy) return;
+    setIsPushBusy(true);
+
+    try {
+      if (pushState === "on") {
+        await unsubscribeFromPush();
+        setPushState("off");
+        toast.success("Browser notifications turned off");
+      } else {
+        const result = await subscribeToPush();
+
+        if (result.ok) {
+          setPushState("on");
+          toast.success("Browser push notifications activated!", {
+            description: "You'll receive alerts even when Medicio is closed.",
+          });
+        } else if (result.reason === "denied") {
+          setPushState(getNotificationPermission() === "denied" ? "denied" : "off");
+          toast.error("Notifications blocked by browser", {
+            description: "Please allow notification permissions in your browser settings.",
+          });
+        } else if (result.reason === "not-configured") {
+          toast.error("Push service not configured", {
+            description: "VAPID key setup missing on server.",
+          });
+        } else {
+          toast.error("Failed to enable browser push notifications");
+        }
+      }
+    } finally {
+      setIsPushBusy(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    if (isTestBusy) return;
+    setIsTestBusy(true);
+
+    try {
+      const response = await fetch("/api/notifications/test", { method: "POST" });
+      if (response.ok) {
+        toast.success("Test push notification dispatched!");
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        toast.error(data?.error || "Failed to dispatch test notification");
+      }
+    } finally {
+      setIsTestBusy(false);
+    }
+  };
+
+  const handleToggleDontAsk = (val: boolean) => {
+    setDontAskPrompt(val);
+    if (val) {
+      localStorage.setItem(PUSH_DONT_ASK_KEY, "true");
+      toast.info("Login push prompt disabled");
+    } else {
+      localStorage.removeItem(PUSH_DONT_ASK_KEY);
+      toast.info("Login push prompt reset", {
+        description: "You will be prompted to enable push notifications on future logins.",
+      });
+    }
+  };
 
   // Appearance & Regional States
   const [language, setLanguage] = useState("en-US");
@@ -539,58 +670,145 @@ export default function SettingsPage() {
 
       {/* Tab 3: Notification Preferences */}
       {activeTab === "notifications" && (
-        <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
-          <div className="border-b border-border-custom pb-3">
-            <h3 className="text-base font-bold text-text-primary">Notification Preferences Matrix</h3>
-            <p className="text-xs text-text-secondary">Choose how and when you receive automated alerts and emails.</p>
-          </div>
-
-          <div className="flex flex-col gap-4 max-w-2xl">
-            <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
-              <div>
-                <span className="font-bold text-sm text-text-primary block">Doctor Appointment Reminders</span>
-                <span className="text-xs text-text-secondary">Receive automated email alerts 24 hours prior to scheduled visits.</span>
+        <div className="flex flex-col gap-6 max-w-3xl">
+          {/* Web Push Hero Card */}
+          <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-5 shadow-lg">
+            <div className="flex items-center justify-between border-b border-border-custom pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+                  {pushState === "denied" ? (
+                    <BellOff className="w-5 h-5" />
+                  ) : (
+                    <BellRing className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>Browser Push Notifications</span>
+                    <Chip
+                      variant="soft"
+                      color={
+                        pushState === "on"
+                          ? "success"
+                          : pushState === "denied"
+                            ? "danger"
+                            : "warning"
+                      }
+                      className="text-[10px] font-mono font-bold uppercase"
+                    >
+                      {pushState === "on"
+                        ? "Active"
+                        : pushState === "denied"
+                          ? "Blocked in Browser"
+                          : pushState === "unsupported"
+                            ? "Unsupported"
+                            : "Disabled"}
+                    </Chip>
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Receive real-time push alerts on your desktop or mobile browser even when Medicio is closed.
+                  </p>
+                </div>
               </div>
-              <Switch
-                isSelected={notifyAppointments}
-                onChange={(val: boolean) => setNotifyAppointments(val)}
-              />
+
+              <div className="flex items-center gap-2 shrink-0">
+                {isPushBusy && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                <Switch
+                  isSelected={pushState === "on"}
+                  isDisabled={pushState === "denied" || pushState === "unsupported" || isPushBusy}
+                  onChange={() => void handlePushToggle()}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
-              <div>
-                <span className="font-bold text-sm text-text-primary block">Security & Login Alerts</span>
-                <span className="text-xs text-text-secondary">Get notified of password updates or new device logins.</span>
+            {pushState === "denied" && (
+              <div className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300">
+                <span className="font-bold block">Browser Permission Blocked:</span>
+                <span>To re-enable push notifications, allow notification permissions for this website in your browser site settings bar.</span>
               </div>
-              <Switch
-                isSelected={notifySecurity}
-                onChange={(val: boolean) => setNotifySecurity(val)}
-              />
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  isDisabled={pushState !== "on" || isTestBusy}
+                  onPress={() => void handleSendTestPush()}
+                  className="text-xs font-semibold px-4 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span>{isTestBusy ? "Sending..." : "Send Test Push"}</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  size="sm"
+                  isSelected={dontAskPrompt}
+                  onChange={(val: boolean) => handleToggleDontAsk(val)}
+                />
+                <span className="text-xs text-text-secondary">
+                  Suppress login prompt dialog ("Don't ask me again")
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* General Preferences Matrix Card */}
+          <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
+            <div className="border-b border-border-custom pb-3">
+              <h3 className="text-base font-bold text-text-primary">Notification Preferences Matrix</h3>
+              <p className="text-xs text-text-secondary">Choose how and when you receive automated alerts and emails.</p>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
-              <div>
-                <span className="font-bold text-sm text-text-primary block">System Maintenance Announcements</span>
-                <span className="text-xs text-text-secondary">Receive platform upgrade schedules and module releases.</span>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
+                <div>
+                  <span className="font-bold text-sm text-text-primary block">Doctor Appointment Reminders</span>
+                  <span className="text-xs text-text-secondary">Receive automated email alerts 24 hours prior to scheduled visits.</span>
+                </div>
+                <Switch
+                  isSelected={notifyAppointments}
+                  onChange={(val: boolean) => setNotifyAppointments(val)}
+                />
               </div>
-              <Switch
-                isSelected={notifySystem}
-                onChange={(val: boolean) => setNotifySystem(val)}
-              />
-            </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
-              <div>
-                <span className="font-bold text-sm text-text-primary block">SMS Notifications</span>
-                <span className="text-xs text-text-secondary">Send urgent OTPs and booking confirmations to mobile phone.</span>
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
+                <div>
+                  <span className="font-bold text-sm text-text-primary block">Security & Login Alerts</span>
+                  <span className="text-xs text-text-secondary">Get notified of password updates or new device logins.</span>
+                </div>
+                <Switch
+                  isSelected={notifySecurity}
+                  onChange={(val: boolean) => setNotifySecurity(val)}
+                />
               </div>
-              <Switch
-                isSelected={notifySms}
-                onChange={(val: boolean) => setNotifySms(val)}
-              />
+
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
+                <div>
+                  <span className="font-bold text-sm text-text-primary block">System Maintenance Announcements</span>
+                  <span className="text-xs text-text-secondary">Receive platform upgrade schedules and module releases.</span>
+                </div>
+                <Switch
+                  isSelected={notifySystem}
+                  onChange={(val: boolean) => setNotifySystem(val)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border-custom bg-background-custom/30">
+                <div>
+                  <span className="font-bold text-sm text-text-primary block">SMS Notifications</span>
+                  <span className="text-xs text-text-secondary">Send urgent OTPs and booking confirmations to mobile phone.</span>
+                </div>
+                <Switch
+                  isSelected={notifySms}
+                  onChange={(val: boolean) => setNotifySms(val)}
+                />
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* Tab 4: Appearance & Regional */}

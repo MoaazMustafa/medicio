@@ -9,6 +9,7 @@ import {
   CheckCheck,
   Inbox,
   Loader2,
+  Settings,
   Sparkles,
   Trash2,
   X,
@@ -459,18 +460,33 @@ export function NotificationBell() {
                 </div>
               </div>
 
-              {process.env.NODE_ENV === "development" && (
+              <div className="flex items-center gap-2 pt-1">
                 <Button
                   size="sm"
-                  variant="ghost"
-                  isDisabled={isTestBusy}
-                  onPress={() => void handleSendTest()}
-                  className="h-7 w-full text-[11px] text-text-secondary font-mono flex items-center justify-center gap-1.5 border border-border-custom/60"
+                  variant="outline"
+                  onPress={() => {
+                    setIsOpen(false);
+                    router.push("/settings?tab=notifications");
+                  }}
+                  className="h-7 flex-1 text-[11px] font-semibold text-text-secondary hover:text-text-primary flex items-center justify-center gap-1.5 border border-border-custom/80"
                 >
-                  <Sparkles className="h-3 w-3 text-primary" />
-                  Send Test Notification
+                  <Settings className="h-3 w-3 text-primary" />
+                  Manage Settings
                 </Button>
-              )}
+
+                {process.env.NODE_ENV === "development" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    isDisabled={isTestBusy}
+                    onPress={() => void handleSendTest()}
+                    className="h-7 text-[11px] text-text-secondary font-mono flex items-center justify-center gap-1.5 border border-border-custom/60 px-2.5"
+                  >
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    Test
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar, MobileNav } from "@/components/app-sidebar";
 import { Logo } from "@/components/icons";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { PushPromptDialog } from "@/components/notifications/push-prompt-dialog";
 import { TopNavTitle } from "@/components/top-nav-title";
 import { UserMenu } from "@/components/user-menu";
 import { getSession } from "@/lib/auth";
@@ -75,6 +76,8 @@ export default async function AppLayout({
 
         <main className="flex-1 w-full overflow-x-hidden">{children}</main>
       </div>
+
+      <PushPromptDialog />
     </div>
   );
 }
