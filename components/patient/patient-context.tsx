@@ -6,6 +6,7 @@ export interface ClarificationQuestion {
   id: string;
   question: string;
   options: string[];
+  allowMultiSelect?: boolean;
 }
 
 export interface TemporaryMedicine {
@@ -13,23 +14,31 @@ export interface TemporaryMedicine {
   dosage: string;
   purpose: string;
   warning?: string;
+  contraindicationAlert?: string;
 }
 
 export interface PossibleCondition {
   condition: string;
+  icd11Code?: string;
   likelihood: "High" | "Moderate" | "Low";
   description: string;
+  sourceGuideline?: string;
 }
 
 export interface TriageResult {
   severityLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   summary: string;
+  clinicalImpression?: string;
   possibleConditions: PossibleCondition[];
   recommendDoctor: boolean;
   suggestedSpecialty: string;
   temporaryMedicines: TemporaryMedicine[];
   precautions: string[];
+  redFlagsToWatch?: string[];
+  questionsForDoctor?: string[];
   disclaimer: string;
+  isEmergencyAlert?: boolean;
+  isOutOfScope?: boolean;
 }
 
 export interface RecommendedDoctor {
@@ -62,8 +71,16 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  responseType?: "GREETING" | "CLARIFICATION_NEEDED" | "TRIAGE_COMPLETE" | "MODEL_UNAVAILABLE";
+  responseType?:
+    | "GREETING"
+    | "CLARIFICATION_NEEDED"
+    | "TRIAGE_COMPLETE"
+    | "MODEL_UNAVAILABLE"
+    | "OUT_OF_SCOPE"
+    | "CONVERSATION_TURN"
+    | "API_KEY_REQUIRED";
   clarificationQuestions?: ClarificationQuestion[];
+  suggestedQuickReplies?: string[];
   userAnswers?: Record<string, string>;
   triageResult?: TriageResult;
   recommendedDoctors?: RecommendedDoctor[];
@@ -115,34 +132,26 @@ interface PatientContextType {
   searchRadiusKm: number;
   isLocating: boolean;
 
-  setAgentSpecialty: (_specialty: string) => void;
-  setDuration: (_duration: string) => void;
-  setPreExistingConditions: (_val: string) => void;
-  setCurrentMedicines: (_val: string) => void;
-  setTreatmentApproach: (_val: string) => void;
-  setLocationName: (_name: string) => void;
-  setSearchRadiusKm: (_radius: number) => void;
-  requestDeviceLocation: () => Promise<void>;
-  sendMessage: (_promptText: string, _answeredQuestions?: Record<string, string>) => Promise<void>;
-  submitClarificationAnswers: (_answers: Record<string, string>) => Promise<void>;
-  resetChat: () => void;
-  fetchAgents: () => Promise<void>;
-  fetchHistorySessions: () => Promise<void>;
-  loadHistorySession: (_id: string) => Promise<void>;
+  setAgentSpecialty(specialty: string): void;
+  setDuration(duration: string): void;
+  setPreExistingConditions(val: string): void;
+  setCurrentMedicines(val: string): void;
+  setTreatmentApproach(val: string): void;
+  setLocationName(name: string): void;
+  setSearchRadiusKm(radius: number): void;
+  requestDeviceLocation(): Promise<void>;
+  sendMessage(promptText: string, answeredQuestions?: Record<string, string>): Promise<void>;
+  submitClarificationAnswers(answers: Record<string, string>): Promise<void>;
+  resetChat(): void;
+  fetchAgents(): Promise<void>;
+  fetchHistorySessions(): Promise<void>;
+  loadHistorySession(id: string): Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
 export function PatientProvider({ children }: { children: React.ReactNode }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome-1",
-      role: "assistant",
-      content:
-        "Hello! I am your Medicio AI Health Assistant. Share your symptoms or select an AI Specialist above to begin guided clinical triage.",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const [activeAgentSpecialty, setAgentSpecialty] = useState<string>("GENERAL");
   const [duration, setDuration] = useState<string>("1-3 days");
@@ -291,6 +300,12 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
+      // Build conversation history from current messages
+      const historyPayload = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch("/api/symptom-checker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -310,45 +325,63 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           coordinates: userCoordinates,
           locationName,
           radiusKm: searchRadiusKm,
+          history: historyPayload,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to reach AI triage server.");
-      }
-
       if (data.conversationId) {
         setConversationId(data.conversationId);
       }
 
-      const respType: "GREETING" | "CLARIFICATION_NEEDED" | "TRIAGE_COMPLETE" | "MODEL_UNAVAILABLE" =
-        data.responseType || "TRIAGE_COMPLETE";
+      const respType:
+        | "GREETING"
+        | "CLARIFICATION_NEEDED"
+        | "TRIAGE_COMPLETE"
+        | "MODEL_UNAVAILABLE"
+        | "OUT_OF_SCOPE"
+        | "CONVERSATION_TURN"
+        | "API_KEY_REQUIRED" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : "API_KEY_REQUIRED");
 
-      if (respType === "MODEL_UNAVAILABLE") {
+      if (respType === "API_KEY_REQUIRED") {
         const botMessage: ChatMessage = {
           id: `bot-${Date.now()}`,
           role: "assistant",
           content:
             data.content ||
-            "This specialist model is not available yet. Please switch to an available AI model to continue.",
+            "**API Key Required**: Please configure `GEMINI_API_KEY` in your `.env` file to activate the live AI conversational clinical assistant.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: "API_KEY_REQUIRED",
+        };
+
+        setPendingClarificationMsg(null);
+        setMessages((prev) => [...prev, botMessage]);
+      } else if (respType === "OUT_OF_SCOPE") {
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content:
+            data.content ||
+            "I apologize, but I am specialized strictly in medical intake and healthcare triage. Please share any physical symptoms or health concerns you have.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: "OUT_OF_SCOPE",
+        };
+
+        setPendingClarificationMsg(null);
+        setMessages((prev) => [...prev, botMessage]);
+      } else if (respType === "MODEL_UNAVAILABLE") {
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content:
+            data.content ||
+            "This specialist model is currently updating its certified training protocols. Please switch to General AI Triage or another active specialist model.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "MODEL_UNAVAILABLE",
         };
 
         setPendingClarificationMsg(null);
-        setMessages((prev) => [...prev, botMessage]);
-      } else if (respType === "CLARIFICATION_NEEDED") {
-        const botMessage: ChatMessage = {
-          id: `bot-${Date.now()}`,
-          role: "assistant",
-          content: data.content || "Please answer a few clarifying questions to complete triage.",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          responseType: "CLARIFICATION_NEEDED",
-          clarificationQuestions: data.clarificationQuestions || [],
-        };
-        setPendingClarificationMsg(botMessage);
         setMessages((prev) => [...prev, botMessage]);
       } else if (respType === "GREETING") {
         const botMessage: ChatMessage = {
@@ -357,6 +390,19 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           content: data.content || "Hello! How can I assist with your health today?",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "GREETING",
+          suggestedQuickReplies: data.suggestedQuickReplies || [],
+        };
+        setPendingClarificationMsg(null);
+        setMessages((prev) => [...prev, botMessage]);
+      } else if (respType === "CONVERSATION_TURN") {
+        // One-by-one live AI clinical question
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content: data.content || "Could you share more details about your symptoms?",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: "CONVERSATION_TURN",
+          suggestedQuickReplies: data.suggestedQuickReplies || [],
         };
         setPendingClarificationMsg(null);
         setMessages((prev) => [...prev, botMessage]);
@@ -376,7 +422,7 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         const botMessage: ChatMessage = {
           id: `bot-${Date.now()}`,
           role: "assistant",
-          content: triage.summary,
+          content: data.content || triage?.summary || "Clinical assessment complete.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "TRIAGE_COMPLETE",
           triageResult: triage,
@@ -407,15 +453,7 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetChat = () => {
-    setMessages([
-      {
-        id: "welcome-1",
-        role: "assistant",
-        content:
-          "Hello! I am your Medicio AI Health Assistant. Share your symptoms or select an AI Specialist above to begin guided clinical triage.",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
+    setMessages([]);
     setConversationId(null);
     setLatestTriage(null);
     setLatestDoctors([]);

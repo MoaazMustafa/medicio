@@ -34,7 +34,6 @@ import type { ChatMessage } from "./patient-context";
 import { usePatientContext } from "./patient-context";
 
 import { ChatEmptyState } from "@/components/patient/chatbot/chat-empty-state";
-import { ClarificationCard } from "@/components/patient/chatbot/clarification-card";
 import { getSeverityColor, TriageCard } from "@/components/patient/chatbot/triage-card";
 import {
   ChatContainerContent,
@@ -73,6 +72,21 @@ const FALLBACK_AGENT = {
   attachedDoctorCount: 0,
 };
 
+const SPECIALTY_PLACEHOLDERS: Record<string, string> = {
+  GENERAL: "Describe your symptoms (e.g. 'I've had a fever and sore throat for 2 days')…",
+  DERMATOLOGY: "Describe skin or hair symptoms (e.g. 'Red itchy rash on my forearm for 3 days')…",
+  CARDIOLOGY: "Describe cardiovascular symptoms (e.g. 'Palpitations and shortness of breath')…",
+  NEUROLOGY: "Describe neurological symptoms (e.g. 'Throbbing headache with light sensitivity')…",
+  PEDIATRICS: "Describe child symptoms (e.g. 'Toddler has a 101°F fever and ear pain')…",
+  ORTHOPEDICS: "Describe joint or bone symptoms (e.g. 'Sharp right knee pain after running')…",
+  GYNECOLOGY: "Describe reproductive health symptoms (e.g. 'Severe pelvic cramps and nausea')…",
+  ENT: "Describe ear, nose, or throat symptoms (e.g. 'Sinus pressure, ear pain, and congestion')…",
+  OPHTHALMOLOGY: "Describe eye or vision symptoms (e.g. 'Eye redness, burning, and blurry vision')…",
+  PSYCHIATRY: "Describe emotional or mental health concerns (e.g. 'Persistent anxiety and insomnia')…",
+  GASTROENTEROLOGY: "Describe digestive symptoms (e.g. 'Acid reflux and stomach pain after meals')…",
+  PULMONOLOGY: "Describe respiratory symptoms (e.g. 'Persistent dry cough and wheezing')…",
+};
+
 export function PatientChatbot() {
   const {
     messages,
@@ -86,7 +100,6 @@ export function PatientChatbot() {
     isLoading,
     conversationId,
     historySessions,
-    pendingClarificationMsg,
     userCoordinates,
     locationName,
     searchRadiusKm,
@@ -100,7 +113,6 @@ export function PatientChatbot() {
     setSearchRadiusKm,
     requestDeviceLocation,
     sendMessage,
-    submitClarificationAnswers,
     resetChat,
     fetchHistorySessions,
     loadHistorySession,
@@ -287,10 +299,6 @@ export function PatientChatbot() {
             <ChatEmptyState
               agentName={currentAgent.displayName}
               isModelAvailable={isModelAvailable}
-              suggestions={currentAgent.suggestedQuestions}
-              onPromptSelect={(prompt) => {
-                if (!isLoading && isModelAvailable) sendMessage(prompt);
-              }}
             />
           </div>
         ) : (
@@ -304,17 +312,16 @@ export function PatientChatbot() {
                   <Message key={msg.id} className={cn("w-full flex-col gap-1.5", isAssistant ? "items-start" : "items-end")}>
                     {isAssistant ? (
                       <div className="group flex w-full flex-col gap-2.5">
-                        <MessageContent markdown className="w-full rounded-none bg-transparent p-0 text-text-primary">
-                          {msg.content}
-                        </MessageContent>
-
-                        {msg.responseType === "CLARIFICATION_NEEDED" && (msg.clarificationQuestions?.length ?? 0) > 0 && (
-                          <ClarificationCard
-                            isActive={pendingClarificationMsg?.id === msg.id}
-                            isLoading={isLoading}
-                            questions={msg.clarificationQuestions!}
-                            onSubmit={submitClarificationAnswers}
-                          />
+                        {msg.responseType === "API_KEY_REQUIRED" ? (
+                          <div className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-text-primary">
+                            <MessageContent markdown className="w-full rounded-none bg-transparent p-0 text-text-primary">
+                              {msg.content}
+                            </MessageContent>
+                          </div>
+                        ) : (
+                          <MessageContent markdown className="w-full rounded-none bg-transparent p-0 text-text-primary">
+                            {msg.content}
+                          </MessageContent>
                         )}
 
                         {msg.triageResult && (
@@ -389,7 +396,7 @@ export function PatientChatbot() {
                 className="min-h-[44px] pt-3 pl-2.5 text-sm"
                 placeholder={
                   isModelAvailable
-                    ? "Describe your symptoms (e.g. 'I've had a headache for 2 days')…"
+                    ? SPECIALTY_PLACEHOLDERS[currentAgent.specialty] || "Describe your symptoms (e.g. 'I've had a headache for 2 days')…"
                     : `${currentAgent.displayName} is coming soon — switch to an available model to chat`
                 }
               />

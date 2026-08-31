@@ -11,35 +11,28 @@ import {
   Select,
   Tabs,
   TextArea,
-  Tooltip,
 } from "@heroui/react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   Building2,
   CalendarCheck,
-  CheckCircle2,
   Clock,
   Compass,
-  Crosshair,
   FlaskConical,
-  Globe2,
-  GraduationCap,
   LayoutGrid,
   Map as MapIcon,
   MapPin,
   Navigation,
   Pill,
   RefreshCw,
-  Search,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   Stethoscope,
   X,
 } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type { DirectoryEntity } from "@/app/api/directory/route";

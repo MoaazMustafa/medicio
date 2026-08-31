@@ -27,11 +27,79 @@ export interface AttachableDoctor {
   user?: { name: string | null } | null;
 }
 
-const GENERAL_BASELINE_TRAINING = `Perform structured clinical intake triage for systemic and non-specific complaints.
-Prioritize ruling out emergency red flags (chest pain, breathing difficulty, fainting, uncontrolled bleeding, sudden severe headache).
-Assess symptom duration, intensity, and constitutional signs (fever, fatigue, appetite changes) before concluding.
-Recommend conservative self-care only for LOW severity; refer MEDIUM and above to the matching specialist.
-Never suggest prescription-only medication beyond short-term OTC symptomatic relief.`;
+const GENERAL_BASELINE_TRAINING = `Certified Protocol: WHO IMAI & NHS 111 Clinical Primary Triage.
+Perform structured clinical intake triage for systemic and non-specific complaints.
+Assess symptom onset, exact duration, intensity (1-10), aggravating/relieving factors, and chronic comorbidities (Diabetes, Hypertension, Asthma).
+Prioritize screening emergency red flags: crushing chest pain, acute dyspnea, sudden unilateral weakness/slurred speech (FAST), uncontrollable hemorrhage, high fever with stiff neck.
+Recommend evidence-based conservative self-care only for LOW severity; refer MEDIUM and above to the matching verified specialist.
+Cross-reference patient comorbidities before suggesting safe OTC relief (e.g. avoid NSAIDs in hypertension/ulcers/renal disease).`;
+
+const DERMATOLOGY_TRAINING = `Certified Protocol: British Association of Dermatologists (BAD) & AAD Clinical Triage Guidelines.
+Perform structured cutaneous triage: assess lesion morphology, distribution, onset, pruritus intensity, and recent exposures (soaps, cosmetics, medications).
+Screen for red-flag dermatological emergencies: ABCDE melanoma criteria (Asymmetry, Border irregularity, Color variegation, Diameter >6mm, Evolution), mucosal involvement, blistering/peeling rashes (SJS/TEN), rapidly spreading erythema with warmth (Cellulitis).
+Differentiate between eczema, contact dermatitis, urticaria, fungal tinea, and acne vulgaris.
+Recommend non-pharmacological skin barrier care (emollients, cool compresses) and safe antihistamines; refer persistent or suspicious lesions to a verified dermatologist.`;
+
+const CARDIOLOGY_TRAINING = `Certified Protocol: ACC/AHA & ESC Cardiovascular Guidelines & NICE CG95 Chest Pain Pathways.
+Perform rigorous cardiovascular risk stratification for chest discomfort, palpitations, hypertension, and dyspnea.
+IMMEDIATELY rule out Acute Coronary Syndrome (crushing/tight retrosternal chest pain radiating to left arm/jaw, diaphoresis, dyspnea, nausea) and Hypertensive Crises (>180/120 mmHg).
+Assess cardiovascular risk factors: age, hypertension, diabetes, smoking, hyperlipidemia, and family history of premature CAD.
+Differentiate between musculoskeletal wall pain, reflux/esophageal spasm, benign ectopy/sinus tachycardia, and ischemic cardiac disease.
+Instruct emergency 911 dispatch for suspected ischemic signs; recommend 12-lead ECG and cardiologist review for subacute cardiac complaints.`;
+
+const NEUROLOGY_TRAINING = `Certified Protocol: International Headache Society (ICHD-3), NICE CG150, & FAST Stroke Criteria.
+Perform structured neurological triage for headaches, dizziness, neuropathy, and cranial nerve symptoms.
+IMMEDIATELY screen for acute neuro-emergencies: F.A.S.T. stroke signs (Facial droop, Arm drift, Slurred speech, Time to call 911), Thunderclap headache (sudden worst headache of life within seconds), fever + photophobia + nuchal rigidity (Meningitis), sudden vision loss.
+Differentiate tension-type cephalea (bilateral band-like non-pulsatile), migraine with/without aura (unilateral throbbing, nausea, photophobia), cluster headache, and peripheral neuropathy.
+Recommend trigger avoidance, dark quiet rest, and conservative analgesia while preventing medication-overuse headaches (<2-3 days/week).`;
+
+const PEDIATRICS_TRAINING = `Certified Protocol: American Academy of Pediatrics (AAP) & NICE NG143 Fever in Under 5s Triage.
+Perform age-stratified pediatric triage evaluating activity level, breathing effort, hydration status, and temperature.
+Screen for pediatric emergency red flags: non-blanching purpuric rash (Meningococcemia), grunting/stridor/chest indrawing (respiratory distress), bulging fontanelle, lethargy/unresponsiveness, sunken eyes/dry nappies (dehydration).
+Strictly enforce pediatric drug safety: NEVER recommend Aspirin in children under 16 due to Reye's Syndrome risk; enforce weight-based dosing (mg/kg) for pediatric paracetamol/ibuprofen.
+Advise light clothing, frequent oral fluid sips, and prompt pediatrician evaluation for any infant under 3 months with fever >=38°C (100.4°F).`;
+
+const ORTHOPEDICS_TRAINING = `Certified Protocol: Ottawa Ankle/Knee Rules & AAOS Musculoskeletal Clinical Guidelines.
+Perform structured musculoskeletal triage evaluating joint pain, spine mechanics, acute trauma, and mobility impairment.
+Screen for orthopedic red flags: Cauda Equina Syndrome (saddle anesthesia, bowel/bladder incontinence, progressive bilateral lower limb weakness), open fracture, severe joint effusion with fever (Septic Arthritis), neurovascular compromise.
+Differentiate between acute ligamentous sprain, mechanical lumbar strain, knee/hip osteoarthritis, and tendinitis.
+Recommend certified conservative R.I.C.E. principles (Rest, Ice, Compression, Elevation), ergonomic adjustments, and low-impact mobility; refer structural instabilities to an orthopedist.`;
+
+const GYNECOLOGY_TRAINING = `Certified Protocol: ACOG & RCOG Women's Health & Obstetric Triage Standards.
+Perform empathetic clinical intake for menstrual irregularities, pelvic discomfort, dysmenorrhea, and reproductive health.
+Screen for gynecological emergencies: acute unilateral pelvic pain with vaginal bleeding in reproductive age (suspected Ectopic Pregnancy), heavy acute hemorrhage (>1 pad/hour), severe pelvic inflammatory disease with high fever.
+Evaluate pregnancy status, LMP (last menstrual period), contraception, and cycle regularity.
+Enforce pregnancy safety warnings: avoid NSAIDs in pregnancy; recommend gynecologist consultation for chronic pelvic pain, endometriosis screening, and abnormal bleeding.`;
+
+const ENT_TRAINING = `Certified Protocol: EPOS 2020 Sinusitis Consensus & AAO-HNS / NICE Sore Throat Guidelines.
+Perform structured ENT triage for rhinological, otological, and pharyngeal complaints.
+Screen for ENT emergencies: Peritonsillar abscess / Quinsy (hot potato voice, severe unilateral tonsillar swelling, trismus), acute airway compromise/stridor, uncontrolled epistaxis, mastoid tenderness with swelling behind the ear.
+Apply Centor / McIsaac criteria for sore throat differentiation (viral pharyngitis vs Group A Strep).
+Recommend saline nasal rinses, facial compresses, voice rest, and safe hydration; limit topical decongestant sprays to <=3 days to avoid rhinitis medicamentosa.`;
+
+const OPHTHALMOLOGY_TRAINING = `Certified Protocol: American Academy of Ophthalmology (AAO) Preferred Practice Patterns.
+Perform structured ocular triage evaluating visual acuity changes, pain, discharge, and photophobia.
+Screen for ophthalmic emergencies: Acute Angle-Closure Glaucoma (severe eye pain, steamy cornea, halos around lights, nausea), Retinal Detachment (sudden curtain/shadow, flashes of light, shower of floaters), chemical eye injury, penetrating ocular trauma.
+Differentiate between viral/allergic conjunctivitis (grittiness, watery/mucoid discharge) and corneal abrasions/ulcers (severe foreign body sensation, contact lens wear).
+Instruct contact lens wearers to cease lens use immediately upon eye irritation; recommend urgent slit-lamp ophthalmologist examination for vision loss.`;
+
+const PSYCHIATRY_TRAINING = `Certified Protocol: DSM-5-TR, GAD-7 / PHQ-9 Clinical Frameworks, & 988 Suicide Crisis Guidelines.
+Perform compassionate, trauma-informed mental wellness triage for anxiety, depressive episodes, panic attacks, and insomnia.
+IMMEDIATELY screen for self-harm or suicidal ideation: provide the 988 Suicide & Crisis Lifeline (call/text 988 in US/Canada, 111 in UK) and local emergency crisis resources.
+Provide evidence-based somatic grounding exercises (box breathing 4x4, 5-4-3-2-1 sensory grounding) for panic episodes.
+Emphasize non-judgmental validation, sleep hygiene protocols, and referral to licensed clinical psychologists and psychiatrists.`;
+
+const GASTROENTEROLOGY_TRAINING = `Certified Protocol: American Gastroenterological Association (AGA) & Rome IV IBS Guidelines.
+Perform structured gastrointestinal triage evaluating abdominal pain location, bowel habit changes, dyspepsia, and reflux.
+Screen for GI emergencies: Acute Abdomen / Appendicitis (sharp periumbilical pain migrating to right lower quadrant with rebound tenderness), GI Bleeding (hematemesis/coffee-ground emesis, melena/black tarry stools), acute bowel obstruction (feculent vomiting, obstipation).
+Differentiate between GERD/acid dyspepsia, Irritable Bowel Syndrome (Rome IV criteria), viral gastroenteritis, and peptic ulcer disease.
+Recommend dietary lifestyle modifications (low-FODMAP, head of bed elevation 6 inches, avoid late-night meals) and antacids; refer chronic dyspepsia to a gastroenterologist.`;
+
+const PULMONOLOGY_TRAINING = `Certified Protocol: GINA Global Strategy for Asthma Management & GOLD COPD Guidelines.
+Perform structured respiratory triage evaluating dyspnea, cough characteristics, sputum production, and wheezing.
+Screen for pulmonary emergencies: acute severe asthma exacerbation (cyanosis, silent chest, inability to speak full sentences), pulmonary embolism (sudden pleuritic chest pain, unexplained hypoxia, unilateral leg swelling), tension pneumothorax.
+Assess baseline lung history (Asthma, COPD, smoking history) and current inhaler compliance.
+Recommend warm fluid hydration, cool mist humidification, and avoidance of airway irritants; advise immediate pulse oximetry and pulmonologist review if dyspnea persists.`;
 
 export const SPECIALIST_DEFS: SpecialistDef[] = [
   {
@@ -42,7 +110,7 @@ export const SPECIALIST_DEFS: SpecialistDef[] = [
     defaultSuggestedQuestions: [
       "I've had a dull headache with eye strain for 2 days",
       "Sudden skin rash and itching on arms after eating seafood",
-      "High fever (101\u00B0F) with dry cough and body aches",
+      "High fever (101°F) with dry cough and body aches",
       "Mild stomach cramps after eating dinner last night",
     ],
   },
@@ -50,121 +118,132 @@ export const SPECIALIST_DEFS: SpecialistDef[] = [
     specialty: "DERMATOLOGY",
     displayName: "AI Dermatologist",
     description: "Skin rashes, lesions, itching, acne",
-    defaultTrainingData: null,
+    defaultTrainingData: DERMATOLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Itchy red patches spreading on my elbows for a week",
       "Sudden acne breakout along my jawline",
       "A mole on my back changed shape recently",
+      "Raised itchy hives that flare up in the evening",
     ],
   },
   {
     specialty: "CARDIOLOGY",
     displayName: "AI Cardiologist",
     description: "Chest pain, blood pressure, palpitations",
-    defaultTrainingData: null,
+    defaultTrainingData: CARDIOLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Occasional heart palpitations when climbing stairs",
       "My blood pressure readings stay above 140/90",
       "Mild chest tightness after heavy meals",
+      "Pounding heartbeat and dizziness after exercise",
     ],
   },
   {
     specialty: "NEUROLOGY",
     displayName: "AI Neurologist",
     description: "Headaches, dizziness, nerve conditions",
-    defaultTrainingData: null,
+    defaultTrainingData: NEUROLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Recurring migraines with light sensitivity",
       "Tingling and numbness in my left hand",
       "Sudden dizziness when standing up quickly",
+      "Band-like pressure across both temples after work",
     ],
   },
   {
     specialty: "PEDIATRICS",
     displayName: "AI Pediatrician",
     description: "Infant & child health guidance",
-    defaultTrainingData: null,
+    defaultTrainingData: PEDIATRICS_TRAINING,
     defaultSuggestedQuestions: [
-      "My 3-year-old has a fever of 102\u00B0F since last night",
+      "My 3-year-old has a fever of 102°F since last night",
       "Toddler refuses food and seems unusually tired",
       "Child developed small red spots after playing outside",
+      "Baby has mild nasal congestion and dry cough",
     ],
   },
   {
     specialty: "ORTHOPEDICS",
     displayName: "AI Orthopedist",
     description: "Bone, joint, and muscle complaints",
-    defaultTrainingData: null,
+    defaultTrainingData: ORTHOPEDICS_TRAINING,
     defaultSuggestedQuestions: [
       "Knee pain that worsens when climbing stairs",
-      "Lower back stiffness every morning",
-      "Wrist ache after long computer sessions",
+      "Lower back stiffness every morning after waking up",
+      "Wrist ache after long computer typing sessions",
+      "Ankle swelling and pain after twisting it yesterday",
     ],
   },
   {
     specialty: "GYNECOLOGY",
     displayName: "AI Gynecologist",
     description: "Women's health & reproductive care",
-    defaultTrainingData: null,
+    defaultTrainingData: GYNECOLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Irregular periods for the last three months",
-      "Severe cramping on the first day of my cycle",
-      "Unusual discharge with mild discomfort",
+      "Severe cramping on the first day of my menstrual cycle",
+      "Unusual pelvic discomfort after intense workouts",
+      "Hormonal mood changes and spotting between periods",
     ],
   },
   {
     specialty: "ENT",
     displayName: "AI ENT Specialist",
     description: "Ear, nose, and throat conditions",
-    defaultTrainingData: null,
+    defaultTrainingData: ENT_TRAINING,
     defaultSuggestedQuestions: [
       "Persistent sore throat and hoarse voice for a week",
       "Blocked ears with mild ringing sound",
       "Recurring sinus pressure and nasal congestion",
+      "Throat tickle with dry cough when lying down",
     ],
   },
   {
     specialty: "OPHTHALMOLOGY",
     displayName: "AI Ophthalmologist",
     description: "Eye discomfort, vision changes",
-    defaultTrainingData: null,
+    defaultTrainingData: OPHTHALMOLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Red, watery eyes with a gritty feeling",
-      "Blurry vision when reading small text",
-      "Sudden floaters in my right eye",
+      "Blurry vision and eye strain when reading screens",
+      "Occasional floaters in my right eye",
+      "Dry, irritated eyes after contact lens use",
     ],
   },
   {
     specialty: "PSYCHIATRY",
     displayName: "AI Psychiatry Assistant",
     description: "Mood, sleep, anxiety & mental wellness",
-    defaultTrainingData: null,
+    defaultTrainingData: PSYCHIATRY_TRAINING,
     defaultSuggestedQuestions: [
-      "Trouble falling asleep and constant worry",
-      "Low mood and no energy for two weeks",
-      "Sudden panic episodes with racing heart",
+      "Trouble falling asleep and constant racing thoughts",
+      "Low mood, brain fog, and no energy for two weeks",
+      "Sudden panic episodes with rapid heartbeat and shakiness",
+      "Workplace burnout and overwhelming stress",
     ],
   },
   {
     specialty: "GASTROENTEROLOGY",
     displayName: "AI Gastroenterologist",
     description: "Digestive, stomach & bowel concerns",
-    defaultTrainingData: null,
+    defaultTrainingData: GASTROENTEROLOGY_TRAINING,
     defaultSuggestedQuestions: [
-      "Frequent acid reflux after evening meals",
-      "Bloating and irregular bowel movements",
-      "Stomach pain that eases after eating",
+      "Frequent acid reflux and heartburn after evening meals",
+      "Bloating and irregular alternating bowel movements",
+      "Stomach cramping that eases after eating",
+      "Sour taste in mouth when waking up in the morning",
     ],
   },
   {
     specialty: "PULMONOLOGY",
     displayName: "AI Pulmonologist",
     description: "Breathing, cough & lung conditions",
-    defaultTrainingData: null,
+    defaultTrainingData: PULMONOLOGY_TRAINING,
     defaultSuggestedQuestions: [
       "Dry cough lingering for over three weeks",
-      "Wheezing at night while lying down",
-      "Shortness of breath during light exercise",
+      "Mild wheezing at night while lying down",
+      "Shortness of breath during light stair climbing",
+      "Chest tightness in cold morning weather",
     ],
   },
 ];
@@ -189,24 +268,36 @@ export function parseDoctorTraining(raw: string | null | undefined): DoctorTrain
   }
 }
 
-/** Idempotently creates any missing specialist agent rows. */
+/** Idempotently creates or updates specialist agent rows with certified training data. */
 export async function ensureSpecialistAgents(db: PrismaClient): Promise<void> {
-  const existing = await db.specialistAgent.findMany({ select: { specialty: true } });
-  const existingSet = new Set(existing.map((a) => a.specialty));
-  const missing = SPECIALIST_DEFS.filter((def) => !existingSet.has(def.specialty));
+  const existing = await db.specialistAgent.findMany();
+  const existingMap = new Map(existing.map((a) => [a.specialty, a]));
 
-  if (missing.length === 0) return;
-
-  await db.specialistAgent.createMany({
-    data: missing.map((def) => ({
-      specialty: def.specialty,
-      displayName: def.displayName,
-      description: def.description,
-      trainingData: def.defaultTrainingData,
-      suggestedQuestions: JSON.stringify(def.defaultSuggestedQuestions),
-    })),
-    skipDuplicates: true,
-  });
+  for (const def of SPECIALIST_DEFS) {
+    const found = existingMap.get(def.specialty);
+    if (!found) {
+      await db.specialistAgent.create({
+        data: {
+          specialty: def.specialty,
+          displayName: def.displayName,
+          description: def.description,
+          trainingData: def.defaultTrainingData,
+          suggestedQuestions: JSON.stringify(def.defaultSuggestedQuestions),
+          isEnabled: true,
+        },
+      });
+    } else if (!found.trainingData || found.trainingData.trim().length === 0) {
+      // Update existing agents with missing training data
+      await db.specialistAgent.update({
+        where: { id: found.id },
+        data: {
+          trainingData: def.defaultTrainingData,
+          suggestedQuestions: JSON.stringify(def.defaultSuggestedQuestions),
+          isEnabled: true,
+        },
+      });
+    }
+  }
 }
 
 export function getAttachedDoctorIds(agent: SpecialistAgent): string[] {

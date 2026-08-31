@@ -3,35 +3,27 @@ import { NextResponse } from "next/server";
 
 import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
+import type { TriageResult } from "@/lib/medical-knowledge";
+import {
+  checkOutOfScopeQuery,
+  MEDICAL_DISCLAIMER,
+} from "@/lib/medical-knowledge";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 import {
   buildTrainingContext,
   computeIsTrained,
+  ensureSpecialistAgents,
   getAgentWithDoctors,
   makeConversationTitle,
-  parseDoctorTraining,
 } from "@/lib/specialist-agents";
 
-export interface ClarificationQuestion {
-  id: string;
-  question: string;
-  options: string[];
+interface LLMTurnResponse {
+  isComplete: boolean;
+  messageContent: string;
+  suggestedQuickReplies?: string[];
+  triageResult?: TriageResult;
 }
-
-export interface TriageResult {
-  severityLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  summary: string;
-  possibleConditions: { condition: string; likelihood: "High" | "Moderate" | "Low"; description: string }[];
-  recommendDoctor: boolean;
-  suggestedSpecialty: string;
-  temporaryMedicines: { name: string; dosage: string; purpose: string; warning?: string }[];
-  precautions: string[];
-  disclaimer: string;
-}
-
-const MEDICAL_DISCLAIMER =
-  "Medical Disclaimer: Medicio AI guidance is provided for informational and advisory intake purposes only. It does not constitute a formal clinical diagnosis or emergency medical advice. Always consult a verified healthcare professional for medical concerns.";
 
 const GREETING_KEYWORDS = [
   "hi",
@@ -44,167 +36,184 @@ const GREETING_KEYWORDS = [
   "who are you",
   "test",
   "help",
-  "sup",
-  "yo",
-  "im horny",
-  "im tired",
   "start",
+];
+
+const PLEASANTRY_KEYWORDS = [
+  "thank you",
+  "thanks",
+  "thank u",
+  "thx",
+  "ok",
+  "okay",
+  "got it",
+  "understood",
+  "bye",
+  "goodbye",
+  "sounds good",
+  "alright",
+  "perfect",
+  "great",
 ];
 
 function isSimpleGreeting(promptText: string): boolean {
   const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
   const words = clean.split(/\s+/).filter(Boolean);
-  if (words.length <= 3 && words.some((w) => GREETING_KEYWORDS.includes(w))) {
-    return true;
-  }
-  return false;
+  return (words.length <= 3 && words.some((w) => GREETING_KEYWORDS.includes(w))) || GREETING_KEYWORDS.includes(clean);
 }
 
-function isVagueSymptomPrompt(promptText: string): boolean {
-  const clean = promptText.trim().toLowerCase();
-  const words = clean.split(/\s+/).filter(Boolean);
-
-  if (words.length < 8 && !clean.includes("day") && !clean.includes("week") && !clean.includes("month")) {
-    return true;
-  }
-  return false;
+function isSimplePleasantry(promptText: string): boolean {
+  const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+  return (
+    PLEASANTRY_KEYWORDS.includes(clean) ||
+    (clean.length <= 20 && PLEASANTRY_KEYWORDS.some((kw) => clean === kw || clean.startsWith(kw)))
+  );
 }
 
-function mapSpecialtyToCategory(inputSpecialty: string, promptText: string): string {
-  const lowerPrompt = promptText.toLowerCase();
-
-  if (inputSpecialty && inputSpecialty !== "GENERAL") {
-    switch (inputSpecialty.toUpperCase()) {
-      case "DERMATOLOGY":
-        return "Dermatology";
-      case "CARDIOLOGY":
-        return "Cardiology";
-      case "NEUROLOGY":
-        return "Neurology";
-      case "PEDIATRICS":
-        return "Pediatrics";
-      default:
-        break;
-    }
+function cleanJsonString(raw: string): string {
+  let text = raw.trim();
+  if (text.startsWith("```")) {
+    text = text.replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
   }
-
-  if (lowerPrompt.includes("skin") || lowerPrompt.includes("rash") || lowerPrompt.includes("itch") || lowerPrompt.includes("acne") || lowerPrompt.includes("redness")) {
-    return "Dermatology";
-  }
-  if (lowerPrompt.includes("chest") || lowerPrompt.includes("heart") || lowerPrompt.includes("palpitation") || lowerPrompt.includes("blood pressure")) {
-    return "Cardiology";
-  }
-  if (lowerPrompt.includes("headache") || lowerPrompt.includes("dizzy") || lowerPrompt.includes("numbness") || lowerPrompt.includes("migraine") || lowerPrompt.includes("nerve")) {
-    return "Neurology";
-  }
-  if (lowerPrompt.includes("child") || lowerPrompt.includes("baby") || lowerPrompt.includes("pediatric")) {
-    return "Pediatrics";
-  }
-
-  return "General Physician";
+  return text;
 }
 
-function generateClarificationQuestions(promptText: string, specialty: string): ClarificationQuestion[] {
-  const lower = promptText.toLowerCase();
-
-  const q1: ClarificationQuestion = {
-    id: "duration",
-    question: "How long have you been experiencing these symptoms?",
-    options: ["Less than 24 hours", "1 to 3 days", "4 to 7 days", "More than 1 week"],
-  };
-
-  const q2: ClarificationQuestion = {
-    id: "severity",
-    question: "How would you describe the intensity of your discomfort?",
-    options: ["Mild (Manageable)", "Moderate (Interferes with work/sleep)", "Severe / Intense"],
-  };
-
-  let q3: ClarificationQuestion;
-
-  if (specialty === "DERMATOLOGY" || lower.includes("skin") || lower.includes("rash") || lower.includes("itch")) {
-    q3 = {
-      id: "cutaneous_features",
-      question: "Are you noticing any of these specific skin features?",
-      options: ["Red bumps or swelling", "Dry/peeling skin", "Spreading rash after exposure", "None of these"],
-    };
-  } else if (specialty === "CARDIOLOGY" || lower.includes("chest") || lower.includes("heart")) {
-    q3 = {
-      id: "cardiac_features",
-      question: "Do you have any accompanying thoracic signs?",
-      options: ["Pain radiates to arm/jaw", "Shortness of breath on exertion", "Rapid/irregular heartbeat", "None of these"],
-    };
-  } else if (specialty === "NEUROLOGY" || lower.includes("headache") || lower.includes("dizzy")) {
-    q3 = {
-      id: "neurological_features",
-      question: "What best describes your headache or neurological discomfort?",
-      options: ["Throbbing on both sides", "Unilateral / sharp pain", "Pressure behind eyes / sinus", "Dizziness / light sensitivity"],
-    };
-  } else {
-    q3 = {
-      id: "systemic_features",
-      question: "Are you experiencing any accompanying constitutional signs?",
-      options: ["Fever / Chills", "Nausea / Digestive upset", "Fatigue / Body aches", "None of these"],
-    };
-  }
-
-  return [q1, q2, q3];
-}
-
-async function callLLMApi(
+async function callOpenAIApi(
   apiKey: string,
-  prompt: string,
-  specialty: string,
-  duration: string,
-  conditions: string[],
-  medicines: string[],
-  treatmentApproach: string,
-  answeredQuestions?: Record<string, string>,
-  trainingContext?: string,
-): Promise<TriageResult | null> {
+  systemInstruction: string,
+  newPrompt: string,
+  conversationHistory: { role: string; content: string }[],
+): Promise<LLMTurnResponse | null> {
   try {
-    const systemPrompt = `You are a clinical AI triage assistant for Medicio platform.
-${trainingContext ? `\nSpecialist model training directives — follow these clinical protocols strictly:\n${trainingContext}\n` : ""}
-Analyze the patient presentation below and return ONLY a valid JSON object matching this exact schema:
-{
-  "severityLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "summary": "Concise medical triage summary",
-  "possibleConditions": [
-    { "condition": "Condition Name", "likelihood": "High" | "Moderate" | "Low", "description": "Clinical details" }
-  ],
-  "recommendDoctor": boolean,
-  "suggestedSpecialty": "Dermatology" | "Cardiology" | "Neurology" | "Pediatrics" | "General Physician",
-  "temporaryMedicines": [
-    { "name": "Medication Name", "dosage": "Dosage instructions", "purpose": "Relief purpose", "warning": "Contraindications" }
-  ],
-  "precautions": ["Precaution 1", "Precaution 2"],
-  "disclaimer": "${MEDICAL_DISCLAIMER}"
+    const messages = [
+      { role: "system", content: systemInstruction },
+      ...conversationHistory.map((turn) => ({
+        role: turn.role === "user" ? "user" : "assistant",
+        content: turn.content,
+      })),
+      { role: "user", content: newPrompt },
+    ];
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn("[LIVE AI] OpenAI API returned error status:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return null;
+
+    const parsed = JSON.parse(cleanJsonString(content));
+    if (parsed && typeof parsed.messageContent === "string") {
+      if (parsed.triageResult) {
+        parsed.triageResult.disclaimer = MEDICAL_DISCLAIMER;
+      }
+      return parsed as LLMTurnResponse;
+    }
+    return null;
+  } catch (err) {
+    console.error("[LIVE AI] OpenAI generation error: ", err);
+    return null;
+  }
 }
 
-Patient Case:
-- Primary Complaint: "${prompt}"
-- Specialty Assistant Selected: "${specialty}"
-- Symptom Duration: "${duration}"
-- Patient Clarification Answers: "${JSON.stringify(answeredQuestions || {})}"
-- Pre-existing Conditions: "${conditions.join(", ") || "None"}"
-- Active Medications: "${medicines.join(", ") || "None"}"
-- Preferred Treatment Approach: "${treatmentApproach}"
-`;
+let workingGeminiModel: { model: string; apiVersion: "v1beta" | "v1" } | null = null;
+let cachedGeminiModels: string[] | null = null;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+async function getAvailableGeminiModels(apiKey: string): Promise<string[]> {
+  if (cachedGeminiModels && cachedGeminiModels.length > 0) {
+    return cachedGeminiModels;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.models)) {
+        const available = data.models
+          .filter((m: any) => {
+            const name = (m.name || "").toLowerCase();
+            const methods = Array.isArray(m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
+            const isGenerate = methods.includes("generateContent");
+            const isIgnored =
+              name.includes("embedding") ||
+              name.includes("imagen") ||
+              name.includes("aqa") ||
+              name.includes("tts") ||
+              name.includes("whisper") ||
+              name.includes("bison") ||
+              name.includes("gecko");
+            return isGenerate && !isIgnored;
+          })
+          .map((m: any) => m.name.replace(/^models\//, ""));
+
+        // Sort Flash and lightweight models to top for fastest speed
+        available.sort((a: string, b: string) => {
+          const aFlash = a.includes("flash") ? 1 : 0;
+          const bFlash = b.includes("flash") ? 1 : 0;
+          return bFlash - aFlash;
+        });
+
+        if (available.length > 0) {
+          cachedGeminiModels = available;
+          return available;
+        }
+      }
+    }
+  } catch {
+    // fast fallback
+  }
+
+  return [];
+}
+
+async function callGeminiCandidate(
+  apiKey: string,
+  modelName: string,
+  apiVersion: "v1beta" | "v1",
+  contents: { role: string; parts: { text: string }[] }[],
+): Promise<LLMTurnResponse | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }] }],
+        contents,
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0.2,
         },
       }),
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
-      console.warn("[LLM API] Gemini API request returned status:", res.status);
       return null;
     }
 
@@ -212,127 +221,162 @@ Patient Case:
     const textContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!textContent) return null;
 
-    const parsed = JSON.parse(textContent);
-    if (parsed && parsed.severityLevel && parsed.summary) {
-      parsed.disclaimer = MEDICAL_DISCLAIMER;
-      return parsed as TriageResult;
+    const parsed = JSON.parse(cleanJsonString(textContent));
+    if (parsed && typeof parsed.messageContent === "string") {
+      if (parsed.triageResult) {
+        parsed.triageResult.disclaimer = MEDICAL_DISCLAIMER;
+      }
+      // Remember working model for instant subsequent responses
+      workingGeminiModel = { model: modelName, apiVersion };
+      return parsed as LLMTurnResponse;
     }
+
     return null;
-  } catch (err) {
-    console.warn("[LLM API] Error invoking external AI endpoint, activating fallback:", err);
+  } catch {
     return null;
   }
 }
 
-function analyzeSymptomsFallback(
-  prompt: string,
+async function callLiveLLMApi(
+  apiKey: string,
+  newPrompt: string,
   specialty: string,
-  duration: string,
-  conditions: string[],
-  medicines: string[],
-  treatmentApproach: string,
-  answeredQuestions?: Record<string, string>,
-): TriageResult {
-  const text = prompt.toLowerCase();
-  const matchedSpecialty = mapSpecialtyToCategory(specialty, prompt);
+  trainingContext: string,
+  conversationHistory: { role: string; content: string }[],
+  duration?: string,
+  conditions?: string[],
+  medicines?: string[],
+  treatmentApproach?: string,
+): Promise<LLMTurnResponse | null> {
+  try {
+    const systemInstruction = `You are a certified Clinical AI Intake and Triage Specialist for the Medicio Platform.
+You adhere strictly to certified global clinical protocols: World Health Organization (WHO), UK National Health Service (NHS 111), and NICE Guidelines.
 
-  let severityLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
-  let recommendDoctor = false;
-  const possibleConditions: TriageResult["possibleConditions"] = [];
-  const temporaryMedicines: TriageResult["temporaryMedicines"] = [];
-  const precautions: string[] = [];
+Specialist AI Directives for ${specialty}:
+${trainingContext || "Perform empathetic, structured clinical intake and evidence-based triage."}
 
-  const effectiveDuration = answeredQuestions?.duration || duration || "1-3 days";
-  const userSeverity = answeredQuestions?.severity || "";
+Patient Baseline Intake Parameters (if pre-configured):
+- Duration: ${duration || "Not specified"}
+- Pre-existing Conditions: ${conditions?.join(", ") || "None reported"}
+- Active Medications: ${medicines?.join(", ") || "None reported"}
+- Care Paradigm: ${treatmentApproach || "Allopathic / Conventional"}
 
-  if (userSeverity.includes("Severe") || text.includes("chest pain") || text.includes("shortness of breath") || text.includes("fainting")) {
-    severityLevel = userSeverity.includes("Severe") ? "HIGH" : "CRITICAL";
-    recommendDoctor = true;
-  } else if (userSeverity.includes("Moderate") || text.includes("fever") || text.includes("headache") || text.includes("rash")) {
-    severityLevel = "MEDIUM";
-    recommendDoctor = true;
-  } else {
-    severityLevel = "LOW";
-    recommendDoctor = false;
+CRITICAL CONVERSATIONAL RULES:
+1. **One-By-One Questioning**: If the patient's presentation is missing key clinical details (e.g. onset & duration, severity 1-10, chronic comorbidities like Diabetes/Hypertension/Asthma, active medications, or specialty red flags), DO NOT dump a bulk form of questions. Instead, ask **EXACTLY ONE focused, empathetic follow-up question at a time**.
+2. **Completion & No Duplicate Reports**: If the clinical intake is complete for the first time, set "isComplete": true and populate the full "triageResult". However, **if a triage assessment report was ALREADY provided earlier in the conversation history**, set "isComplete": false and "triageResult": null, and simply answer the patient's follow-up questions or conversational remarks directly in "messageContent".
+3. **Safety & Contraindications**: Always cross-reference the patient's reported comorbidities (e.g. Hypertension, Peptic Ulcers, Kidney Disease, Asthma) before recommending any OTC medications in "triageResult".
+4. **Red Flags & Urgent Care**: If life-threatening red flags are present (crushing chest pain radiating to jaw/arm, sudden slurred speech/facial droop, severe dyspnea), immediately mark severity as "CRITICAL" and advise emergency ER/911 care.
+
+You MUST respond ONLY with a valid JSON object matching this exact schema:
+{
+  "isComplete": boolean,
+  "messageContent": "Conversational reply text formatted in clean Markdown (empathetic acknowledgment, then your ONE follow-up question or complete clinical findings).",
+  "triageResult": {
+    "severityLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+    "summary": "Evidence-based summary of presentation and recommended next steps.",
+    "clinicalImpression": "Detailed medical rationale explaining suspected differentials and how duration/comorbidities influenced the assessment.",
+    "possibleConditions": [
+      {
+        "condition": "Official Condition Name",
+        "icd11Code": "ICD-11 Code (e.g. CA40, BA80)",
+        "likelihood": "High" | "Moderate" | "Low",
+        "description": "Clinical details and diagnostic rationale",
+        "sourceGuideline": "Certified Guideline (e.g. WHO / NICE / NHS 111)"
+      }
+    ],
+    "recommendDoctor": boolean,
+    "suggestedSpecialty": "Dermatology" | "Cardiology" | "Neurology" | "Pediatrics" | "Orthopedics" | "Gynecology" | "ENT" | "Ophthalmology" | "Psychiatry" | "Gastroenterology" | "Pulmonology" | "General Physician",
+    "temporaryMedicines": [
+      {
+        "name": "Medication Name (e.g. Paracetamol)",
+        "dosage": "Standard certified adult dosage",
+        "purpose": "Symptom relief purpose",
+        "warning": "Safe use guidelines",
+        "contraindicationAlert": "Explicit warning if contraindicated for patient's comorbidities (e.g. avoid NSAIDs in hypertension/ulcers)"
+      }
+    ],
+    "precautions": ["Evidence-based self-care precaution 1", "Precaution 2"],
+    "redFlagsToWatch": ["Specific warning sign 1 requiring immediate ER care", "Warning sign 2"],
+    "questionsForDoctor": ["Key clinical question 1 for in-person consultation", "Question 2"],
+    "disclaimer": "${MEDICAL_DISCLAIMER}"
   }
+}
+Note: "triageResult" is required when "isComplete" is true. When "isComplete" is false, "triageResult" can be omitted or null.
+`;
 
-  if (text.includes("fever") || text.includes("chills")) {
-    possibleConditions.push(
-      {
-        condition: "Viral Upper Respiratory Infection",
-        likelihood: "High",
-        description: "Febrile immune reaction secondary to viral inflammation.",
-      },
-      {
-        condition: "Acute Febrile Illness",
-        likelihood: "Moderate",
-        description: "Requires hydration monitoring and temperature tracking.",
-      },
-    );
-    temporaryMedicines.push({
-      name: "Paracetamol (Acetaminophen) 500mg",
-      dosage: "1 tablet every 6-8 hours as needed (Max 3000mg/day)",
-      purpose: "Fever reduction and somatic discomfort relief.",
+    // 1. If OpenAI API key provided
+    if (apiKey.startsWith("sk-") || process.env.OPENAI_API_KEY) {
+      const openAiKey = apiKey.startsWith("sk-") ? apiKey : (process.env.OPENAI_API_KEY as string);
+      const res = await callOpenAIApi(openAiKey, systemInstruction, newPrompt, conversationHistory);
+      if (res) return res;
+    }
+
+    // 2. Google Gemini multi-turn payload
+    const contents: { role: string; parts: { text: string }[] }[] = [];
+    contents.push({
+      role: "user",
+      parts: [{ text: `[System Instructions & Clinical Directives]\n${systemInstruction}` }],
     });
-    precautions.push("Maintain optimal fluid intake", "Rest in a well-ventilated room");
-  } else if (text.includes("headache") || text.includes("migraine")) {
-    possibleConditions.push(
-      {
-        condition: "Tension-Type Headache",
-        likelihood: "High",
-        description: "Pericranial muscle tension or ocular strain.",
-      },
-      {
-        condition: "Primary Migraine Episode",
-        likelihood: "Moderate",
-        description: "Vascular headache episode with potential light sensitivity.",
-      },
-    );
-    temporaryMedicines.push({
-      name: "Ibuprofen 400mg",
-      dosage: "1 tablet with food every 8 hours",
-      purpose: "Anti-inflammatory pain management.",
+    contents.push({
+      role: "model",
+      parts: [{ text: "Understood. I will conduct one-by-one conversational clinical triage according to certified WHO/NHS 111/NICE protocols and respond strictly with the requested JSON schema." }],
     });
-    precautions.push("Rest in a quiet, dark room", "Avoid prolonged screen strain");
-  } else if (text.includes("skin") || text.includes("rash") || text.includes("itch")) {
-    possibleConditions.push(
-      {
-        condition: "Cutaneous Hypersensitivity / Dermatitis",
-        likelihood: "High",
-        description: "Localized allergic or inflammatory epidermal reaction.",
-      },
-    );
-    temporaryMedicines.push({
-      name: "Cetirizine 10mg",
-      dosage: "1 tablet daily at bedtime",
-      purpose: "Antihistamine for controlling skin itching.",
+
+    for (const turn of conversationHistory) {
+      if (turn.content && turn.content.trim()) {
+        contents.push({
+          role: turn.role === "user" ? "user" : "model",
+          parts: [{ text: turn.content.trim() }],
+        });
+      }
+    }
+
+    contents.push({
+      role: "user",
+      parts: [{ text: newPrompt.trim() }],
     });
-    precautions.push("Avoid scratching affected skin", "Apply cool compresses");
-  } else {
-    possibleConditions.push(
-      {
-        condition: "Mild Non-Specific Discomfort",
-        likelihood: "Moderate",
-        description: "Transient physical tiredness or mild functional discomfort.",
-      },
-    );
-    precautions.push("Ensure 7-8 hours of nighttime rest", "Maintain hydration");
+
+    // Step A: If we already found the working model, invoke it immediately! (sub-second response)
+    if (workingGeminiModel) {
+      const fastResult = await callGeminiCandidate(apiKey, workingGeminiModel.model, workingGeminiModel.apiVersion, contents);
+      if (fastResult) return fastResult;
+      workingGeminiModel = null; // Reset if expired
+    }
+
+    // Step B: Top fast candidates
+    const fastPriorityCandidates: { model: string; apiVersion: "v1beta" | "v1" }[] = [
+      { model: "gemini-2.5-flash", apiVersion: "v1beta" },
+      { model: "gemini-2.0-flash", apiVersion: "v1beta" },
+      { model: "gemini-1.5-flash", apiVersion: "v1beta" },
+      { model: "gemini-1.5-flash-latest", apiVersion: "v1beta" },
+      { model: "gemini-1.5-flash-8b", apiVersion: "v1beta" },
+      { model: "gemini-3.6-flash", apiVersion: "v1beta" },
+      { model: "gemini-1.5-pro", apiVersion: "v1beta" },
+      { model: "gemini-1.5-flash", apiVersion: "v1" },
+      { model: "gemini-pro", apiVersion: "v1" },
+    ];
+
+    for (const config of fastPriorityCandidates) {
+      const result = await callGeminiCandidate(apiKey, config.model, config.apiVersion, contents);
+      if (result) {
+        return result;
+      }
+    }
+
+    // Step C: Dynamic discovery fallback
+    const discoveredModels = await getAvailableGeminiModels(apiKey);
+    for (const model of discoveredModels) {
+      const result = await callGeminiCandidate(apiKey, model, "v1beta", contents);
+      if (result) {
+        return result;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error("[LIVE AI] Error executing live LLM generation: ", err);
+    return null;
   }
-
-  const summary = `Patient complaint: "${prompt}". Duration: ${effectiveDuration}. Clinical risk level: ${severityLevel}. ${
-    recommendDoctor ? `Consultation with a ${matchedSpecialty} specialist is recommended.` : "Self-care precautions are advised."
-  }`;
-
-  return {
-    severityLevel,
-    summary,
-    possibleConditions,
-    recommendDoctor,
-    suggestedSpecialty: matchedSpecialty,
-    temporaryMedicines,
-    precautions,
-    disclaimer: MEDICAL_DISCLAIMER,
-  };
 }
 
 /**
@@ -346,29 +390,43 @@ export async function POST(request: NextRequest) {
     const {
       prompt,
       agentSpecialty = "GENERAL",
-      duration = "1-3 days",
+      duration,
       preExistingConditions = [],
       currentMedicines = [],
       treatmentApproach = "Allopathic",
-      answeredQuestions,
       conversationId,
       coordinates,
       locationName,
       radiusKm = 10,
+      history = [],
     } = body;
 
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return NextResponse.json(
-        { error: "Symptom prompt is required for AI intake." },
+        { error: "Symptom prompt is required for clinical intake." },
         { status: 400 },
       );
     }
 
     const trimmedPrompt = prompt.trim();
 
-    // 0. MODEL AVAILABILITY GATE: the selected specialist model must exist,
-    // be enabled, and be trained (admin training data or an attached trained
-    // doctor) before the AI responds at all.
+    // 0. STRICT API KEY GATE: Ensure a live AI API key is configured
+    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
+
+    if (!apiKey || apiKey.trim() === "" || apiKey === "your_gemini_api_key_here") {
+      return NextResponse.json({
+        success: false,
+        responseType: "API_KEY_REQUIRED",
+        content:
+          "**Medicio AI Engine Configuration Required**\n\nThe Medicio AI Chatbot strictly requires an active AI API Key (`GEMINI_API_KEY` or `OPENAI_API_KEY`) configured in your `.env` file to generate live clinical triage and specialty models.\n\nTo activate live conversational triage:\n1. Open your `.env` file in the project root.\n2. Add your Google Gemini API key: `GEMINI_API_KEY=\"AIzaSy...\"`\n3. Save the file and restart your Next.js server (`npm run dev`).",
+        conversationId: conversationId || null,
+      });
+    }
+
+    // Ensure all specialist models are initialized and trained in DB
+    await ensureSpecialistAgents(prisma);
+
+    // 1. SPECIALIST MODEL READINESS GATE
     const { agent, attachedDoctors } = await getAgentWithDoctors(prisma, agentSpecialty);
     const modelIsReady = !!agent && agent.isEnabled && computeIsTrained(agent, attachedDoctors);
 
@@ -378,12 +436,75 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         responseType: "MODEL_UNAVAILABLE",
-        content: `${modelName} is not available yet — no trained AI model is attached to this specialty. Please switch to an available specialist model (like General AI Triage) or check back soon.`,
+        content: `${modelName} is currently updating its certified clinical training protocols. Please switch to General AI Triage or another active specialist model.`,
         conversationId: conversationId || null,
       });
     }
 
     const trainingContext = buildTrainingContext(agent, attachedDoctors);
+
+    // 2. OUT-OF-SCOPE & NON-MEDICAL PROMPT FILTER
+    const outOfScopeCheck = checkOutOfScopeQuery(trimmedPrompt);
+    if (outOfScopeCheck.isOutOfScope) {
+      return NextResponse.json({
+        success: true,
+        responseType: "OUT_OF_SCOPE",
+        content: outOfScopeCheck.apologyMessage,
+        conversationId: conversationId || null,
+      });
+    }
+
+    // 3. GREETING & PLEASANTRY CHECK
+    if (isSimpleGreeting(trimmedPrompt)) {
+      const hasHistory = Array.isArray(history) && history.length > 0;
+      const greetingMessage = hasHistory
+        ? `Hello! How can I assist you further? If you're experiencing any other symptoms or have questions regarding your assessment, let me know. You can also click the '+' button in the top bar to start a fresh triage session.`
+        : `Hello! I am your Medicio AI Clinical Assistant (${agent.displayName}). How can I assist with your health today? Please describe your symptoms or physical concerns to begin guided clinical triage.`;
+
+      return NextResponse.json({
+        success: true,
+        responseType: "GREETING",
+        content: greetingMessage,
+        conversationId: conversationId || null,
+      });
+    }
+
+    if (isSimplePleasantry(trimmedPrompt)) {
+      return NextResponse.json({
+        success: true,
+        responseType: "GREETING",
+        content:
+          "You're very welcome! Please take care, follow your care precautions, and don't hesitate to book a slot with a registered doctor if your symptoms change or worsen.",
+        conversationId: conversationId || null,
+      });
+    }
+
+    // 4. PREPARE CONVERSATION HISTORY
+    let conversationHistory: { role: string; content: string }[] = [];
+
+    if (Array.isArray(history) && history.length > 0) {
+      conversationHistory = history.map((h: any) => ({
+        role: h.role === "user" ? "user" : "model",
+        content: typeof h.content === "string" ? h.content : "",
+      }));
+    } else if (conversationId) {
+      const existingConv = await prisma.aIConversation.findUnique({
+        where: { id: conversationId },
+      });
+      if (existingConv) {
+        try {
+          const parsed = JSON.parse(existingConv.messages);
+          if (Array.isArray(parsed)) {
+            conversationHistory = parsed.map((m: any) => ({
+              role: m.role === "user" ? "user" : "model",
+              content: m.content || "",
+            }));
+          }
+        } catch {
+          // continue
+        }
+      }
+    }
 
     const conditionsArray = Array.isArray(preExistingConditions)
       ? preExistingConditions
@@ -397,146 +518,106 @@ export async function POST(request: NextRequest) {
       ? [currentMedicines]
       : [];
 
-    // 1. GREETING CHECK: If prompt is a simple greeting and no clarification answers provided
-    if (isSimpleGreeting(trimmedPrompt) && (!answeredQuestions || Object.keys(answeredQuestions).length === 0)) {
-      const greetingMessage =
-        "Hello! I am your Medicio AI Clinical Assistant. Please describe your symptoms or health concern to begin guided clinical intake and specialist referrals.";
+    // 5. CALL LIVE LLM ENGINE (One-By-One Conversational Protocol)
+    const liveResult = await callLiveLLMApi(
+      apiKey,
+      trimmedPrompt,
+      agentSpecialty,
+      trainingContext,
+      conversationHistory,
+      duration,
+      conditionsArray,
+      medicinesArray,
+      treatmentApproach,
+    );
 
+    if (!liveResult) {
       return NextResponse.json({
-        success: true,
-        responseType: "GREETING",
-        content: greetingMessage,
-        conversationId: conversationId || null,
-      });
+        success: false,
+        error: "Live AI model was unable to process the request. Please check your API key and connection.",
+      }, { status: 502 });
     }
 
-    // 2. CLARIFICATION CHECK: If prompt is vague and no answered clarification questions yet
-    if (isVagueSymptomPrompt(trimmedPrompt) && (!answeredQuestions || Object.keys(answeredQuestions).length === 0)) {
-      const clarificationQuestions = generateClarificationQuestions(trimmedPrompt, agentSpecialty);
-      const clarificationMessage =
-        `I understand you are experiencing ${trimmedPrompt}. To provide an accurate clinical triage assessment, please answer a few quick questions below.`;
+    // 6. IF TRIAGE IS COMPLETE, QUERY MATCHING DOCTORS, PHARMACIES, LABS
+    let recommendedDoctors: any[] = [];
+    let pharmacies: any[] = [];
+    let labs: any[] = [];
 
-      return NextResponse.json({
-        success: true,
-        responseType: "CLARIFICATION_NEEDED",
-        content: clarificationMessage,
-        clarificationQuestions,
-        conversationId: conversationId || null,
-      });
-    }
+    if (liveResult.isComplete && liveResult.triageResult) {
+      const targetSpecialty = liveResult.triageResult.suggestedSpecialty || agentSpecialty;
 
-    // 3. FULL TRIAGE SYNTHESIS
-    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
-    let triageResult: TriageResult | null = null;
-    let isLiveAIUsed = false;
-
-    if (apiKey) {
-      triageResult = await callLLMApi(
-        apiKey,
-        trimmedPrompt,
-        agentSpecialty,
-        duration,
-        conditionsArray,
-        medicinesArray,
-        treatmentApproach,
-        answeredQuestions,
-        trainingContext,
-      );
-      if (triageResult) isLiveAIUsed = true;
-    }
-
-    if (!triageResult) {
-      triageResult = analyzeSymptomsFallback(
-        trimmedPrompt,
-        agentSpecialty,
-        duration,
-        conditionsArray,
-        medicinesArray,
-        treatmentApproach,
-        answeredQuestions,
-      );
-
-      // Surface the attached practitioner's disclaimer in fallback mode too.
-      const practitionerDisclaimer = attachedDoctors
-        .map((doc) => parseDoctorTraining(doc.aiTrainingData))
-        .find((t) => t?.isTrained && t.customDisclaimer)?.customDisclaimer;
-
-      if (practitionerDisclaimer) {
-        triageResult.disclaimer = `${MEDICAL_DISCLAIMER} ${practitionerDisclaimer}`;
-      }
-    }
-
-    const targetSpecialty = triageResult.suggestedSpecialty;
-    const matchingDoctors = await prisma.doctor.findMany({
-      where: {
-        specialty: {
-          contains: targetSpecialty,
-          mode: "insensitive",
+      const matchingDocs = await prisma.doctor.findMany({
+        where: {
+          specialty: {
+            contains: targetSpecialty,
+            mode: "insensitive",
+          },
         },
-      },
-      take: 4,
-      include: {
-        user: { select: { name: true, email: true, avatarUrl: true } },
-        hospital: { select: { name: true, location: true } },
-      },
-    });
-
-    let recommendedDoctors = matchingDoctors.map((doc) => ({
-      id: doc.id,
-      name: doc.user?.name || "Verified Practitioner",
-      specialty: doc.specialty,
-      education: doc.education,
-      experience: doc.experience,
-      clinicAddress: doc.clinicAddress || doc.hospital?.location || "Medicio Clinical Center",
-      consultationFee: doc.consultationFee ?? 50,
-      isVerified: doc.isVerified,
-      hospitalName: doc.hospital?.name,
-    }));
-
-    if (recommendedDoctors.length === 0) {
-      const fallbackDoctors = await prisma.doctor.findMany({
-        take: 3,
+        take: 4,
         include: {
           user: { select: { name: true, email: true, avatarUrl: true } },
           hospital: { select: { name: true, location: true } },
         },
       });
 
-      recommendedDoctors = fallbackDoctors.map((doc) => ({
+      recommendedDoctors = matchingDocs.map((doc) => ({
         id: doc.id,
-        name: doc.user?.name || "Verified Doctor",
+        name: doc.user?.name || "Verified Practitioner",
         specialty: doc.specialty,
         education: doc.education,
         experience: doc.experience,
-        clinicAddress: doc.clinicAddress || doc.hospital?.location || "Medicio Health Portal",
+        clinicAddress: doc.clinicAddress || doc.hospital?.location || "Medicio Clinical Center",
         consultationFee: doc.consultationFee ?? 50,
         isVerified: doc.isVerified,
         hospitalName: doc.hospital?.name,
       }));
+
+      if (recommendedDoctors.length === 0) {
+        const fallbackDocs = await prisma.doctor.findMany({
+          take: 3,
+          include: {
+            user: { select: { name: true, email: true, avatarUrl: true } },
+            hospital: { select: { name: true, location: true } },
+          },
+        });
+
+        recommendedDoctors = fallbackDocs.map((doc) => ({
+          id: doc.id,
+          name: doc.user?.name || "Verified Doctor",
+          specialty: doc.specialty,
+          education: doc.education,
+          experience: doc.experience,
+          clinicAddress: doc.clinicAddress || doc.hospital?.location || "Medicio Health Portal",
+          consultationFee: doc.consultationFee ?? 50,
+          isVerified: doc.isVerified,
+          hospitalName: doc.hospital?.name,
+        }));
+      }
+
+      pharmacies = await prisma.pharmacy.findMany({
+        take: 3,
+        select: { id: true, name: true, location: true, isVerified: true },
+      });
+
+      labs = await prisma.lab.findMany({
+        take: 3,
+        select: { id: true, name: true, isVerified: true },
+      });
     }
 
-    const pharmacies = await prisma.pharmacy.findMany({
-      take: 3,
-      select: { id: true, name: true, location: true, isVerified: true },
-    });
-
-    const labs = await prisma.lab.findMany({
-      take: 3,
-      select: { id: true, name: true, isVerified: true },
-    });
-
+    // 7. SAVE CONVERSATION TURN TO DATABASE
     let savedConversationId = conversationId;
     const conversationMessages = [
       {
         role: "user",
         content: trimmedPrompt,
         timestamp: new Date().toISOString(),
-        answeredQuestions,
       },
       {
         role: "assistant",
-        content: triageResult.summary,
-        triageResult,
+        content: liveResult.messageContent,
+        triageResult: liveResult.triageResult || null,
+        suggestedQuickReplies: liveResult.suggestedQuickReplies || null,
         timestamp: new Date().toISOString(),
       },
     ];
@@ -581,10 +662,9 @@ export async function POST(request: NextRequest) {
       ip: getClientIp(request),
       metadata: {
         specialty: agentSpecialty,
-        severityLevel: triageResult.severityLevel,
-        recommendDoctor: triageResult.recommendDoctor,
-        suggestedSpecialty: triageResult.suggestedSpecialty,
-        isLiveAIUsed,
+        isComplete: liveResult.isComplete,
+        severityLevel: liveResult.triageResult?.severityLevel || null,
+        isLiveAIUsed: true,
         coordinates: coordinates || null,
         locationName: locationName || null,
         radiusKm,
@@ -593,10 +673,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      responseType: "TRIAGE_COMPLETE",
+      responseType: liveResult.isComplete ? "TRIAGE_COMPLETE" : "CONVERSATION_TURN",
       conversationId: savedConversationId,
-      isLiveAIUsed,
-      triageResult,
+      isLiveAIUsed: true,
+      isComplete: liveResult.isComplete,
+      content: liveResult.messageContent,
+      suggestedQuickReplies: liveResult.suggestedQuickReplies || [],
+      triageResult: liveResult.triageResult || null,
       recommendedDoctors,
       recommendedPharmacies: pharmacies.map((p) => ({
         id: p.id,

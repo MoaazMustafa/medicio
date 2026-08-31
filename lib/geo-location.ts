@@ -51,7 +51,7 @@ export async function reverseGeocodeCoords(
         addr.city || addr.town || addr.municipality || addr.state_district || addr.county || addr.state;
       const country = addr.country || "Pakistan";
 
-      let parts: string[] = [];
+      const parts: string[] = [];
       if (area) parts.push(area);
       if (city && city !== area) parts.push(city);
       if (country && !city?.includes(country)) parts.push(country);
