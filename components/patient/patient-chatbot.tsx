@@ -17,6 +17,8 @@ import {
   HeartHandshake,
   HeartPulse,
   History,
+  MapPin,
+  Navigation,
   Plus,
   SlidersHorizontal,
   Sparkles,
@@ -85,11 +87,18 @@ export function PatientChatbot() {
     conversationId,
     historySessions,
     pendingClarificationMsg,
+    userCoordinates,
+    locationName,
+    searchRadiusKm,
+    isLocating,
     setAgentSpecialty,
     setDuration,
     setPreExistingConditions,
     setCurrentMedicines,
     setTreatmentApproach,
+    setLocationName,
+    setSearchRadiusKm,
+    requestDeviceLocation,
     sendMessage,
     submitClarificationAnswers,
     resetChat,
@@ -189,6 +198,29 @@ export function PatientChatbot() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          <Tooltip delay={100}>
+            <Tooltip.Trigger>
+              <Button
+                aria-label="Current location and search radius"
+                className="hidden rounded-full text-xs font-medium sm:flex"
+                size="sm"
+                variant={userCoordinates ? "primary" : "secondary"}
+                onPress={requestDeviceLocation}
+              >
+                <MapPin className={cn("h-3.5 w-3.5", isLocating && "animate-spin")} />
+                <span className="max-w-28 truncate">
+                  {userCoordinates ? locationName || "GPS Active" : "Set Location"}
+                </span>
+                <Chip className="ml-0.5 text-[9px] font-mono" size="sm" variant="soft">
+                  {searchRadiusKm}km
+                </Chip>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
+              {userCoordinates ? `Searching within ${searchRadiusKm} km of ${locationName}` : "Click to detect your device GPS location"}
+            </Tooltip.Content>
+          </Tooltip>
+
           <Tooltip delay={100}>
             <Tooltip.Trigger>
               <Button
@@ -576,6 +608,49 @@ export function PatientChatbot() {
                       </ListBox>
                     </Select.Popover>
                   </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5 border-t border-border-custom pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-text-secondary">Location & Provider Radius</Label>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 text-[11px]"
+                      onPress={requestDeviceLocation}
+                    >
+                      <Navigation className={cn("h-3 w-3 text-primary", isLocating && "animate-spin")} />
+                      {isLocating ? "Locating..." : "Use Device GPS"}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="City or Area (optional)"
+                      value={locationName}
+                      onChange={(e) => setLocationName(e.target.value)}
+                    />
+                    <Select
+                      aria-label="Provider Search Radius"
+                      selectedKey={String(searchRadiusKm)}
+                      onSelectionChange={(key: React.Key | null) => {
+                        if (key) setSearchRadiusKm(Number(key));
+                      }}
+                    >
+                      <Select.Trigger className="w-full">
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {[5, 10, 25, 50, 100].map((km) => (
+                            <ListBox.Item key={km} id={String(km)} textValue={`${km} km Radius`}>
+                              <Label>{km} km Radius</Label>
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
                 </div>
               </Modal.Body>
 

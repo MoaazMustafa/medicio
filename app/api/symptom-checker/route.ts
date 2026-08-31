@@ -352,6 +352,9 @@ export async function POST(request: NextRequest) {
       treatmentApproach = "Allopathic",
       answeredQuestions,
       conversationId,
+      coordinates,
+      locationName,
+      radiusKm = 10,
     } = body;
 
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
@@ -582,6 +585,9 @@ export async function POST(request: NextRequest) {
         recommendDoctor: triageResult.recommendDoctor,
         suggestedSpecialty: triageResult.suggestedSpecialty,
         isLiveAIUsed,
+        coordinates: coordinates || null,
+        locationName: locationName || null,
+        radiusKm,
       },
     });
 

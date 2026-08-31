@@ -110,17 +110,25 @@ interface PatientContextType {
   pendingClarificationMsg: ChatMessage | null;
   lastUserPrompt: string;
 
-  setAgentSpecialty: (specialty: string) => void;
-  setDuration: (duration: string) => void;
-  setPreExistingConditions: (val: string) => void;
-  setCurrentMedicines: (val: string) => void;
-  setTreatmentApproach: (val: string) => void;
-  sendMessage: (promptText: string, answeredQuestions?: Record<string, string>) => Promise<void>;
-  submitClarificationAnswers: (answers: Record<string, string>) => Promise<void>;
+  userCoordinates: { lat: number; lng: number } | null;
+  locationName: string;
+  searchRadiusKm: number;
+  isLocating: boolean;
+
+  setAgentSpecialty: (_specialty: string) => void;
+  setDuration: (_duration: string) => void;
+  setPreExistingConditions: (_val: string) => void;
+  setCurrentMedicines: (_val: string) => void;
+  setTreatmentApproach: (_val: string) => void;
+  setLocationName: (_name: string) => void;
+  setSearchRadiusKm: (_radius: number) => void;
+  requestDeviceLocation: () => Promise<void>;
+  sendMessage: (_promptText: string, _answeredQuestions?: Record<string, string>) => Promise<void>;
+  submitClarificationAnswers: (_answers: Record<string, string>) => Promise<void>;
   resetChat: () => void;
   fetchAgents: () => Promise<void>;
   fetchHistorySessions: () => Promise<void>;
-  loadHistorySession: (id: string) => Promise<void>;
+  loadHistorySession: (_id: string) => Promise<void>;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -138,6 +146,10 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
 
   const [activeAgentSpecialty, setAgentSpecialty] = useState<string>("GENERAL");
   const [duration, setDuration] = useState<string>("1-3 days");
+  const [userCoordinates, setUserCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationName, setLocationName] = useState<string>("");
+  const [searchRadiusKm, setSearchRadiusKm] = useState<number>(10);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
   const [preExistingConditions, setPreExistingConditions] = useState<string>("");
   const [currentMedicines, setCurrentMedicines] = useState<string>("");
   const [treatmentApproach, setTreatmentApproach] = useState<string>("Allopathic");
@@ -221,8 +233,45 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
     fetchHistorySessions();
   }, []);
 
+  const requestDeviceLocation = async () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationName("Location unavailable");
+      return;
+    }
+
+    setIsLocating(true);
+    try {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            };
+            setUserCoordinates(coords);
+            try {
+              // Quick reverse lookup format
+              const formatted = `Near ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)}`;
+              setLocationName(formatted);
+            } catch {
+              setLocationName("Current GPS Location");
+            }
+            resolve();
+          },
+          (err) => {
+            console.warn("[GEOLOCATION] Access denied or error:", err.message);
+            resolve();
+          },
+          { timeout: 8000, enableHighAccuracy: true },
+        );
+      });
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const sendMessage = async (promptText: string, answeredQuestions?: Record<string, string>) => {
-    if (!promptText || !promptText.trim() || isLoading) return;
+    if (!promptText.trim() && !answeredQuestions) return;
 
     const userMsgId = `user-${Date.now()}`;
     const timestampStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -256,6 +305,9 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           treatmentApproach,
           answeredQuestions,
           conversationId,
+          coordinates: userCoordinates,
+          locationName,
+          radiusKm: searchRadiusKm,
         }),
       });
 
@@ -335,12 +387,10 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         fetchHistorySessions();
       }
     } catch (err: any) {
-      console.error("Error calling symptom checker: ", err);
       const errorMessage: ChatMessage = {
-        id: `err-${Date.now()}`,
+        id: `bot-err-${Date.now()}`,
         role: "assistant",
-        content:
-          "Unable to complete AI clinical triage at this time. Please verify your connection or consult a medical provider directly.",
+        content: `Error: ${err.message || "Failed to process symptom check. Please try again."}`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -360,7 +410,7 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         id: "welcome-1",
         role: "assistant",
         content:
-          "Session reset. Share your symptoms or select an AI Specialist above to begin guided clinical triage.",
+          "Hello! I am your Medicio AI Health Assistant. Share your symptoms or select an AI Specialist above to begin guided clinical triage.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -393,11 +443,18 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         historySessions,
         pendingClarificationMsg,
         lastUserPrompt,
+        userCoordinates,
+        locationName,
+        searchRadiusKm,
+        isLocating,
         setAgentSpecialty,
         setDuration,
         setPreExistingConditions,
         setCurrentMedicines,
         setTreatmentApproach,
+        setLocationName,
+        setSearchRadiusKm,
+        requestDeviceLocation,
         sendMessage,
         submitClarificationAnswers,
         resetChat,
