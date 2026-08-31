@@ -1,13 +1,16 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import type { AppointmentBookingData } from "@/components/patient/chatbot/booking-card";
 import { writeAudit } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
+import { sendAppointmentBookedEmail } from "@/lib/email";
 import type { TriageResult } from "@/lib/medical-knowledge";
 import {
   checkOutOfScopeQuery,
   MEDICAL_DISCLAIMER,
 } from "@/lib/medical-knowledge";
+import { notify } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
 import {
@@ -68,6 +71,320 @@ function isSimplePleasantry(promptText: string): boolean {
     PLEASANTRY_KEYWORDS.includes(clean) ||
     (clean.length <= 20 && PLEASANTRY_KEYWORDS.some((kw) => clean === kw || clean.startsWith(kw)))
   );
+}
+
+function isBookingConfirmation(promptText: string): boolean {
+  const clean = promptText.toLowerCase().trim().replace(/[^a-z0-9\s]/g, "");
+  const confirmPhrases = [
+    "confirm",
+    "confirm booking",
+    "yes",
+    "yes please",
+    "book it",
+    "proceed",
+    "proceed with booking",
+    "looks good",
+    "ok confirm",
+    "okay confirm",
+    "confirm appointment",
+    "finalize",
+    "finalize booking",
+  ];
+  return (
+    confirmPhrases.includes(clean) ||
+    clean.startsWith("confirm booking") ||
+    clean.startsWith("confirm appointment") ||
+    clean.startsWith("confirm slot") ||
+    clean === "yes"
+  );
+}
+
+function isBookingIntent(promptText: string): boolean {
+  const lower = promptText.toLowerCase();
+  const bookingKeywords = [
+    "book",
+    "schedule",
+    "reserve",
+    "slot",
+    "appointment",
+    "consultation",
+    "see a doctor",
+    "see dr",
+    "visit dr",
+    "visit doctor",
+    "take appointment",
+    "confirm booking",
+  ];
+  return bookingKeywords.some((kw) => lower.includes(kw));
+}
+
+function hasExplicitDateTime(promptText: string): boolean {
+  const lower = promptText.toLowerCase();
+  const dateWords = [
+    "today",
+    "tomorrow",
+    "tonight",
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "morning",
+    "afternoon",
+    "evening",
+    "am",
+    "pm",
+    "o'clock",
+    ":00",
+    ":30",
+    ":15",
+    ":45",
+  ];
+  return dateWords.some((dw) => lower.includes(dw)) || /\d{1,2}(:\d{2})?\s*(am|pm)/i.test(lower);
+}
+
+function hasExplicitDoctorMention(promptText: string, allDoctors: any[]): boolean {
+  const lower = promptText.toLowerCase();
+  if (lower.includes("dr.") || lower.includes("dr ") || lower.includes("doctor")) return true;
+  for (const doc of allDoctors) {
+    const name = (doc.user?.name || "").toLowerCase().replace(/^dr\.?\s*/i, "");
+    if (name.length >= 3 && lower.includes(name)) return true;
+  }
+  return false;
+}
+
+const SPECIALTY_CANONICAL_MAP: Record<string, string> = {
+  dermatology: "Dermatology",
+  dermatologist: "Dermatology",
+  skin: "Dermatology",
+  derma: "Dermatology",
+  cardiology: "Cardiology",
+  cardiologist: "Cardiology",
+  heart: "Cardiology",
+  cardio: "Cardiology",
+  neurology: "Neurology",
+  neurologist: "Neurology",
+  neuro: "Neurology",
+  brain: "Neurology",
+  pediatrics: "Pediatrics",
+  pediatrician: "Pediatrics",
+  child: "Pediatrics",
+  peds: "Pediatrics",
+  orthopedics: "Orthopedics",
+  orthopedic: "Orthopedics",
+  ortho: "Orthopedics",
+  bone: "Orthopedics",
+  gynecology: "Gynecology",
+  gynecologist: "Gynecology",
+  gynae: "Gynecology",
+  obgyn: "Gynecology",
+  ent: "ENT",
+  ear: "ENT",
+  nose: "ENT",
+  throat: "ENT",
+  otolaryngology: "ENT",
+  ophthalmology: "Ophthalmology",
+  ophthalmologist: "Ophthalmology",
+  eye: "Ophthalmology",
+  vision: "Ophthalmology",
+  psychiatry: "Psychiatry",
+  psychiatrist: "Psychiatry",
+  mental: "Psychiatry",
+  psych: "Psychiatry",
+  gastroenterology: "Gastroenterology",
+  gastroenterologist: "Gastroenterology",
+  gastro: "Gastroenterology",
+  stomach: "Gastroenterology",
+  digestive: "Gastroenterology",
+  pulmonology: "Pulmonology",
+  pulmonologist: "Pulmonology",
+  pulmo: "Pulmonology",
+  chest: "Pulmonology",
+  respiratory: "Pulmonology",
+  lungs: "Pulmonology",
+  general: "General Physician",
+  physician: "General Physician",
+  gp: "General Physician",
+  "general physician": "General Physician",
+  "general doctor": "General Physician",
+};
+
+function normalizeSpecialty(input?: string | null): string {
+  if (!input) return "General Physician";
+  const lower = input.toLowerCase().trim();
+  for (const [key, canonical] of Object.entries(SPECIALTY_CANONICAL_MAP)) {
+    if (lower === key || lower.includes(key)) {
+      return canonical;
+    }
+  }
+  return input;
+}
+
+function hasExplicitSpecialtyMention(promptText: string): string | null {
+  const lower = promptText.toLowerCase();
+  for (const [key, canonical] of Object.entries(SPECIALTY_CANONICAL_MAP)) {
+    if (lower.includes(key)) {
+      return canonical;
+    }
+  }
+  return null;
+}
+
+function checkMedicalContextInHistory(history: any[]): {
+  hasContext: boolean;
+  detectedSpecialty?: string;
+  recommendedDoctors?: any[];
+} {
+  if (!Array.isArray(history) || history.length === 0) {
+    return { hasContext: false };
+  }
+
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i];
+    if (turn.triageResult) {
+      return {
+        hasContext: true,
+        detectedSpecialty: normalizeSpecialty(turn.triageResult.suggestedSpecialty),
+        recommendedDoctors: turn.recommendedDoctors,
+      };
+    }
+  }
+
+  const userMessages = history
+    .filter((h) => h.role === "user")
+    .map((h) => (h.content || "").toLowerCase());
+  const symptomKeywords = [
+    "pain",
+    "ache",
+    "fever",
+    "cough",
+    "rash",
+    "dizzy",
+    "headache",
+    "chest",
+    "stomach",
+    "bleed",
+    "nausea",
+    "swelling",
+    "vomit",
+    "cramp",
+    "breath",
+    "itch",
+  ];
+  const hasSymptoms = userMessages.some((msg) =>
+    symptomKeywords.some((kw) => msg.includes(kw)),
+  );
+
+  return { hasContext: hasSymptoms };
+}
+
+function parseBookingDateTime(promptText: string): Date {
+  const lower = promptText.toLowerCase();
+  const now = new Date();
+  const target = new Date(now);
+
+  if (lower.includes("tomorrow")) {
+    target.setDate(target.getDate() + 1);
+  } else if (lower.includes("today") || lower.includes("tonight")) {
+    // keep today
+  } else {
+    const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    let foundDay = -1;
+    for (let i = 0; i < daysOfWeek.length; i++) {
+      if (lower.includes(daysOfWeek[i])) {
+        foundDay = i;
+        break;
+      }
+    }
+    if (foundDay !== -1) {
+      const currentDay = now.getDay();
+      let diff = foundDay - currentDay;
+      if (diff <= 0) diff += 7;
+      target.setDate(now.getDate() + diff);
+    } else {
+      // Default to tomorrow
+      target.setDate(target.getDate() + 1);
+    }
+  }
+
+  // Parse time
+  const time12Match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (time12Match) {
+    let hour = parseInt(time12Match[1], 10);
+    const minute = time12Match[2] ? parseInt(time12Match[2], 10) : 0;
+    const meridian = time12Match[3].toLowerCase();
+    if (meridian === "pm" && hour < 12) hour += 12;
+    if (meridian === "am" && hour === 12) hour = 0;
+    target.setHours(hour, minute, 0, 0);
+  } else if (lower.includes("morning")) {
+    target.setHours(10, 0, 0, 0);
+  } else if (lower.includes("afternoon")) {
+    target.setHours(14, 0, 0, 0);
+  } else if (lower.includes("evening")) {
+    target.setHours(17, 0, 0, 0);
+  } else {
+    target.setHours(10, 0, 0, 0);
+  }
+
+  return target;
+}
+
+async function resolveDoctorForBooking(
+  promptText: string,
+  specialty: string,
+  history: any[],
+) {
+  const lower = promptText.toLowerCase();
+  const explicitSpec = hasExplicitSpecialtyMention(promptText);
+  const targetSpecialty = explicitSpec || normalizeSpecialty(specialty);
+
+  const allDocs = await prisma.doctor.findMany({
+    where: { isVerified: true },
+    include: {
+      user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      hospital: { select: { id: true, name: true, location: true } },
+    },
+  });
+
+  if (!allDocs || allDocs.length === 0) return null;
+
+  // A. Match doctor name in prompt
+  for (const doc of allDocs) {
+    const docName = (doc.user?.name || "").toLowerCase();
+    const cleanName = docName.replace(/^dr\.?\s*/i, "");
+    if (docName && (lower.includes(docName) || (cleanName.length >= 3 && lower.includes(cleanName)))) {
+      return doc;
+    }
+  }
+
+  // B. Match doctor by targeted specialty FIRST
+  if (targetSpecialty) {
+    const specMatch = allDocs.find((d) =>
+      d.specialty.toLowerCase().includes(targetSpecialty.toLowerCase()) ||
+      targetSpecialty.toLowerCase().includes(d.specialty.toLowerCase()),
+    );
+    if (specMatch) return specMatch;
+  }
+
+  // C. Match doctor mentioned in recent history
+  if (Array.isArray(history) && history.length > 0) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const turn = history[i];
+      if (turn.bookingResult?.doctorId) {
+        const match = allDocs.find((d) => d.id === turn.bookingResult.doctorId);
+        if (match) return match;
+      }
+      if (turn.recommendedDoctors && Array.isArray(turn.recommendedDoctors) && turn.recommendedDoctors.length > 0) {
+        const firstRec = turn.recommendedDoctors[0];
+        const match = allDocs.find((d) => d.id === firstRec.id);
+        if (match) return match;
+      }
+    }
+  }
+
+  return allDocs[0] || null;
 }
 
 function cleanJsonString(raw: string): string {
@@ -479,6 +796,224 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 3.5 CONVERSATIONAL APPOINTMENT BOOKING FLOW
+    const isConfirming = isBookingConfirmation(trimmedPrompt);
+    const isBooking = isBookingIntent(trimmedPrompt) || isConfirming;
+
+    if (isBooking) {
+      const allDocs = await prisma.doctor.findMany({
+        where: { isVerified: true },
+        include: {
+          user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+          hospital: { select: { id: true, name: true, location: true } },
+        },
+      });
+
+      const medicalContext = checkMedicalContextInHistory(history);
+      const explicitSpecialty = hasExplicitSpecialtyMention(trimmedPrompt);
+      const explicitDoctor = hasExplicitDoctorMention(trimmedPrompt, allDocs);
+      const explicitDateTime = hasExplicitDateTime(trimmedPrompt);
+
+      // STEP 1: If user says "Confirm" or is confirming a previous preview
+      if (isConfirming) {
+        const targetDoctor = await resolveDoctorForBooking(trimmedPrompt, agentSpecialty, history);
+        const scheduledDateTime = parseBookingDateTime(trimmedPrompt);
+
+        if (targetDoctor) {
+          const formattedDate = scheduledDateTime.toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          const formattedTime = scheduledDateTime.toLocaleTimeString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          if (session && session.userId) {
+            const appointment = await prisma.appointment.create({
+              data: {
+                patientId: session.userId,
+                doctorId: targetDoctor.id,
+                dateTime: scheduledDateTime,
+                status: "PENDING",
+                notes: `Confirmed booking via AI Assistant: "${trimmedPrompt}"`,
+              },
+              include: {
+                patient: { select: { id: true, name: true, email: true } },
+                doctor: {
+                  include: {
+                    user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+                    hospital: { select: { id: true, name: true, location: true } },
+                  },
+                },
+              },
+            });
+
+            await notify({
+              userId: targetDoctor.userId,
+              type: "APPOINTMENT",
+              title: "New AI Appointment Request",
+              body: `${appointment.patient?.name || "A patient"} requested an appointment on ${appointment.dateTime.toLocaleString()} via AI Chatbot.`,
+              href: "/doctor/appointments",
+              metadata: { appointmentId: appointment.id, status: "PENDING" },
+            });
+
+            if (appointment.patient?.email && appointment.doctor?.user?.email) {
+              await sendAppointmentBookedEmail({
+                patientEmail: appointment.patient.email,
+                patientName: appointment.patient.name || "Patient",
+                doctorEmail: appointment.doctor.user.email,
+                doctorName: appointment.doctor.user.name || "Doctor",
+                dateTime: appointment.dateTime.toLocaleString(),
+                notes: appointment.notes || undefined,
+              });
+
+              await writeAudit({
+                action: "APPOINTMENT_BOOKED_EMAIL_SENT",
+                actorId: session.userId,
+                actorRole: session.role,
+                entityType: "APPOINTMENT",
+                entityId: appointment.id,
+                metadata: {
+                  patientEmail: appointment.patient.email,
+                  doctorEmail: appointment.doctor.user.email,
+                  dateTime: appointment.dateTime,
+                },
+              });
+            }
+
+            const bookingResult: AppointmentBookingData = {
+              appointmentId: appointment.id,
+              doctorId: appointment.doctorId,
+              doctorName: appointment.doctor.user.name,
+              doctorSpecialty: appointment.doctor.specialty,
+              doctorAvatar: appointment.doctor.user.avatarUrl,
+              hospitalName: appointment.doctor.hospital?.name || null,
+              clinicAddress: appointment.doctor.clinicAddress || appointment.doctor.hospital?.location || "Medicio Health Center",
+              consultationFee: appointment.doctor.consultationFee ?? 50,
+              dateTime: appointment.dateTime.toISOString(),
+              status: "PENDING",
+              notes: appointment.notes,
+            };
+
+            return NextResponse.json({
+              success: true,
+              responseType: "BOOKING_CONFIRMED",
+              content: `**Appointment Confirmed & Submitted**\n\nYour appointment with **Dr. ${appointment.doctor.user.name}** (${appointment.doctor.specialty}) has been reserved for **${formattedDate} at ${formattedTime}**.\n\nA notification and confirmation email have been sent to the doctor. You can track or modify this booking anytime in your appointments dashboard.`,
+              bookingResult,
+              conversationId: conversationId || null,
+            });
+          } else {
+            const bookingResult: AppointmentBookingData = {
+              doctorId: targetDoctor.id,
+              doctorName: targetDoctor.user.name,
+              doctorSpecialty: targetDoctor.specialty,
+              doctorAvatar: targetDoctor.user.avatarUrl,
+              hospitalName: targetDoctor.hospital?.name || null,
+              clinicAddress: targetDoctor.clinicAddress || targetDoctor.hospital?.location || "Medicio Health Center",
+              consultationFee: targetDoctor.consultationFee ?? 50,
+              dateTime: scheduledDateTime.toISOString(),
+              status: "AUTH_REQUIRED",
+              notes: `Prompt booking via AI Assistant: "${trimmedPrompt}"`,
+            };
+
+            return NextResponse.json({
+              success: true,
+              responseType: "BOOKING_AUTH_REQUIRED",
+              content: `**Appointment Slot Prepared**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** for **${formattedDate} at ${formattedTime}**.\n\nPlease sign in to your Medicio account to finalize this booking.`,
+              bookingResult,
+              conversationId: conversationId || null,
+            });
+          }
+        }
+      }
+
+      // STEP 2: If user sends general "book a slot" without any symptoms / medical context or doctor
+      if (!medicalContext.hasContext && !explicitDoctor && !explicitSpecialty) {
+        return NextResponse.json({
+          success: true,
+          responseType: "CONVERSATION_TURN",
+          content:
+            "I'd be glad to help you schedule an appointment! Could you briefly share what symptoms or health concerns you are experiencing? This helps me recommend the appropriate specialist (such as Cardiology, Dermatology, or General Physician) and find the best doctor for you.\n\n*(Alternatively, if you already have a doctor or specialty in mind, you can simply say: 'Book with Dr. Aisha' or 'Book a cardiologist')*",
+          conversationId: conversationId || null,
+        });
+      }
+
+      // STEP 3: Specialty is known / triaged, but user hasn't chosen a specific doctor
+      const targetSpecialty = explicitSpecialty || normalizeSpecialty(medicalContext.detectedSpecialty || agentSpecialty);
+      if (!explicitDoctor && !isConfirming) {
+        const matchingDocs = allDocs.filter(
+          (d) =>
+            d.specialty.toLowerCase().includes(targetSpecialty.toLowerCase()) ||
+            targetSpecialty.toLowerCase().includes(d.specialty.toLowerCase()),
+        );
+        const docsToList = matchingDocs.length > 0 ? matchingDocs : allDocs.slice(0, 3);
+
+        const docListText = docsToList
+          .map(
+            (d) =>
+              `• **Dr. ${d.user.name}** (${d.specialty} · ${d.hospital?.name || d.clinicAddress || "Medicio Health Center"}${d.consultationFee ? ` · Fee: $${d.consultationFee}` : ""})`,
+          )
+          .join("\n");
+
+        return NextResponse.json({
+          success: true,
+          responseType: "CONVERSATION_TURN",
+          content: `Here are our verified **${targetSpecialty}** specialists available for consultation:\n\n${docListText}\n\nWhich doctor would you like to see, and what preferred day and time (e.g. *'Tomorrow at 10:00 AM'* or *'Friday at 2:00 PM'*) works best for you?`,
+          conversationId: conversationId || null,
+        });
+      }
+
+      // STEP 4: Doctor is selected, but NO day/time is provided
+      const targetDoctor = await resolveDoctorForBooking(trimmedPrompt, targetSpecialty, history);
+      if (!explicitDateTime && targetDoctor) {
+        return NextResponse.json({
+          success: true,
+          responseType: "CONVERSATION_TURN",
+          content: `What preferred day and time would you like for your appointment with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty})? (e.g., *'Tomorrow at 10:00 AM'*, *'Monday at 2:30 PM'*, or *'Friday afternoon'*).`,
+          conversationId: conversationId || null,
+        });
+      }
+
+      // STEP 5: Doctor AND Date/Time are identified -> Show PREVIEW & CONFIRMATION Card
+      if (targetDoctor) {
+        const scheduledDateTime = parseBookingDateTime(trimmedPrompt);
+        const formattedDate = scheduledDateTime.toLocaleDateString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        const formattedTime = scheduledDateTime.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const bookingResult: AppointmentBookingData = {
+          doctorId: targetDoctor.id,
+          doctorName: targetDoctor.user.name,
+          doctorSpecialty: targetDoctor.specialty,
+          doctorAvatar: targetDoctor.user.avatarUrl,
+          hospitalName: targetDoctor.hospital?.name || null,
+          clinicAddress: targetDoctor.clinicAddress || targetDoctor.hospital?.location || "Medicio Health Center",
+          consultationFee: targetDoctor.consultationFee ?? 50,
+          dateTime: scheduledDateTime.toISOString(),
+          status: "PREVIEW",
+          notes: `Proposed booking via AI Assistant: "${trimmedPrompt}"`,
+        };
+
+        return NextResponse.json({
+          success: true,
+          responseType: "BOOKING_PREVIEW",
+          content: `**Please Review & Confirm Your Appointment**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty}) for **${formattedDate} at ${formattedTime}**.\n\nPlease review the details below and click **Confirm Booking** to submit your reservation, or let me know if you would like to adjust the day or time.`,
+          bookingResult,
+          conversationId: conversationId || null,
+        });
+      }
+    }
+
     // 4. PREPARE CONVERSATION HISTORY
     let conversationHistory: { role: string; content: string }[] = [];
 
@@ -544,10 +1079,12 @@ export async function POST(request: NextRequest) {
     let labs: any[] = [];
 
     if (liveResult.isComplete && liveResult.triageResult) {
-      const targetSpecialty = liveResult.triageResult.suggestedSpecialty || agentSpecialty;
+      const rawSpecialty = liveResult.triageResult.suggestedSpecialty || agentSpecialty;
+      const targetSpecialty = normalizeSpecialty(rawSpecialty);
 
       const matchingDocs = await prisma.doctor.findMany({
         where: {
+          isVerified: true,
           specialty: {
             contains: targetSpecialty,
             mode: "insensitive",

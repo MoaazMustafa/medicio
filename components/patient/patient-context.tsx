@@ -53,6 +53,8 @@ export interface RecommendedDoctor {
   hospitalName?: string;
 }
 
+import type { AppointmentBookingData } from "./chatbot/booking-card";
+
 export interface RecommendedPharmacy {
   id: string;
   name: string;
@@ -78,7 +80,10 @@ export interface ChatMessage {
     | "MODEL_UNAVAILABLE"
     | "OUT_OF_SCOPE"
     | "CONVERSATION_TURN"
-    | "API_KEY_REQUIRED";
+    | "API_KEY_REQUIRED"
+    | "BOOKING_PREVIEW"
+    | "BOOKING_CONFIRMED"
+    | "BOOKING_AUTH_REQUIRED";
   clarificationQuestions?: ClarificationQuestion[];
   suggestedQuickReplies?: string[];
   userAnswers?: Record<string, string>;
@@ -86,6 +91,7 @@ export interface ChatMessage {
   recommendedDoctors?: RecommendedDoctor[];
   recommendedPharmacies?: RecommendedPharmacy[];
   recommendedLabs?: RecommendedLab[];
+  bookingResult?: AppointmentBookingData;
 }
 
 export interface SpecialistAgentInfo {
@@ -342,7 +348,10 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         | "MODEL_UNAVAILABLE"
         | "OUT_OF_SCOPE"
         | "CONVERSATION_TURN"
-        | "API_KEY_REQUIRED" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : "API_KEY_REQUIRED");
+        | "API_KEY_REQUIRED"
+        | "BOOKING_PREVIEW"
+        | "BOOKING_CONFIRMED"
+        | "BOOKING_AUTH_REQUIRED" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : "API_KEY_REQUIRED");
 
       if (respType === "API_KEY_REQUIRED") {
         const botMessage: ChatMessage = {
@@ -403,6 +412,21 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "CONVERSATION_TURN",
           suggestedQuickReplies: data.suggestedQuickReplies || [],
+        };
+        setPendingClarificationMsg(null);
+        setMessages((prev) => [...prev, botMessage]);
+      } else if (
+        respType === "BOOKING_PREVIEW" ||
+        respType === "BOOKING_CONFIRMED" ||
+        respType === "BOOKING_AUTH_REQUIRED"
+      ) {
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content: data.content || "Your appointment booking details:",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: respType,
+          bookingResult: data.bookingResult,
         };
         setPendingClarificationMsg(null);
         setMessages((prev) => [...prev, botMessage]);

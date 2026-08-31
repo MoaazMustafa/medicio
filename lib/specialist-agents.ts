@@ -298,6 +298,171 @@ export async function ensureSpecialistAgents(db: PrismaClient): Promise<void> {
       });
     }
   }
+
+  await ensureSpecialistDoctors(db);
+}
+
+/** Idempotently ensures sample verified specialist doctor profiles exist across all specialties. */
+export async function ensureSpecialistDoctors(db: PrismaClient): Promise<void> {
+  const sampleSpecialistDoctors = [
+    {
+      email: "doctor.dermatology@medicio.com",
+      name: "Dr. Sarah Jenkins",
+      specialty: "Dermatology",
+      subSpecialty: "Cutaneous Oncology & Eczema",
+      education: "MD - Harvard Medical School, FAAD",
+      experience: 10,
+      clinicAddress: "Medicio Dermatology & Skin Care Clinic, Suite 402",
+      consultationFee: 65,
+    },
+    {
+      email: "doctor.cardiology@medicio.com",
+      name: "Dr. Aisha Rahman",
+      specialty: "Cardiology",
+      subSpecialty: "Interventional Cardiology",
+      education: "MD - Johns Hopkins University, FACC",
+      experience: 12,
+      clinicAddress: "City General Heart Institute, 5th Floor",
+      consultationFee: 75,
+    },
+    {
+      email: "doctor.neurology@medicio.com",
+      name: "Dr. Marcus Vance",
+      specialty: "Neurology",
+      subSpecialty: "Headache & Stroke Management",
+      education: "MD - Columbia University, FAAN",
+      experience: 14,
+      clinicAddress: "Neurological Care Center, Suite 300",
+      consultationFee: 80,
+    },
+    {
+      email: "doctor.pediatrics@medicio.com",
+      name: "Dr. Emily Chen",
+      specialty: "Pediatrics",
+      subSpecialty: "General Pediatrics & Neonatal Care",
+      education: "MD - Stanford University, FAAP",
+      experience: 8,
+      clinicAddress: "Children's Health & Wellness Pavilion",
+      consultationFee: 50,
+    },
+    {
+      email: "doctor.orthopedics@medicio.com",
+      name: "Dr. David Miller",
+      specialty: "Orthopedics",
+      subSpecialty: "Joint Replacement & Sports Injuries",
+      education: "MD - Oxford University, FAAOS",
+      experience: 15,
+      clinicAddress: "Orthopedic & Spine Health Clinic",
+      consultationFee: 70,
+    },
+    {
+      email: "doctor.gynecology@medicio.com",
+      name: "Dr. Priya Patel",
+      specialty: "Gynecology",
+      subSpecialty: "Obstetrics & Women's Health",
+      education: "MD - King's College London, FACOG",
+      experience: 11,
+      clinicAddress: "Women's Health & Fertility Center",
+      consultationFee: 65,
+    },
+    {
+      email: "doctor.ent@medicio.com",
+      name: "Dr. James Wilson",
+      specialty: "ENT",
+      subSpecialty: "Otolaryngology & Sinus Surgery",
+      education: "MD - Edinburgh Medical School, FACS",
+      experience: 9,
+      clinicAddress: "Ear, Nose & Throat Specialist Pavilion",
+      consultationFee: 55,
+    },
+    {
+      email: "doctor.ophthalmology@medicio.com",
+      name: "Dr. Elena Rostova",
+      specialty: "Ophthalmology",
+      subSpecialty: "Cornea & Refractive Vision",
+      education: "MD - Melbourne University, ABO",
+      experience: 13,
+      clinicAddress: "Vision Care & Ophthalmic Center",
+      consultationFee: 60,
+    },
+    {
+      email: "doctor.psychiatry@medicio.com",
+      name: "Dr. Robert Kim",
+      specialty: "Psychiatry",
+      subSpecialty: "Adult Psychiatry & Psychotherapy",
+      education: "MD - Yale School of Medicine, FAPA",
+      experience: 16,
+      clinicAddress: "Mind & Behavioral Health Institute",
+      consultationFee: 90,
+    },
+    {
+      email: "doctor.gastroenterology@medicio.com",
+      name: "Dr. Tariq Al-Mansoor",
+      specialty: "Gastroenterology",
+      subSpecialty: "Hepatology & Endoscopy",
+      education: "MD - Toronto University, FACG",
+      experience: 12,
+      clinicAddress: "Digestive Diseases & Endoscopy Center",
+      consultationFee: 70,
+    },
+    {
+      email: "doctor.pulmonology@medicio.com",
+      name: "Dr. Karen Taylor",
+      specialty: "Pulmonology",
+      subSpecialty: "Asthma, COPD & Sleep Medicine",
+      education: "MD - McGill University, FCCP",
+      experience: 10,
+      clinicAddress: "Chest & Respiratory Clinic",
+      consultationFee: 75,
+    },
+    {
+      email: "doctor.general@medicio.com",
+      name: "Dr. Moaaz Mustafa",
+      specialty: "General Physician",
+      subSpecialty: "Family & Preventive Medicine",
+      education: "MBBS, MRCGP (UK)",
+      experience: 7,
+      clinicAddress: "Medicio Clinical Primary Care",
+      consultationFee: 40,
+    },
+  ];
+
+  for (const doc of sampleSpecialistDoctors) {
+    const existingDoc = await db.doctor.findFirst({
+      where: {
+        specialty: { equals: doc.specialty, mode: "insensitive" },
+      },
+    });
+
+    if (!existingDoc) {
+      let user = await db.user.findUnique({ where: { email: doc.email } });
+      if (!user) {
+        user = await db.user.create({
+          data: {
+            email: doc.email,
+            name: doc.name,
+            passwordHash: "$2b$10$demoHashedPasswordDummyValuePlaceholderForSeed12345",
+            role: "DOCTOR",
+            isVerified: true,
+          },
+        });
+      }
+
+      await db.doctor.create({
+        data: {
+          userId: user.id,
+          specialty: doc.specialty,
+          subSpecialty: doc.subSpecialty,
+          education: doc.education,
+          experience: doc.experience,
+          licenseNumber: `LIC-${Math.floor(100000 + Math.random() * 900000)}`,
+          isVerified: true,
+          clinicAddress: doc.clinicAddress,
+          consultationFee: doc.consultationFee,
+        },
+      });
+    }
+  }
 }
 
 export function getAttachedDoctorIds(agent: SpecialistAgent): string[] {

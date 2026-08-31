@@ -33,6 +33,7 @@ import React, { useEffect, useState } from "react";
 import type { ChatMessage } from "./patient-context";
 import { usePatientContext } from "./patient-context";
 
+import { BookingCard } from "@/components/patient/chatbot/booking-card";
 import { ChatEmptyState } from "@/components/patient/chatbot/chat-empty-state";
 import { getSeverityColor, TriageCard } from "@/components/patient/chatbot/triage-card";
 import {
@@ -322,6 +323,18 @@ export function PatientChatbot() {
                           <MessageContent markdown className="w-full rounded-none bg-transparent p-0 text-text-primary">
                             {msg.content}
                           </MessageContent>
+                        )}
+
+                        {msg.bookingResult && (
+                          <BookingCard
+                            booking={msg.bookingResult}
+                            isAuthRequired={msg.responseType === "BOOKING_AUTH_REQUIRED"}
+                            onConfirmBooking={(b) => {
+                              sendMessage(
+                                `Confirm booking with Dr. ${b.doctorName} on ${b.dateTime}`,
+                              );
+                            }}
+                          />
                         )}
 
                         {msg.triageResult && (
