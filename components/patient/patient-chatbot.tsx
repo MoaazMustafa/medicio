@@ -204,12 +204,12 @@ export function PatientChatbot() {
                 aria-label="Current location and search radius"
                 className="hidden rounded-full text-xs font-medium sm:flex"
                 size="sm"
-                variant={userCoordinates ? "primary" : "secondary"}
-                onPress={requestDeviceLocation}
+                variant={locationName ? "primary" : "secondary"}
+                onPress={() => setIsIntakeOpen(true)}
               >
                 <MapPin className={cn("h-3.5 w-3.5", isLocating && "animate-spin")} />
                 <span className="max-w-28 truncate">
-                  {userCoordinates ? locationName || "GPS Active" : "Set Location"}
+                  {locationName || "Set Location"}
                 </span>
                 <Chip className="ml-0.5 text-[9px] font-mono" size="sm" variant="soft">
                   {searchRadiusKm}km

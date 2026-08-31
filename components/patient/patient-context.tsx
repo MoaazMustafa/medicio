@@ -259,7 +259,9 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
             resolve();
           },
           (err) => {
-            console.warn("[GEOLOCATION] Access denied or error:", err.message);
+            console.warn("[GEOLOCATION] Access denied or unavailable:", err.message);
+            setUserCoordinates({ lat: 31.5204, lng: 74.3587 });
+            setLocationName("Lahore Medical Hub");
             resolve();
           },
           { timeout: 8000, enableHighAccuracy: true },
