@@ -21,7 +21,15 @@ export async function PATCH(
 
     const { entryId } = await params;
     const body = await request.json();
-    const { medicineName, dosage, frequency, startDate, endDate } = body;
+    const {
+      medicineName,
+      dosage,
+      frequency,
+      startDate,
+      endDate,
+      reminderTimes,
+      isReminderEnabled,
+    } = body;
 
     // Verify ownership
     const existing = await prisma.medicineTrackerEntry.findUnique({
@@ -36,6 +44,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const reminderTimesString =
+      reminderTimes !== undefined
+        ? Array.isArray(reminderTimes)
+          ? JSON.stringify(reminderTimes)
+          : typeof reminderTimes === "string"
+          ? reminderTimes
+          : null
+        : undefined;
+
     const updated = await prisma.medicineTrackerEntry.update({
       where: { id: entryId },
       data: {
@@ -43,7 +60,9 @@ export async function PATCH(
         ...(dosage && { dosage: dosage.trim() }),
         ...(frequency && { frequency: frequency.trim() }),
         ...(startDate && { startDate: new Date(startDate) }),
-        endDate: endDate ? new Date(endDate) : null,
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(reminderTimesString !== undefined && { reminderTimes: reminderTimesString }),
+        ...(isReminderEnabled !== undefined && { isReminderEnabled: Boolean(isReminderEnabled) }),
       },
     });
 

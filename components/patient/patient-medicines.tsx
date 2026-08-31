@@ -12,6 +12,8 @@ import {
 } from "@heroui/react";
 import {
   AlertCircle,
+  Bell,
+  BellRing,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -24,7 +26,9 @@ import {
   X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
+import { TableToolbar, TableFooter } from "@/components/ui/table-toolbar";
 import { cn } from "@/lib/utils";
 
 interface MedicineEntry {
@@ -34,6 +38,8 @@ interface MedicineEntry {
   frequency: string;
   startDate: string;
   endDate: string | null;
+  reminderTimes?: string | null;
+  isReminderEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +56,8 @@ const FREQUENCY_OPTIONS = [
   "Once weekly",
   "Twice weekly",
 ] as const;
+
+const COMMON_DOSE_TIMES = ["08:00", "12:00", "16:00", "20:00", "22:00"];
 
 function isActive(entry: MedicineEntry): boolean {
   if (!entry.endDate) return true;
@@ -76,6 +84,8 @@ interface MedicineFormState {
   frequency: string;
   startDate: string;
   endDate: string;
+  reminderTimes: string[];
+  isReminderEnabled: boolean;
 }
 
 const EMPTY_FORM: MedicineFormState = {
@@ -84,6 +94,8 @@ const EMPTY_FORM: MedicineFormState = {
   frequency: "Once daily",
   startDate: new Date().toISOString().split("T")[0],
   endDate: "",
+  reminderTimes: ["08:00", "20:00"],
+  isReminderEnabled: true,
 };
 
 export function PatientMedicines() {
@@ -91,6 +103,7 @@ export function PatientMedicines() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -131,12 +144,23 @@ export function PatientMedicines() {
 
   const openEditModal = (entry: MedicineEntry) => {
     setEditingEntry(entry);
+    let parsedTimes: string[] = ["08:00", "20:00"];
+    if (entry.reminderTimes) {
+      try {
+        parsedTimes = JSON.parse(entry.reminderTimes);
+      } catch {
+        parsedTimes = ["08:00", "20:00"];
+      }
+    }
+
     setForm({
       medicineName: entry.medicineName,
       dosage: entry.dosage,
       frequency: entry.frequency,
       startDate: entry.startDate.split("T")[0],
       endDate: entry.endDate ? entry.endDate.split("T")[0] : "",
+      reminderTimes: parsedTimes,
+      isReminderEnabled: entry.isReminderEnabled ?? true,
     });
     setFormError("");
     setIsModalOpen(true);
@@ -157,6 +181,8 @@ export function PatientMedicines() {
         frequency: form.frequency,
         startDate: form.startDate,
         endDate: form.endDate || null,
+        reminderTimes: form.reminderTimes,
+        isReminderEnabled: form.isReminderEnabled,
       };
 
       let res: Response;
@@ -182,10 +208,32 @@ export function PatientMedicines() {
 
       setIsModalOpen(false);
       await fetchEntries();
+      toast.success(editingEntry ? "Prescription updated." : "Prescription logged.");
     } catch {
       setFormError("Network error. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const testReminder = async (entry: MedicineEntry) => {
+    try {
+      const res = await fetch("/api/medicine-tracker/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryId: entry.id,
+          doseTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(`Dose alert triggered for ${entry.medicineName}! Check notifications.`);
+      } else {
+        toast.error("Failed to send reminder alert.");
+      }
+    } catch {
+      toast.error("Network error triggering reminder.");
     }
   };
 
@@ -196,6 +244,7 @@ export function PatientMedicines() {
       if (res.ok) {
         setDeleteConfirmId(null);
         await fetchEntries();
+        toast.success("Medicine removed.");
       }
     } catch (err) {
       console.error("Failed to delete entry:", err);
@@ -275,38 +324,39 @@ export function PatientMedicines() {
           <span className="text-text-secondary">completed</span>
         </div>
       </div>
-
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:max-w-sm">
-          <Input
-            className="w-full text-xs"
-            placeholder="Search by medicine name, dosage, or frequency…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5">
+      {/* Top Control Toolbar (Filters & Refresh) */}
+      <TableToolbar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search medicine name, dosage, or frequency..."
+        onRefresh={fetchEntries}
+        isRefreshing={loading}
+        hasActiveFilters={Boolean(searchQuery || filterStatus !== "ALL")}
+        onClearFilters={() => {
+          setSearchQuery("");
+          setFilterStatus("ALL");
+        }}
+      >
+        <div className="flex items-center gap-1 overflow-x-auto">
           {(["ALL", "ACTIVE", "COMPLETED"] as const).map((s) => (
             <Button
               key={s}
-              className="h-7 shrink-0 px-3 text-[11px] font-semibold"
               size="sm"
-              variant={filterStatus === s ? "primary" : "secondary"}
+              variant={filterStatus === s ? "primary" : "ghost"}
+              className="text-[11px] capitalize font-semibold h-8 px-2.5"
               onPress={() => setFilterStatus(s)}
             >
-              {s}
+              {s.toLowerCase()}
             </Button>
           ))}
         </div>
-      </div>
+      </TableToolbar>
 
       {/* Medicine list */}
       {loading ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl border border-border-custom bg-surface/40" />
+            <div key={i} className="h-20 animate-pulse rounded-2xl border border-border-custom bg-surface/40" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -326,7 +376,7 @@ export function PatientMedicines() {
         </Card>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {filtered.map((entry) => {
+          {filtered.slice(0, pageSize).map((entry) => {
             const active = isActive(entry);
             const days = daysRemaining(entry.endDate);
             const isEndingSoon = days !== null && days >= 0 && days <= 7;
@@ -384,11 +434,35 @@ export function PatientMedicines() {
                       {formatDate(entry.startDate)}
                       {entry.endDate && ` → ${formatDate(entry.endDate)}`}
                     </span>
+                    {entry.isReminderEnabled && entry.reminderTimes && (
+                      <span className="flex items-center gap-1 font-mono text-[11px] font-semibold text-primary">
+                        <BellRing className="h-3 w-3 animate-pulse text-primary" />
+                        {(() => {
+                          try {
+                            const times = JSON.parse(entry.reminderTimes);
+                            return Array.isArray(times) ? times.join(", ") : String(entry.reminderTimes);
+                          } catch {
+                            return String(entry.reminderTimes);
+                          }
+                        })()}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {entry.isReminderEnabled && (
+                    <Button
+                      aria-label="Test dose reminder"
+                      className="h-8 rounded-xl border border-primary/20 bg-primary/10 text-xs font-semibold text-primary hover:bg-primary/20"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => testReminder(entry)}
+                    >
+                      <Bell className="mr-1 h-3.5 w-3.5" /> Test Alert
+                    </Button>
+                  )}
                   <Button
                     isIconOnly
                     aria-label="Edit"
@@ -415,6 +489,15 @@ export function PatientMedicines() {
           })}
         </div>
       )}
+
+      {/* Bottom Control Footer */}
+      <TableFooter
+        showingCount={Math.min(filtered.length, pageSize)}
+        totalCount={safeEntries.length}
+        entityLabel="medications"
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
@@ -500,6 +583,59 @@ export function PatientMedicines() {
                       onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
                     />
                   </div>
+                </div>
+
+                {/* Scheduled Dose Push Reminders */}
+                <div className="flex flex-col gap-2.5 rounded-xl border border-border-custom bg-surface/40 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BellRing className="h-4 w-4 text-primary" />
+                      <div>
+                        <Label className="text-xs font-bold text-text-primary">Daily Dose Reminders</Label>
+                        <p className="text-[11px] text-text-secondary">Receive in-app and browser Web Push alerts</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={form.isReminderEnabled ? "primary" : "secondary"}
+                      className="h-7 text-xs font-semibold"
+                      onPress={() => setForm((f) => ({ ...f, isReminderEnabled: !f.isReminderEnabled }))}
+                    >
+                      {form.isReminderEnabled ? "Enabled" : "Disabled"}
+                    </Button>
+                  </div>
+
+                  {form.isReminderEnabled && (
+                    <div className="flex flex-col gap-2 pt-2 border-t border-border-custom">
+                      <Label className="text-[11px] font-semibold text-text-secondary">Dose Times ({form.reminderTimes.length} configured)</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {COMMON_DOSE_TIMES.map((time) => {
+                          const isSelected = form.reminderTimes.includes(time);
+                          return (
+                            <Button
+                              key={time}
+                              size="sm"
+                              variant={isSelected ? "primary" : "ghost"}
+                              className={cn(
+                                "h-7 text-[11px] font-mono rounded-lg border",
+                                isSelected ? "border-primary" : "border-border-custom text-text-secondary"
+                              )}
+                              onPress={() => {
+                                setForm((f) => ({
+                                  ...f,
+                                  reminderTimes: isSelected
+                                    ? f.reminderTimes.filter((t) => t !== time)
+                                    : [...f.reminderTimes, time].sort(),
+                                }));
+                              }}
+                            >
+                              {time}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Modal.Body>
 

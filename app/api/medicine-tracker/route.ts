@@ -42,7 +42,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { medicineName, dosage, frequency, startDate, endDate } = body;
+    const {
+      medicineName,
+      dosage,
+      frequency,
+      startDate,
+      endDate,
+      reminderTimes,
+      isReminderEnabled,
+    } = body;
 
     if (!medicineName || !dosage || !frequency || !startDate) {
       return NextResponse.json(
@@ -50,6 +58,12 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const reminderTimesString = Array.isArray(reminderTimes)
+      ? JSON.stringify(reminderTimes)
+      : typeof reminderTimes === "string"
+      ? reminderTimes
+      : null;
 
     const entry = await prisma.medicineTrackerEntry.create({
       data: {
@@ -59,6 +73,8 @@ export async function POST(request: NextRequest) {
         frequency: frequency.trim(),
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
+        reminderTimes: reminderTimesString,
+        isReminderEnabled: Boolean(isReminderEnabled),
       },
     });
 
