@@ -18,7 +18,6 @@ import {
   Check,
   Clock,
   RefreshCw,
-  Search,
   Stethoscope,
   User,
   X,
@@ -26,7 +25,7 @@ import {
 import NextLink from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
 
-import { cn } from "@/lib/utils";
+import { TableToolbar, TableFooter } from "@/components/ui/table-toolbar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,6 +97,7 @@ export function PatientAppointments() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(10);
 
   // Booking modal
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -303,31 +303,33 @@ export function PatientAppointments() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:max-w-sm">
-          <Input
-            className="w-full text-xs"
-            placeholder="Search by doctor, specialty, or hospital…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+      {/* Top Control Toolbar (Filters & Refresh) */}
+      <TableToolbar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search doctor, specialty, or hospital..."
+        onRefresh={fetchAppointments}
+        isRefreshing={loading}
+        hasActiveFilters={Boolean(searchQuery || statusFilter !== "ALL")}
+        onClearFilters={() => {
+          setSearchQuery("");
+          setStatusFilter("ALL");
+        }}
+      >
+        <div className="flex items-center gap-1 overflow-x-auto">
           {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as StatusFilter[]).map((s) => (
             <Button
               key={s}
-              className="h-7 shrink-0 px-3 text-[11px] font-semibold"
               size="sm"
-              variant={statusFilter === s ? "primary" : "secondary"}
+              variant={statusFilter === s ? "primary" : "ghost"}
+              className="text-[11px] capitalize font-semibold h-8 px-2.5"
               onPress={() => setStatusFilter(s)}
             >
-              {s}
+              {s.toLowerCase()}
             </Button>
           ))}
         </div>
-      </div>
+      </TableToolbar>
 
       {/* Appointment list */}
       {loading ? (
@@ -353,7 +355,7 @@ export function PatientAppointments() {
         </Card>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {filtered.map((appt) => {
+          {filtered.slice(0, pageSize).map((appt) => {
             const isPast = new Date(appt.dateTime) < new Date();
             const canCancel = appt.status === "PENDING" || appt.status === "CONFIRMED";
 
@@ -440,6 +442,15 @@ export function PatientAppointments() {
           })}
         </div>
       )}
+
+      {/* Bottom Control Footer */}
+      <TableFooter
+        showingCount={Math.min(filtered.length, pageSize)}
+        totalCount={appointments.length}
+        entityLabel="appointments"
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* ─── Booking Modal ─────────────────────────────────────────────────── */}
       {isBookingOpen && (

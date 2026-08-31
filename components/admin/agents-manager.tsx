@@ -16,7 +16,6 @@ import {
   Pencil,
   Plus,
   Power,
-  RefreshCw,
   Sparkles,
   Stethoscope,
   Trash2,
@@ -26,6 +25,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { TableToolbar, TableFooter } from "@/components/ui/table-toolbar";
 import { cn } from "@/lib/utils";
 
 const AGENT_ICONS: Record<string, LucideIcon> = {
@@ -91,6 +91,8 @@ export function AgentsManager() {
   const [doctors, setDoctors] = useState<AdminDoctor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [agentSearch, setAgentSearch] = useState<string>("");
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Agent edit modal state
   const [editingAgent, setEditingAgent] = useState<AdminAgent | null>(null);
@@ -253,6 +255,16 @@ export function AgentsManager() {
   const soonCount = agents.filter((a) => a.isEnabled && !a.isTrained).length;
   const disabledCount = agents.filter((a) => !a.isEnabled).length;
 
+  const filteredAgents = agents.filter((a) => {
+    if (!agentSearch.trim()) return true;
+    const q = agentSearch.toLowerCase();
+    return (
+      a.displayName.toLowerCase().includes(q) ||
+      a.specialty.toLowerCase().includes(q) ||
+      a.description.toLowerCase().includes(q)
+    );
+  });
+
   const modalDoctors = editingAgent
     ? doctors.filter((doc) => showAllDoctors || formDoctorIds.includes(doc.id) || doctorMatchesSpecialty(doc.specialty, editingAgent.specialty))
     : [];
@@ -284,11 +296,19 @@ export function AgentsManager() {
           <Chip className="text-[10px] font-mono font-bold uppercase" color="danger" variant="soft">
             {disabledCount} Disabled
           </Chip>
-          <Button className="text-xs font-semibold" size="sm" variant="secondary" onPress={fetchData}>
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Refresh
-          </Button>
         </div>
       </div>
+
+      {/* Top Control Toolbar (Filters & Refresh) */}
+      <TableToolbar
+        searchValue={agentSearch}
+        onSearchChange={setAgentSearch}
+        searchPlaceholder="Search agent model name, specialty, or description..."
+        onRefresh={fetchData}
+        isRefreshing={loading}
+        hasActiveFilters={Boolean(agentSearch)}
+        onClearFilters={() => setAgentSearch("")}
+      />
 
       {/* Agent cards */}
       {loading ? (
@@ -299,7 +319,7 @@ export function AgentsManager() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {agents.map((agent) => {
+          {filteredAgents.slice(0, pageSize).map((agent) => {
             const AgentIcon = AGENT_ICONS[agent.specialty] ?? Stethoscope;
             const isLive = agent.isEnabled && agent.isTrained;
             const attachedTrainedCount = agent.attachedDoctorIds.filter(
@@ -369,6 +389,15 @@ export function AgentsManager() {
           })}
         </div>
       )}
+
+      {/* Bottom Control Footer */}
+      <TableFooter
+        showingCount={Math.min(filteredAgents.length, pageSize)}
+        totalCount={agents.length}
+        entityLabel="specialist models"
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Agent edit modal */}
       {editingAgent && (

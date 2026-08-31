@@ -20,7 +20,6 @@ import {
   Lock,
   Mail,
   Pencil,
-  RotateCcw,
   Search,
   ShieldCheck,
   ShieldAlert,
@@ -40,6 +39,8 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  TableToolbar,
+  TableFooter,
 } from "@/components/ui/table";
 
 function GoogleLogoIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -108,6 +109,7 @@ export function UsersManager() {
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -134,7 +136,7 @@ export function UsersManager() {
     try {
       const params = new URLSearchParams({
         page: String(page),
-        pageSize: "10",
+        pageSize: String(pageSize),
         sortBy,
         sortOrder,
       });
@@ -157,7 +159,7 @@ export function UsersManager() {
     } finally {
       setLoading(false);
     }
-  }, [page, query, roleFilter, statusFilter, verifiedFilter, sortBy, sortOrder]);
+  }, [page, pageSize, query, roleFilter, statusFilter, verifiedFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     loadUsers();
@@ -393,17 +395,6 @@ export function UsersManager() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {(query || roleFilter || statusFilter || verifiedFilter) && (
-            <Button
-              variant="outline"
-              onPress={handleResetFilters}
-              className="text-xs font-semibold px-3 text-text-secondary hover:text-text-primary flex items-center gap-1.5"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Filters
-            </Button>
-          )}
-
           <Button
             variant="primary"
             onPress={() => setIsCreateUserModalOpen(true)}
@@ -414,6 +405,14 @@ export function UsersManager() {
           </Button>
         </div>
       </div>
+
+      {/* Control Toolbar (Top Filters & Refresh) */}
+      <TableToolbar
+        onRefresh={loadUsers}
+        isRefreshing={loading}
+        hasActiveFilters={Boolean(query || roleFilter || statusFilter || verifiedFilter)}
+        onClearFilters={handleResetFilters}
+      />
 
       {/* Toolbar / Filters */}
       <form
@@ -824,33 +823,20 @@ export function UsersManager() {
         </Table>
       </div>
 
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-secondary pt-2">
-          <span>
-            Showing page <strong className="text-text-primary">{data.page}</strong> of{" "}
-            <strong className="text-text-primary">{data.totalPages}</strong> ({data.total} registered users)
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              isDisabled={page <= 1 || loading}
-              onPress={() => setPage((current) => current - 1)}
-              className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              isDisabled={page >= data.totalPages || loading}
-              onPress={() => setPage((current) => current + 1)}
-              className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Table Bottom Control Footer */}
+      <TableFooter
+        showingCount={data?.users.length || 0}
+        totalCount={data?.total || 0}
+        entityLabel="users"
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        page={data?.page || page}
+        totalPages={data?.totalPages || 1}
+        onPageChange={(newPage) => setPage(newPage)}
+      />
 
       {/* Create New User Modal */}
       {isCreateUserModalOpen && (

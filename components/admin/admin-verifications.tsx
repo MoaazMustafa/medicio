@@ -13,10 +13,14 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
+import { TableToolbar, TableFooter } from "@/components/ui/table-toolbar";
+
 export function AdminVerificationsManager() {
   const [loading, setLoading] = useState(true);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"pending" | "rejected" | "approved" | "archived">("pending");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(10);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionReasonMap, setRejectionReasonMap] = useState<{ [id: string]: string }>({});
   const [toast, setToast] = useState<string | null>(null);
@@ -79,6 +83,30 @@ export function AdminVerificationsManager() {
   const rejectedDoctors = doctors.filter((d) => d.verificationStatus === "REJECTED" && !d.isVerified);
   const approvedDoctors = doctors.filter((d) => d.isVerified || d.verificationStatus === "APPROVED");
   const archivedDoctors = doctors.filter((d) => d.verificationStatus === "ARCHIVED");
+
+  const filterBySearch = (list: any[]) => {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(
+      (d) =>
+        d.name?.toLowerCase().includes(q) ||
+        d.licenseNumber?.toLowerCase().includes(q) ||
+        d.specialty?.toLowerCase().includes(q) ||
+        d.issuingBoard?.toLowerCase().includes(q) ||
+        d.user?.email?.toLowerCase().includes(q)
+    );
+  };
+
+  const activeTabRawList =
+    activeTab === "pending"
+      ? pendingDoctors
+      : activeTab === "rejected"
+      ? rejectedDoctors
+      : activeTab === "approved"
+      ? approvedDoctors
+      : archivedDoctors;
+
+  const activeTabFilteredList = filterBySearch(activeTabRawList);
 
   if (loading) {
     return (
@@ -214,16 +242,27 @@ export function AdminVerificationsManager() {
           </button>
         </div>
 
+        {/* Top Control Toolbar (Filters & Refresh) */}
+        <TableToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search doctor, license, specialty..."
+          onRefresh={fetchDoctors}
+          isRefreshing={loading}
+          hasActiveFilters={Boolean(searchQuery)}
+          onClearFilters={() => setSearchQuery("")}
+        />
+
         {/* Tab 1: Pending Queue */}
         {activeTab === "pending" && (
           <div>
-            {pendingDoctors.length === 0 ? (
+            {filterBySearch(pendingDoctors).length === 0 ? (
               <div className="p-8 text-center border border-dashed border-border-custom rounded-xl text-text-secondary text-xs">
-                No pending doctor credential verification requests in queue.
+                No pending doctor credential verification requests matching criteria.
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {pendingDoctors.map((doc) => (
+                {filterBySearch(pendingDoctors).map((doc) => (
                   <div
                     key={doc.id}
                     className="p-5 rounded-2xl bg-surface/80 border border-amber-500/30 flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm"
@@ -343,13 +382,13 @@ export function AdminVerificationsManager() {
         {/* Tab 2: Rejected Applications */}
         {activeTab === "rejected" && (
           <div>
-            {rejectedDoctors.length === 0 ? (
+            {filterBySearch(rejectedDoctors).length === 0 ? (
               <div className="p-8 text-center border border-dashed border-border-custom rounded-xl text-text-secondary text-xs">
-                No rejected doctor applications recorded.
+                No rejected doctor applications matching criteria.
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {rejectedDoctors.map((doc) => (
+                {filterBySearch(rejectedDoctors).map((doc) => (
                   <div
                     key={doc.id}
                     className="p-5 rounded-2xl bg-surface/80 border border-rose-500/30 flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm"
@@ -437,13 +476,13 @@ export function AdminVerificationsManager() {
         {/* Tab 3: Approved Practitioners */}
         {activeTab === "approved" && (
           <div>
-            {approvedDoctors.length === 0 ? (
+            {filterBySearch(approvedDoctors).length === 0 ? (
               <div className="p-8 text-center border border-dashed border-border-custom rounded-xl text-text-secondary text-xs">
-                No active verified doctors.
+                No active verified doctors matching criteria.
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {approvedDoctors.map((doc) => (
+                {filterBySearch(approvedDoctors).map((doc) => (
                   <div
                     key={doc.id}
                     className="p-4 rounded-xl bg-surface/60 border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
@@ -481,13 +520,13 @@ export function AdminVerificationsManager() {
         {/* Tab 4: Archived Records */}
         {activeTab === "archived" && (
           <div>
-            {archivedDoctors.length === 0 ? (
+            {filterBySearch(archivedDoctors).length === 0 ? (
               <div className="p-8 text-center border border-dashed border-border-custom rounded-xl text-text-secondary text-xs">
-                No archived application records.
+                No archived verification history records matching criteria.
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {archivedDoctors.map((doc) => (
+                {filterBySearch(archivedDoctors).map((doc) => (
                   <div
                     key={doc.id}
                     className="p-4 rounded-xl bg-surface/40 border border-border-custom flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
@@ -519,6 +558,15 @@ export function AdminVerificationsManager() {
             )}
           </div>
         )}
+
+        {/* Bottom Control Footer */}
+        <TableFooter
+          showingCount={Math.min(activeTabFilteredList.length, pageSize)}
+          totalCount={activeTabRawList.length}
+          entityLabel="applications"
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
     </div>
   );

@@ -20,7 +20,6 @@ import {
   Mail,
   Megaphone,
   Send,
-  ShieldAlert,
   Sparkles,
   User,
   UserPlus,

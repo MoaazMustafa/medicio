@@ -5,7 +5,6 @@ import {
   Card,
   Chip,
   Dropdown,
-  Input,
   Label,
   ListBox,
   Select,
@@ -23,7 +22,6 @@ import {
   FileSpreadsheet,
   Lock,
   Mail,
-  RefreshCw,
   Send,
   ShieldCheck,
   X,
@@ -39,6 +37,8 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  TableToolbar,
+  TableFooter,
 } from "@/components/ui/table";
 import { downloadData } from "@/lib/export-helper";
 
@@ -107,14 +107,14 @@ export default function AdminLogsPage() {
   const [systemSearch, setSystemSearch] = useState("");
   const [systemRoleFilter, setSystemRoleFilter] = useState("ALL");
   const [systemPage, setSystemPage] = useState(1);
-  const systemPageSize = 10;
+  const [systemPageSize, setSystemPageSize] = useState(10);
 
   // Email Logs state
   const [emailSearch, setEmailSearch] = useState("");
   const [emailStatusFilter, setEmailStatusFilter] = useState("ALL");
   const [emailCategoryFilter, setEmailCategoryFilter] = useState("ALL");
   const [emailPage, setEmailPage] = useState(1);
-  const emailPageSize = 10;
+  const [emailPageSize, setEmailPageSize] = useState(10);
 
   // System Audit Log Side Drawer Modal state
   const [selectedSystemLog, setSelectedSystemLog] = useState<SystemLogItem | null>(null);
@@ -340,75 +340,32 @@ export default function AdminLogsPage() {
 
           {/* System Logs Table Container */}
           <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
-            {/* Toolbar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-4">
-              <div className="flex items-center gap-2 flex-wrap flex-1">
-                <div className="relative w-full max-w-sm">
-                  <Input
-                    placeholder="Search action, email or IP..."
-                    value={systemSearch}
-                    onChange={(e) => {
-                      setSystemSearch(e.target.value);
-                      setSystemPage(1);
-                    }}
-                    className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-xs text-text-primary w-full"
-                  />
-                </div>
-
-                <Select
-                  aria-label="Filter actor role"
-                  className="w-48"
-                  selectedKey={systemRoleFilter}
-                  onSelectionChange={(key) => {
-                    setSystemRoleFilter(String(key));
-                    setSystemPage(1);
-                  }}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      <ListBox.Item id="ALL" textValue="All Actor Roles">
-                        <Label>All Actor Roles</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="SUPER_ADMIN" textValue="Super Admin">
-                        <Label>Super Admin</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="ADMIN" textValue="Admin">
-                        <Label>Admin</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="SYSTEM" textValue="System Automated">
-                        <Label>System Automated</Label>
-                      </ListBox.Item>
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onPress={handleRefresh}
-                  className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-
-                {/* Multi-Format Export Dropdown */}
+            {/* Control Toolbar (Top Filters & Refresh) */}
+            <TableToolbar
+              searchValue={systemSearch}
+              onSearchChange={(val) => {
+                setSystemSearch(val);
+                setSystemPage(1);
+              }}
+              searchPlaceholder="Search action, email or IP..."
+              onRefresh={handleRefresh}
+              isRefreshing={loading}
+              hasActiveFilters={Boolean(systemSearch || systemRoleFilter !== "ALL")}
+              onClearFilters={() => {
+                setSystemSearch("");
+                setSystemRoleFilter("ALL");
+                setSystemPage(1);
+              }}
+              actions={
                 <Dropdown>
                   <Dropdown.Trigger>
-                    <Button variant="outline" className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5">
+                    <Button variant="outline" size="sm" className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5 h-9">
                       <Download className="w-3.5 h-3.5 text-primary" />
                       Export Logs
                     </Button>
                   </Dropdown.Trigger>
                   <Dropdown.Popover placement="bottom end">
-                    <Dropdown.Menu
-                      onAction={(key) => handleExportSystem(key as any)}
-                    >
+                    <Dropdown.Menu onAction={(key) => handleExportSystem(key as any)}>
                       <Dropdown.Item id="csv" textValue="Export CSV">
                         <Label>Export as CSV (.csv)</Label>
                       </Dropdown.Item>
@@ -421,8 +378,39 @@ export default function AdminLogsPage() {
                     </Dropdown.Menu>
                   </Dropdown.Popover>
                 </Dropdown>
-              </div>
-            </div>
+              }
+            >
+              <Select
+                aria-label="Filter actor role"
+                className="w-44"
+                selectedKey={systemRoleFilter}
+                onSelectionChange={(key) => {
+                  setSystemRoleFilter(String(key));
+                  setSystemPage(1);
+                }}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="ALL" textValue="All Actor Roles">
+                      <Label>All Actor Roles</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="SUPER_ADMIN" textValue="Super Admin">
+                      <Label>Super Admin</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="ADMIN" textValue="Admin">
+                      <Label>Admin</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="SYSTEM" textValue="System Automated">
+                      <Label>System Automated</Label>
+                    </ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </TableToolbar>
 
             {/* HeroUI Table */}
             <div className="w-full overflow-x-auto border border-border-custom rounded-lg bg-surface/30">
@@ -494,33 +482,20 @@ export default function AdminLogsPage() {
               </Table>
             </div>
 
-            {/* System Logs Pagination Bar */}
-            {filteredSystemLogs.length > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-secondary pt-2">
-                <span>
-                  Showing page <strong className="text-text-primary">{systemPage}</strong> of{" "}
-                  <strong className="text-text-primary">{totalSystemPages}</strong> ({filteredSystemLogs.length} total logs)
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    isDisabled={systemPage <= 1 || loading}
-                    onPress={() => setSystemPage((prev) => Math.max(1, prev - 1))}
-                    className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    isDisabled={systemPage >= totalSystemPages || loading}
-                    onPress={() => setSystemPage((prev) => Math.min(totalSystemPages, prev + 1))}
-                    className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* System Logs Bottom Control Footer */}
+            <TableFooter
+              showingCount={paginatedSystemLogs.length}
+              totalCount={realSystemLogs.length}
+              entityLabel="audit events"
+              pageSize={systemPageSize}
+              onPageSizeChange={(newSize) => {
+                setSystemPageSize(newSize);
+                setSystemPage(1);
+              }}
+              page={systemPage}
+              totalPages={totalSystemPages}
+              onPageChange={setSystemPage}
+            />
           </Card>
 
           {/* SYSTEM AUDIT LOG DETAIL EXPANDABLE SIDE DRAWER MODAL */}
@@ -573,7 +548,7 @@ export default function AdminLogsPage() {
                   </div>
                 </div>
 
-                {/* Section 1: ACTOR DETAILS (WHO PERFORMED THE ACTION?) */}
+                {/* Section 1: ACTOR DETAILS */}
                 <div className="flex flex-col gap-2.5">
                   <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-primary flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4" />
@@ -615,11 +590,11 @@ export default function AdminLogsPage() {
                   </div>
                 </div>
 
-                {/* Section 2: TARGET ENTITY DETAILS (WHOM WAS ACTED UPON / APPROVED?) */}
+                {/* Section 2: TARGET ENTITY DETAILS */}
                 <div className="flex flex-col gap-2.5">
                   <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-emerald-400 flex items-center gap-1.5">
                     <Activity className="w-4 h-4" />
-                    <span>Target Entity Details — Action Subject ("Who Approved Whom")</span>
+                    <span>Target Entity Details — Action Subject</span>
                   </h4>
                   <div className="p-4 rounded-xl bg-background-custom/40 border border-border-custom/60 flex flex-col gap-2 text-xs">
                     {selectedSystemLog.targetDetails ? (
@@ -666,7 +641,7 @@ export default function AdminLogsPage() {
                     ) : (
                       <div className="p-3 rounded-lg bg-border-custom/30 text-center flex flex-col items-center gap-1 text-text-secondary">
                         <span className="font-mono font-bold text-[11px] text-amber-400">null</span>
-                        <span className="text-[11px]">Target details null — Legacy Audit Log Entry (Created prior to Who-Approved-Whom tracking feature)</span>
+                        <span className="text-[11px]">Target details null — Legacy Audit Log Entry</span>
                       </div>
                     )}
                   </div>
@@ -791,109 +766,33 @@ export default function AdminLogsPage() {
 
           {/* Email Logs Table */}
           <Card className="p-6 border border-border-custom bg-surface/50 backdrop-blur-md flex flex-col gap-6 shadow-lg">
-            {/* Controls */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-custom pb-4">
-              <div className="flex items-center gap-2 flex-wrap flex-1">
-                <div className="relative w-full max-w-sm">
-                  <Input
-                    placeholder="Search recipient or subject..."
-                    value={emailSearch}
-                    onChange={(e) => {
-                      setEmailSearch(e.target.value);
-                      setEmailPage(1);
-                    }}
-                    className="px-3 py-2 border border-border-custom bg-background-custom/30 rounded-lg text-xs text-text-primary w-full"
-                  />
-                </div>
-
-                <Select
-                  aria-label="Filter email status"
-                  className="w-40"
-                  selectedKey={emailStatusFilter}
-                  onSelectionChange={(key) => {
-                    setEmailStatusFilter(String(key));
-                    setEmailPage(1);
-                  }}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      <ListBox.Item id="ALL" textValue="All Statuses">
-                        <Label>All Statuses</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="DELIVERED" textValue="Delivered">
-                        <Label>Delivered</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="PENDING" textValue="Pending">
-                        <Label>Pending</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="FAILED" textValue="Failed">
-                        <Label>Failed</Label>
-                      </ListBox.Item>
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-
-                <Select
-                  aria-label="Filter email category"
-                  className="w-48"
-                  selectedKey={emailCategoryFilter}
-                  onSelectionChange={(key) => {
-                    setEmailCategoryFilter(String(key));
-                    setEmailPage(1);
-                  }}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      <ListBox.Item id="ALL" textValue="All Categories">
-                        <Label>All Categories</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="OTP Verification" textValue="OTP Verification">
-                        <Label>OTP Verification</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="Password Reset" textValue="Password Reset">
-                        <Label>Password Reset</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="Appointment Reminder" textValue="Appointment Reminder">
-                        <Label>Appointment Reminder</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="Welcome Email" textValue="Welcome Email">
-                        <Label>Welcome Email</Label>
-                      </ListBox.Item>
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onPress={handleRefresh}
-                  className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-
-                {/* Multi-Format Export Dropdown */}
+            {/* Control Toolbar (Top Filters & Refresh) */}
+            <TableToolbar
+              searchValue={emailSearch}
+              onSearchChange={(val) => {
+                setEmailSearch(val);
+                setEmailPage(1);
+              }}
+              searchPlaceholder="Search recipient or subject..."
+              onRefresh={handleRefresh}
+              isRefreshing={loading}
+              hasActiveFilters={Boolean(emailSearch || emailStatusFilter !== "ALL" || emailCategoryFilter !== "ALL")}
+              onClearFilters={() => {
+                setEmailSearch("");
+                setEmailStatusFilter("ALL");
+                setEmailCategoryFilter("ALL");
+                setEmailPage(1);
+              }}
+              actions={
                 <Dropdown>
                   <Dropdown.Trigger>
-                    <Button variant="outline" className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5">
+                    <Button variant="outline" size="sm" className="text-xs font-semibold px-3 text-text-primary flex items-center gap-1.5 h-9">
                       <Download className="w-3.5 h-3.5 text-primary" />
                       Export Logs
                     </Button>
                   </Dropdown.Trigger>
                   <Dropdown.Popover placement="bottom end">
-                    <Dropdown.Menu
-                      onAction={(key) => handleExportEmail(key as any)}
-                    >
+                    <Dropdown.Menu onAction={(key) => handleExportEmail(key as any)}>
                       <Dropdown.Item id="csv" textValue="Export CSV">
                         <Label>Export as CSV (.csv)</Label>
                       </Dropdown.Item>
@@ -906,8 +805,73 @@ export default function AdminLogsPage() {
                     </Dropdown.Menu>
                   </Dropdown.Popover>
                 </Dropdown>
-              </div>
-            </div>
+              }
+            >
+              <Select
+                aria-label="Filter email status"
+                className="w-36"
+                selectedKey={emailStatusFilter}
+                onSelectionChange={(key) => {
+                  setEmailStatusFilter(String(key));
+                  setEmailPage(1);
+                }}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="ALL" textValue="All Statuses">
+                      <Label>All Statuses</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="DELIVERED" textValue="Delivered">
+                      <Label>Delivered</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="PENDING" textValue="Pending">
+                      <Label>Pending</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="FAILED" textValue="Failed">
+                      <Label>Failed</Label>
+                    </ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+
+              <Select
+                aria-label="Filter email category"
+                className="w-44"
+                selectedKey={emailCategoryFilter}
+                onSelectionChange={(key) => {
+                  setEmailCategoryFilter(String(key));
+                  setEmailPage(1);
+                }}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="ALL" textValue="All Categories">
+                      <Label>All Categories</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="OTP Verification" textValue="OTP Verification">
+                      <Label>OTP Verification</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="Password Reset" textValue="Password Reset">
+                      <Label>Password Reset</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="Appointment Reminder" textValue="Appointment Reminder">
+                      <Label>Appointment Reminder</Label>
+                    </ListBox.Item>
+                    <ListBox.Item id="Welcome Email" textValue="Welcome Email">
+                      <Label>Welcome Email</Label>
+                    </ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </TableToolbar>
 
             {/* Email Logs Table - Row Click opens Preview Drawer */}
             <div className="w-full overflow-x-auto border border-border-custom rounded-lg bg-surface/30">
@@ -980,33 +944,20 @@ export default function AdminLogsPage() {
               </Table>
             </div>
 
-            {/* Email Logs Pagination Bar */}
-            {filteredEmailLogs.length > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-secondary pt-2">
-                <span>
-                  Showing page <strong className="text-text-primary">{emailPage}</strong> of{" "}
-                  <strong className="text-text-primary">{totalEmailPages}</strong> ({filteredEmailLogs.length} total dispatches)
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    isDisabled={emailPage <= 1 || loading}
-                    onPress={() => setEmailPage((prev) => Math.max(1, prev - 1))}
-                    className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    isDisabled={emailPage >= totalEmailPages || loading}
-                    onPress={() => setEmailPage((prev) => Math.min(totalEmailPages, prev + 1))}
-                    className="text-xs font-semibold px-4 py-1.5 text-text-primary"
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* Email Logs Bottom Control Footer */}
+            <TableFooter
+              showingCount={paginatedEmailLogs.length}
+              totalCount={realEmailLogs.length}
+              entityLabel="email logs"
+              pageSize={emailPageSize}
+              onPageSizeChange={(newSize) => {
+                setEmailPageSize(newSize);
+                setEmailPage(1);
+              }}
+              page={emailPage}
+              totalPages={totalEmailPages}
+              onPageChange={setEmailPage}
+            />
           </Card>
 
           {/* EMAIL PREVIEW EXPANDABLE SIDE DRAWER MODAL */}

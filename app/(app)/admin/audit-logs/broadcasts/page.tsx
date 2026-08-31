@@ -1,5 +1,5 @@
 import { Card, Chip } from "@heroui/react";
-import { BellRing, Globe, Mail, Megaphone, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react";
+import { BellRing, Globe, Mail, Megaphone, ScrollText, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { BroadcastHistoryTable } from "@/components/admin/broadcast-history-table";

@@ -29,6 +29,10 @@ This document serves as a persistent context log for AI agents working on the Me
   - In-app notification center: bell with live unread badge in the app header, right-side drawer panel, expandable notification rows, All/Unread filter, time grouping, mark read/unread, mark-all-read, clear-read, load-more pagination.
   - Web Push (VAPID) delivery via `public/sw.js` + `web-push`; per-browser opt-in toggle in the panel footer; subscriptions stored in `push_subscriptions`.
   - `lib/notifications.ts` is the single notification write path (mirrors `lib/audit` never-throw semantics). Events wired: appointment booked/status changed, doctor credential decisions, hospital affiliations, account welcome, admin review-queue alerts.
+- [x] **Patient Role Modules & Provider Discovery (Completed)**:
+  - Browser device GPS Geolocation and search radius selection for nearby care discovery (`FR-AI-09`, `FR-PHARM-05`).
+  - Scheduled daily dose push alarms with preset times and in-app/Web Push triggers (`FR-MED-04`).
+  - Unified Healthcare Provider Directory Hub (`/directory`) covering Doctors, Hospitals, Pharmacies, and Labs with verified badges, search/specialty filters, and direct appointment booking modals (`FR-APPT-01`, `FR-PHARM-04`, `FR-LAB-04`).
 - [ ] Simplify navigation headers (`components/navbar.tsx`) to strictly use HeroUI components.
 - [ ] Update landing pages (`app/page.tsx`, `app/not-found.tsx`, `app/error.tsx`) to match Medicio clinical motifs and enforce HeroUI usage.
 

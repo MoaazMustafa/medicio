@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Chip, ScrollShadow, Separator, Switch } from "@heroui/react";
+import { Button, Chip } from "@heroui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,

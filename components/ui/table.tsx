@@ -80,3 +80,8 @@ export function TableCell({
     </td>
   );
 }
+
+export { TableToolbar, TableFooter } from "./table-toolbar";
+export type { TableToolbarProps, TableFooterProps } from "./table-toolbar";
+
+

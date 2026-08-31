@@ -3,23 +3,17 @@
 import { Button, Card, Chip } from "@heroui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bell,
-  BellRing,
-  CheckCircle2,
   ChevronRight,
-  Eye,
-  Globe,
-  Icon,
   Mail,
   Megaphone,
   ScrollText,
-  Search,
   UserCheck,
-  UserPlus,
   Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
+
+import { TableToolbar, TableFooter } from "@/components/ui/table-toolbar";
 
 export interface BroadcastLogRecord {
   id: string;
@@ -42,6 +36,7 @@ export function BroadcastHistoryTable({ logs }: { logs: BroadcastLogRecord[] }) 
   const [selectedLog, setSelectedLog] = useState<BroadcastLogRecord | null>(null);
   const [filterAction, setFilterAction] = useState<"ALL" | "BROADCAST" | "EMAIL">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(10);
 
   const filteredLogs = logs.filter((log) => {
     if (filterAction === "BROADCAST" && log.action !== "ADMIN_NOTIFICATION_BROADCAST") return false;
@@ -63,10 +58,20 @@ export function BroadcastHistoryTable({ logs }: { logs: BroadcastLogRecord[] }) 
   return (
     <div className="flex flex-col gap-5 w-full">
       {/* Table Controls & Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-border-custom bg-surface/40 backdrop-blur-md">
+      {/* Top Control Toolbar (Filters & Search) */}
+      <TableToolbar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search sender, recipient, or subject..."
+        hasActiveFilters={Boolean(searchQuery || filterAction !== "ALL")}
+        onClearFilters={() => {
+          setSearchQuery("");
+          setFilterAction("ALL");
+        }}
+      >
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background-custom/60 border border-border-custom/80">
           {[
-            { id: "ALL", label: `All Dispatches (${logs.length})` },
+            { id: "ALL", label: `All (${logs.length})` },
             { id: "BROADCAST", label: "Broadcast Alerts" },
             { id: "EMAIL", label: "Email Dispatches" },
           ].map((tab) => (
@@ -83,18 +88,7 @@ export function BroadcastHistoryTable({ logs }: { logs: BroadcastLogRecord[] }) 
             </button>
           ))}
         </div>
-
-        <div className="relative min-w-[260px]">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by sender, recipient, or subject..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border-custom bg-background-custom/50 text-xs text-text-primary focus:outline-none focus:border-primary transition-colors"
-          />
-          <Search className="w-3.5 h-3.5 text-text-secondary absolute left-3 top-2.5" />
-        </div>
-      </div>
+      </TableToolbar>
 
       {/* History Table Card */}
       <Card className="p-0 border border-border-custom bg-surface/50 backdrop-blur-md overflow-hidden shadow-lg rounded-2xl">
@@ -119,7 +113,7 @@ export function BroadcastHistoryTable({ logs }: { logs: BroadcastLogRecord[] }) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-custom/50">
-                {filteredLogs.map((log) => {
+                {filteredLogs.slice(0, pageSize).map((log) => {
                   const meta = log.metadata || {};
                   const isBroadcast = log.action === "ADMIN_NOTIFICATION_BROADCAST";
                   const channels = meta.channels || {};
@@ -251,6 +245,15 @@ export function BroadcastHistoryTable({ logs }: { logs: BroadcastLogRecord[] }) 
           </div>
         )}
       </Card>
+
+      {/* Bottom Control Footer */}
+      <TableFooter
+        showingCount={Math.min(filteredLogs.length, pageSize)}
+        totalCount={logs.length}
+        entityLabel="dispatches"
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Detailed Inspection Modal Drawer */}
       <AnimatePresence>

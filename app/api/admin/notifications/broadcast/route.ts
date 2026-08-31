@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { getSession } from "@/lib/auth";
 import { sendBulkBroadcastEmail } from "@/lib/email";
 import { NOTIFICATION_TYPES, sendPushToUser } from "@/lib/notifications";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // Resolve targeted users
-    let whereClause: any = { isActive: true };
+    const whereClause: any = { isActive: true };
 
     if (targetType === "ROLE") {
       if (!targetValue) {
