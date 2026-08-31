@@ -6,9 +6,7 @@ import {
   PROTECTED_ROUTES,
   dashboardForRole,
 } from "@/config/roles";
-import { writeAudit } from "@/lib/audit";
 import { verifyJwt } from "@/lib/jwt";
-import { getClientIp } from "@/lib/rate-limit";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
 export async function middleware(request: NextRequest) {
@@ -36,20 +34,9 @@ export async function middleware(request: NextRequest) {
           (request.nextUrl.searchParams.has("force") ? "FORCE_LOGOUT" : null) ||
           "SESSION_PURGED";
 
-        void writeAudit({
-          action: "USER_LOGOUT_PURGED",
-          actorId: session.userId,
-          actorRole: session.role,
-          entityType: "USER",
-          entityId: session.userId,
-          ip: getClientIp(request),
-          metadata: {
-            name: session.name,
-            email: session.email,
-            role: session.role,
-            reason: reason.toUpperCase(),
-          },
-        });
+        console.log(
+          `[MIDDLEWARE_LOGOUT_PURGED] user=${session.userId} role=${session.role} reason=${reason.toUpperCase()}`,
+        );
       }
 
       const response = NextResponse.next();

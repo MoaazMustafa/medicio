@@ -1,4 +1,11 @@
-import type { UserRole } from "@prisma/client";
+export type UserRole =
+  | "PATIENT"
+  | "DOCTOR"
+  | "HOSPITAL_ADMIN"
+  | "LAB_ADMIN"
+  | "PHARMACY_ADMIN"
+  | "ADMIN"
+  | "SUPER_ADMIN";
 
 /**
  * HS256 JWT helpers built on the Web Crypto API so the exact same implementation
