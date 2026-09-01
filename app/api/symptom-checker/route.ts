@@ -40,6 +40,15 @@ const GREETING_KEYWORDS = [
   "test",
   "help",
   "start",
+  "salam",
+  "assalam",
+  "asalam",
+  "assalam o alaikum",
+  "asalam alaikum",
+  "kese ho",
+  "kaise ho",
+  "kya hal hai",
+  "kya haal hai",
 ];
 
 const PLEASANTRY_KEYWORDS = [
@@ -57,7 +66,30 @@ const PLEASANTRY_KEYWORDS = [
   "alright",
   "perfect",
   "great",
+  "shukriya",
+  "bohot shukriya",
+  "boht shukriya",
+  "shukran",
+  "jazakallah",
+  "jazak allah",
+  "theek hai",
+  "thik hai",
+  "thek hai",
 ];
+
+function isRomanUrdu(text: string): boolean {
+  const lower = text.toLowerCase();
+  const urduWords = [
+    "mujhe", "mera", "meri", "mere", "hai", "hain", "kya", "kyun", "kab", "kese", "kaise",
+    "ho", "raha", "rahi", "rahey", "dard", "sar", "pait", "bukhar", "khansi", "gala",
+    "se", "ko", "par", "mein", "me", "doctor", "dikha", "milna", "batao", "bataen",
+    "shukriya", "theek", "thik", "thek", "salam", "karna", "krna", "chahiye", "chaheay",
+    "dawa", "dawaii", "goli", "khana", "peena", "bohot", "boht", "zyada", "ziada", "kam",
+    "subah", "subha", "dopahar", "dophar", "shaam", "sham", "raat", "kal", "aaj", "baje", "bje",
+    "bachon", "bacha", "aurat", "khawateen", "dil", "jild", "chamri", "haddi", "jor"
+  ];
+  return urduWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+}
 
 function isSimpleGreeting(promptText: string): boolean {
   const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
@@ -69,7 +101,7 @@ function isSimplePleasantry(promptText: string): boolean {
   const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
   return (
     PLEASANTRY_KEYWORDS.includes(clean) ||
-    (clean.length <= 20 && PLEASANTRY_KEYWORDS.some((kw) => clean === kw || clean.startsWith(kw)))
+    (clean.length <= 25 && PLEASANTRY_KEYWORDS.some((kw) => clean === kw || clean.startsWith(kw)))
   );
 }
 
@@ -89,13 +121,28 @@ function isBookingConfirmation(promptText: string): boolean {
     "confirm appointment",
     "finalize",
     "finalize booking",
+    "haan",
+    "han",
+    "theek hai",
+    "thik hai",
+    "thek hai",
+    "kar do",
+    "kr do",
+    "book kar do",
+    "book kr do",
+    "confirm kar do",
+    "confirm kr do",
+    "confirm kar dein",
+    "confirm kr dein",
   ];
   return (
     confirmPhrases.includes(clean) ||
     clean.startsWith("confirm booking") ||
     clean.startsWith("confirm appointment") ||
     clean.startsWith("confirm slot") ||
-    clean === "yes"
+    clean === "yes" ||
+    clean === "haan" ||
+    clean === "han"
   );
 }
 
@@ -114,6 +161,12 @@ function isBookingIntent(promptText: string): boolean {
     "visit doctor",
     "take appointment",
     "confirm booking",
+    "milna hai",
+    "dikhana hai",
+    "check karwana",
+    "check krwana",
+    "appointment leni",
+    "slot chahiye",
   ];
   return bookingKeywords.some((kw) => lower.includes(kw));
 }
@@ -160,50 +213,72 @@ const SPECIALTY_CANONICAL_MAP: Record<string, string> = {
   dermatologist: "Dermatology",
   skin: "Dermatology",
   derma: "Dermatology",
+  jild: "Dermatology",
+  chamri: "Dermatology",
   cardiology: "Cardiology",
   cardiologist: "Cardiology",
   heart: "Cardiology",
   cardio: "Cardiology",
+  dil: "Cardiology",
   neurology: "Neurology",
   neurologist: "Neurology",
   neuro: "Neurology",
   brain: "Neurology",
+  dimagh: "Neurology",
+  dimag: "Neurology",
   pediatrics: "Pediatrics",
   pediatrician: "Pediatrics",
   child: "Pediatrics",
   peds: "Pediatrics",
+  bachon: "Pediatrics",
+  bacha: "Pediatrics",
   orthopedics: "Orthopedics",
   orthopedic: "Orthopedics",
   ortho: "Orthopedics",
   bone: "Orthopedics",
+  haddi: "Orthopedics",
+  jor: "Orthopedics",
   gynecology: "Gynecology",
   gynecologist: "Gynecology",
   gynae: "Gynecology",
   obgyn: "Gynecology",
+  aurat: "Gynecology",
+  khawateen: "Gynecology",
   ent: "ENT",
   ear: "ENT",
   nose: "ENT",
   throat: "ENT",
   otolaryngology: "ENT",
+  kaan: "ENT",
+  naak: "ENT",
+  gala: "ENT",
   ophthalmology: "Ophthalmology",
   ophthalmologist: "Ophthalmology",
   eye: "Ophthalmology",
   vision: "Ophthalmology",
+  aankh: "Ophthalmology",
+  aankhon: "Ophthalmology",
   psychiatry: "Psychiatry",
   psychiatrist: "Psychiatry",
   mental: "Psychiatry",
   psych: "Psychiatry",
+  zehni: "Psychiatry",
   gastroenterology: "Gastroenterology",
   gastroenterologist: "Gastroenterology",
   gastro: "Gastroenterology",
   stomach: "Gastroenterology",
   digestive: "Gastroenterology",
+  maida: "Gastroenterology",
+  pait: "Gastroenterology",
   pulmonology: "Pulmonology",
   pulmonologist: "Pulmonology",
   pulmo: "Pulmonology",
   chest: "Pulmonology",
   respiratory: "Pulmonology",
   lungs: "Pulmonology",
+  saans: "Pulmonology",
+  phephray: "Pulmonology",
+  phephre: "Pulmonology",
   general: "General Physician",
   physician: "General Physician",
   gp: "General Physician",
@@ -272,6 +347,15 @@ function checkMedicalContextInHistory(history: any[]): {
     "cramp",
     "breath",
     "itch",
+    "dard",
+    "sar",
+    "pait",
+    "bukhar",
+    "khansi",
+    "gala",
+    "kharish",
+    "chakkar",
+    "saans",
   ];
   const hasSymptoms = userMessages.some((msg) =>
     symptomKeywords.some((kw) => msg.includes(kw)),
@@ -285,15 +369,18 @@ function parseBookingDateTime(promptText: string): Date {
   const now = new Date();
   const target = new Date(now);
 
-  if (lower.includes("tomorrow")) {
+  if (lower.includes("tomorrow") || lower.includes("kal")) {
     target.setDate(target.getDate() + 1);
-  } else if (lower.includes("today") || lower.includes("tonight")) {
+  } else if (lower.includes("today") || lower.includes("tonight") || lower.includes("aaj")) {
     // keep today
   } else {
     const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const urduDays = ["itwar", "somwar", "mangal", "budh", "jumeraat", "jumma", "hafta"];
+    const altUrduDays = ["itwar", "peer", "mangal", "budh", "jumerat", "juma", "hafta"];
+
     let foundDay = -1;
     for (let i = 0; i < daysOfWeek.length; i++) {
-      if (lower.includes(daysOfWeek[i])) {
+      if (lower.includes(daysOfWeek[i]) || lower.includes(urduDays[i]) || lower.includes(altUrduDays[i])) {
         foundDay = i;
         break;
       }
@@ -310,20 +397,33 @@ function parseBookingDateTime(promptText: string): Date {
   }
 
   // Parse time
-  const time12Match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  const time12Match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|bje)/i);
   if (time12Match) {
     let hour = parseInt(time12Match[1], 10);
     const minute = time12Match[2] ? parseInt(time12Match[2], 10) : 0;
     const meridian = time12Match[3].toLowerCase();
     if (meridian === "pm" && hour < 12) hour += 12;
     if (meridian === "am" && hour === 12) hour = 0;
+    if (
+      (meridian === "baje" || meridian === "bje") &&
+      (lower.includes("shaam") ||
+        lower.includes("sham") ||
+        lower.includes("raat") ||
+        lower.includes("dopahar") ||
+        lower.includes("dophar")) &&
+      hour < 12
+    ) {
+      hour += 12;
+    }
     target.setHours(hour, minute, 0, 0);
-  } else if (lower.includes("morning")) {
+  } else if (lower.includes("morning") || lower.includes("subah") || lower.includes("subha")) {
     target.setHours(10, 0, 0, 0);
-  } else if (lower.includes("afternoon")) {
+  } else if (lower.includes("afternoon") || lower.includes("dopahar") || lower.includes("dophar")) {
     target.setHours(14, 0, 0, 0);
-  } else if (lower.includes("evening")) {
+  } else if (lower.includes("evening") || lower.includes("shaam") || lower.includes("sham")) {
     target.setHours(17, 0, 0, 0);
+  } else if (lower.includes("night") || lower.includes("raat")) {
+    target.setHours(20, 0, 0, 0);
   } else {
     target.setHours(10, 0, 0, 0);
   }
@@ -579,10 +679,11 @@ Patient Baseline Intake Parameters (if pre-configured):
 - Care Paradigm: ${treatmentApproach || "Allopathic / Conventional"}
 
 CRITICAL CONVERSATIONAL RULES:
-1. **One-By-One Questioning**: If the patient's presentation is missing key clinical details (e.g. onset & duration, severity 1-10, chronic comorbidities like Diabetes/Hypertension/Asthma, active medications, or specialty red flags), DO NOT dump a bulk form of questions. Instead, ask **EXACTLY ONE focused, empathetic follow-up question at a time**.
-2. **Completion & No Duplicate Reports**: If the clinical intake is complete for the first time, set "isComplete": true and populate the full "triageResult". However, **if a triage assessment report was ALREADY provided earlier in the conversation history**, set "isComplete": false and "triageResult": null, and simply answer the patient's follow-up questions or conversational remarks directly in "messageContent".
-3. **Safety & Contraindications**: Always cross-reference the patient's reported comorbidities (e.g. Hypertension, Peptic Ulcers, Kidney Disease, Asthma) before recommending any OTC medications in "triageResult".
-4. **Red Flags & Urgent Care**: If life-threatening red flags are present (crushing chest pain radiating to jaw/arm, sudden slurred speech/facial droop, severe dyspnea), immediately mark severity as "CRITICAL" and advise emergency ER/911 care.
+1. **Language & Script Mirroring (Strict Priority)**: ALWAYS detect and mirror the exact language and script of the patient. If the patient writes in Roman Urdu / Hindi (e.g. 'mujhe sar mein dard hai', 'pait me jalan ho rahi hai', 'bukhar kitne din se hai', 'doctor ko dikhana hai', 'kal subah'), you MUST respond in fluent, empathetic, natural Roman Urdu (e.g. 'Aapko sar dard kitne din se ho raha hai? Kya ulti ya chakkar bhi aa rahe hain?'). If the patient writes in English, reply in English. If Urdu script, reply in Urdu script. NEVER reply in English to a Roman Urdu query!
+2. **One-By-One Questioning**: If the patient's presentation is missing key clinical details (e.g. onset & duration, severity 1-10, chronic comorbidities like Diabetes/Hypertension/Asthma, active medications, or specialty red flags), DO NOT dump a bulk form of questions. Instead, ask **EXACTLY ONE focused, empathetic follow-up question at a time**.
+3. **Completion & No Duplicate Reports**: If the clinical intake is complete for the first time, set "isComplete": true and populate the full "triageResult". However, **if a triage assessment report was ALREADY provided earlier in the conversation history**, set "isComplete": false and "triageResult": null, and simply answer the patient's follow-up questions or conversational remarks directly in "messageContent".
+4. **Safety & Contraindications**: Always cross-reference the patient's reported comorbidities (e.g. Hypertension, Peptic Ulcers, Kidney Disease, Asthma) before recommending any OTC medications in "triageResult".
+5. **Red Flags & Urgent Care**: If life-threatening red flags are present (crushing chest pain radiating to jaw/arm, sudden slurred speech/facial droop, severe dyspnea), immediately mark severity as "CRITICAL" and advise emergency ER/911 care.
 
 You MUST respond ONLY with a valid JSON object matching this exact schema:
 {
@@ -771,10 +872,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const isUrdu = isRomanUrdu(trimmedPrompt);
+
     // 3. GREETING & PLEASANTRY CHECK
     if (isSimpleGreeting(trimmedPrompt)) {
       const hasHistory = Array.isArray(history) && history.length > 0;
-      const greetingMessage = hasHistory
+      const greetingMessage = isUrdu
+        ? hasHistory
+          ? "Assalam o Alaikum! Main aapki mazeed kya madad kar sakta hoon? Agar aapko koi aur takleef hai to batayein, ya naya session shuru karne ke liye '+' button dabayein."
+          : `Assalam o Alaikum! Main Medicio AI Clinical Assistant (${agent.displayName}) hoon. Main aapki sehat ke hawalay se kis tarah madad kar sakta hoon? Barah-e-karam apni takleef ya alamaat batayein.`
+        : hasHistory
         ? `Hello! How can I assist you further? If you're experiencing any other symptoms or have questions regarding your assessment, let me know. You can also click the '+' button in the top bar to start a fresh triage session.`
         : `Hello! I am your Medicio AI Clinical Assistant (${agent.displayName}). How can I assist with your health today? Please describe your symptoms or physical concerns to begin guided clinical triage.`;
 
@@ -790,8 +897,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         responseType: "GREETING",
-        content:
-          "You're very welcome! Please take care, follow your care precautions, and don't hesitate to book a slot with a registered doctor if your symptoms change or worsen.",
+        content: isUrdu
+          ? "Bohot shukriya! Apna khayal rakhein, ehtiyati tadabeer par amal karein, aur agar takleef barhe to foran doctor se rujoo karein."
+          : "You're very welcome! Please take care, follow your care precautions, and don't hesitate to book a slot with a registered doctor if your symptoms change or worsen.",
         conversationId: conversationId || null,
       });
     }
@@ -893,15 +1001,19 @@ export async function POST(request: NextRequest) {
               hospitalName: appointment.doctor.hospital?.name || null,
               clinicAddress: appointment.doctor.clinicAddress || appointment.doctor.hospital?.location || "Medicio Health Center",
               consultationFee: appointment.doctor.consultationFee ?? 50,
-              dateTime: appointment.dateTime.toISOString(),
+              dateTime: scheduledDateTime.toISOString(),
               status: "PENDING",
               notes: appointment.notes,
             };
 
+            const confirmedContent = isUrdu
+              ? `**Appointment Request Jama Ho Chuki Hai**\n\n**Dr. ${appointment.doctor.user.name}** (${appointment.doctor.specialty}) ke sath aapki appointment **${formattedDate} ko ${formattedTime}** ke liye reserve kar di gayi hai.\n\nDoctor ko notification aur confirmation email bhej di gayi hai. Aap appointments dashboard mein iska status dekh sakte hain.`
+              : `**Appointment Confirmed & Submitted**\n\nYour appointment with **Dr. ${appointment.doctor.user.name}** (${appointment.doctor.specialty}) has been reserved for **${formattedDate} at ${formattedTime}**.\n\nA notification and confirmation email have been sent to the doctor. You can track or modify this booking anytime in your appointments dashboard.`;
+
             return NextResponse.json({
               success: true,
               responseType: "BOOKING_CONFIRMED",
-              content: `**Appointment Confirmed & Submitted**\n\nYour appointment with **Dr. ${appointment.doctor.user.name}** (${appointment.doctor.specialty}) has been reserved for **${formattedDate} at ${formattedTime}**.\n\nA notification and confirmation email have been sent to the doctor. You can track or modify this booking anytime in your appointments dashboard.`,
+              content: confirmedContent,
               bookingResult,
               conversationId: conversationId || null,
             });
@@ -919,10 +1031,14 @@ export async function POST(request: NextRequest) {
               notes: `Prompt booking via AI Assistant: "${trimmedPrompt}"`,
             };
 
+            const authContent = isUrdu
+              ? `**Appointment Slot Tayyar Hai**\n\nMaine **Dr. ${targetDoctor.user.name}** ke sath **${formattedDate} ko ${formattedTime}** ke liye aapka slot tayyar kar diya hai.\n\nBarah-e-karam booking finalize karne ke liye apne Medicio account mein login karein.`
+              : `**Appointment Slot Prepared**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** for **${formattedDate} at ${formattedTime}**.\n\nPlease sign in to your Medicio account to finalize this booking.`;
+
             return NextResponse.json({
               success: true,
               responseType: "BOOKING_AUTH_REQUIRED",
-              content: `**Appointment Slot Prepared**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** for **${formattedDate} at ${formattedTime}**.\n\nPlease sign in to your Medicio account to finalize this booking.`,
+              content: authContent,
               bookingResult,
               conversationId: conversationId || null,
             });
@@ -932,11 +1048,14 @@ export async function POST(request: NextRequest) {
 
       // STEP 2: If user sends general "book a slot" without any symptoms / medical context or doctor
       if (!medicalContext.hasContext && !explicitDoctor && !explicitSpecialty) {
+        const askReasonContent = isUrdu
+          ? "Main aapki appointment book karne mein zaroor madad karunga! Barah-e-karam apni takleef ya bimari thori tafseel se batayein taake main aapko sahi specialist doctor (maslan Dermatology, Cardiology, ya General Physician) suggest kar sakoon.\n\n*(Agar aapko pehle se kisi makhsoos doctor ya specialty ka pata hai, to aap seedha keh sakte hain: 'Dr. Sarah Jenkins se appointment chahiye' ya 'Dermatologist book karna hai')*"
+          : "I'd be glad to help you schedule an appointment! Could you briefly share what symptoms or health concerns you are experiencing? This helps me recommend the appropriate specialist (such as Cardiology, Dermatology, or General Physician) and find the best doctor for you.\n\n*(Alternatively, if you already have a doctor or specialty in mind, you can simply say: 'Book with Dr. Aisha' or 'Book a cardiologist')*";
+
         return NextResponse.json({
           success: true,
           responseType: "CONVERSATION_TURN",
-          content:
-            "I'd be glad to help you schedule an appointment! Could you briefly share what symptoms or health concerns you are experiencing? This helps me recommend the appropriate specialist (such as Cardiology, Dermatology, or General Physician) and find the best doctor for you.\n\n*(Alternatively, if you already have a doctor or specialty in mind, you can simply say: 'Book with Dr. Aisha' or 'Book a cardiologist')*",
+          content: askReasonContent,
           conversationId: conversationId || null,
         });
       }
@@ -958,10 +1077,14 @@ export async function POST(request: NextRequest) {
           )
           .join("\n");
 
+        const listDoctorsContent = isUrdu
+          ? `Yeh hamare verified **${targetSpecialty}** specialists dastiyab hain:\n\n${docListText}\n\nAap kis doctor ko dikhana chahenge, aur konsa din aur waqt (maslan *'Kal subah 10:00 baje'* ya *'Jumma dopahar 2:00 baje'*) aapke liye behtar rahega?`
+          : `Here are our verified **${targetSpecialty}** specialists available for consultation:\n\n${docListText}\n\nWhich doctor would you like to see, and what preferred day and time (e.g. *'Tomorrow at 10:00 AM'* or *'Friday at 2:00 PM'*) works best for you?`;
+
         return NextResponse.json({
           success: true,
           responseType: "CONVERSATION_TURN",
-          content: `Here are our verified **${targetSpecialty}** specialists available for consultation:\n\n${docListText}\n\nWhich doctor would you like to see, and what preferred day and time (e.g. *'Tomorrow at 10:00 AM'* or *'Friday at 2:00 PM'*) works best for you?`,
+          content: listDoctorsContent,
           conversationId: conversationId || null,
         });
       }
@@ -969,10 +1092,14 @@ export async function POST(request: NextRequest) {
       // STEP 4: Doctor is selected, but NO day/time is provided
       const targetDoctor = await resolveDoctorForBooking(trimmedPrompt, targetSpecialty, history);
       if (!explicitDateTime && targetDoctor) {
+        const askTimeContent = isUrdu
+          ? `Aap **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty}) se kis din aur kis waqt appointment lena chahenge? (Maslan: *'Kal subah 10:00 baje'*, *'Somwar dopahar 2:30 baje'*, ya *'Jumma shaam'*).`
+          : `What preferred day and time would you like for your appointment with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty})? (e.g., *'Tomorrow at 10:00 AM'*, *'Monday at 2:30 PM'*, or *'Friday afternoon'*).`;
+
         return NextResponse.json({
           success: true,
           responseType: "CONVERSATION_TURN",
-          content: `What preferred day and time would you like for your appointment with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty})? (e.g., *'Tomorrow at 10:00 AM'*, *'Monday at 2:30 PM'*, or *'Friday afternoon'*).`,
+          content: askTimeContent,
           conversationId: conversationId || null,
         });
       }
@@ -1004,10 +1131,14 @@ export async function POST(request: NextRequest) {
           notes: `Proposed booking via AI Assistant: "${trimmedPrompt}"`,
         };
 
+        const previewContent = isUrdu
+          ? `**Barah-e-Karam Appointment Ki Tafseelat Check Karein**\n\nMaine **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty}) ke sath aapki appointment **${formattedDate} ko ${formattedTime}** ke liye tayyar kar di hai.\n\nNeeche di gayi details check karein aur confirm karne ke liye **Confirm Booking** par click karein, ya waqt tabdeel karne ke liye batayein.`
+          : `**Please Review & Confirm Your Appointment**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty}) for **${formattedDate} at ${formattedTime}**.\n\nPlease review the details below and click **Confirm Booking** to submit your reservation, or let me know if you would like to adjust the day or time.`;
+
         return NextResponse.json({
           success: true,
           responseType: "BOOKING_PREVIEW",
-          content: `**Please Review & Confirm Your Appointment**\n\nI have prepared your appointment request with **Dr. ${targetDoctor.user.name}** (${targetDoctor.specialty}) for **${formattedDate} at ${formattedTime}**.\n\nPlease review the details below and click **Confirm Booking** to submit your reservation, or let me know if you would like to adjust the day or time.`,
+          content: previewContent,
           bookingResult,
           conversationId: conversationId || null,
         });
