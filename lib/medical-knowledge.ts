@@ -39,6 +39,8 @@ export interface CertifiedMedication {
   contraindicatedConditions: string[];
   contraindicationWarnings: Record<string, string>;
   generalWarnings: string;
+  pediatricUnsafe?: boolean;
+  pediatricContraindicationWarning?: string;
 }
 
 export interface ClinicalClarificationQuestion {
@@ -75,6 +77,8 @@ export interface TriageResult {
   disclaimer: string;
   isEmergencyAlert?: boolean;
   isOutOfScope?: boolean;
+  isInconclusive?: boolean;
+  ageGroup?: "adult" | "pediatric";
 }
 
 export const MEDICAL_DISCLAIMER =
@@ -115,8 +119,8 @@ export const CERTIFIED_CONDITIONS: CertifiedCondition[] = [
     icd11Code: "1E30",
     specialty: "GENERAL",
     sourceGuideline: "CDC Influenza Clinical Treatment Guidelines / WHO Flu Protocols",
-    primarySymptoms: ["high fever", "chills", "myalgia", "severe fatigue", "dry cough", "headache", "body aches"],
-    secondarySymptoms: ["sore throat", "anorexia", "sweating"],
+    primarySymptoms: ["high fever", "chills", "myalgia", "severe fatigue", "dry cough", "body aches"],
+    secondarySymptoms: ["headache", "sore throat", "anorexia", "sweating"],
     riskComorbidities: ["Cardiovascular Disease", "Diabetes", "Asthma", "Pregnancy", "Elderly (>65)"],
     severityDefault: "MEDIUM",
     description: "Acute febrile systemic infection characterized by rapid onset of systemic myalgia, prostration, and respiratory symptoms.",
@@ -300,7 +304,7 @@ export const CERTIFIED_CONDITIONS: CertifiedCondition[] = [
     icd11Code: "8A80",
     specialty: "NEUROLOGY",
     sourceGuideline: "International Headache Society (ICHD-3) / NICE CG150",
-    primarySymptoms: ["band-like headache", "dull bilateral head pain", "neck stiffness", "scalp tenderness", "eye strain"],
+    primarySymptoms: ["headache", "tension headache", "band-like headache", "dull bilateral head pain", "neck stiffness", "scalp tenderness", "eye strain"],
     secondarySymptoms: ["mild photophobia", "shoulder tightness", "fatigue"],
     riskComorbidities: ["Chronic Stress", "Cervical Spine Spondylosis", "Screen Strain"],
     severityDefault: "LOW",
@@ -323,8 +327,8 @@ export const CERTIFIED_CONDITIONS: CertifiedCondition[] = [
     icd11Code: "8A80.0",
     specialty: "NEUROLOGY",
     sourceGuideline: "American Headache Society (AHS) / NICE CG150 Migraine Guidelines",
-    primarySymptoms: ["throbbing headache", "unilateral head pain", "photophobia", "phonophobia", "nausea"],
-    secondarySymptoms: ["visual aura (zigzag lines/scotoma)", "lightheadedness", "vomiting", "worse with movement"],
+    primarySymptoms: ["migraine", "throbbing headache", "unilateral head pain", "photophobia", "phonophobia", "nausea"],
+    secondarySymptoms: ["headache", "visual aura (zigzag lines/scotoma)", "lightheadedness", "vomiting", "worse with movement"],
     riskComorbidities: ["Anxiety/Depression", "Hypertension", "Family History of Migraine"],
     severityDefault: "MEDIUM",
     description: "Neurovascular disorder characterized by recurrent moderate-to-severe throbbing unilateral headaches accompanied by sensory hypersensitivity.",
@@ -651,11 +655,99 @@ export const CERTIFIED_MEDICATIONS: CertifiedMedication[] = [
     },
     generalWarnings: "Space at least 2 hours apart from other oral medications (e.g. antibiotics, iron supplements, thyroid medications) as antacids impair their absorption.",
   },
+  {
+    name: "Aspirin (Acetylsalicylic Acid)",
+    genericName: "Aspirin",
+    category: "Salicylate / Antiplatelet & Analgesic",
+    standardDosage: "300mg - 600mg every 4 to 6 hours as needed for adults (or 75-100mg daily for prescribed antiplatelet)",
+    maxDailyLimit: "Maximum 4000mg per 24 hours in adults",
+    purpose: "Analgesic, antipyretic, and antiplatelet for adult cardiovascular care.",
+    sourceAuthority: "WHO-EML",
+    contraindicatedConditions: [
+      "Children and Adolescents under 18 years (Reye's Syndrome)",
+      "Active Peptic Ulcer Disease",
+      "Hemophilia / Bleeding Disorders",
+      "Third Trimester Pregnancy",
+      "Aspirin-Exacerbated Respiratory Disease (AERD/Asthma)",
+    ],
+    contraindicationWarnings: {
+      "Peptic Ulcer Disease": "CONTRAINDICATION WARNING: Aspirin causes gastric mucosal damage and severe GI bleeding risk.",
+      "Asthma": "WARNING: Aspirin-induced bronchospasm risk in sensitive asthmatic patients.",
+      "Kidney Disease": "WARNING: High-dose salicylates impair renal perfusion.",
+    },
+    generalWarnings: "Always take with or after food with a full glass of water to reduce gastrointestinal irritation.",
+    pediatricUnsafe: true,
+    pediatricContraindicationWarning: "CRITICAL PEDIATRIC CONTRAINDICATION: Aspirin is strictly contraindicated in children and adolescents under 18 due to the risk of Reye's Syndrome—a rare but often fatal disorder causing acute hepatic failure and cerebral edema.",
+  },
 ];
 
 // ==========================================
 // 3. CERTIFIED RED-FLAG & EMERGENCY PROTOCOLS
 // ==========================================
+
+/**
+ * Clinical Negation-Window Matcher.
+ * Detects whether a target clinical symptom/term is negated within a 3-5 word preceding window
+ * or immediate post-negation patterns (e.g., "no chest pain", "I don't have fever", "denies shortness of breath", "fever: none", "dard nahi hai").
+ */
+export function hasPositiveMatch(fullText: string, targetPhrase: string): boolean {
+  if (!fullText || !targetPhrase) return false;
+  const text = fullText.toLowerCase();
+  const phrase = targetPhrase.toLowerCase();
+
+  let startIndex = 0;
+  while (true) {
+    const idx = text.indexOf(phrase, startIndex);
+    if (idx === -1) break;
+
+    // Check preceding window (approx 45 characters or up to preceding punctuation / clause boundary)
+    const windowStart = Math.max(0, idx - 45);
+    const precedingSlice = text.slice(windowStart, idx);
+    const lastPunctuation = Math.max(
+      precedingSlice.lastIndexOf("."),
+      precedingSlice.lastIndexOf(";"),
+      precedingSlice.lastIndexOf("!"),
+      precedingSlice.lastIndexOf("?"),
+    );
+    const activePreceding = lastPunctuation !== -1 ? precedingSlice.slice(lastPunctuation + 1) : precedingSlice;
+    const precedingWords = activePreceding.trim().split(/\s+/).filter(Boolean);
+    const lastWords = precedingWords.slice(-5); // last 5 words before phrase
+
+    const PRECEDING_NEGATION_CUES = [
+      "no", "not", "dont", "don't", "denies", "denied", "without", "never",
+      "didnt", "didn't", "havent", "haven't", "rules", "ruled", "negative",
+      "zero", "free", "neither", "nor", "nahi", "nahin", "na", "bina"
+    ];
+
+    const isPrecedingNegated = lastWords.some((w) => {
+      const cleanW = w.replace(/[^a-z']/g, "");
+      return PRECEDING_NEGATION_CUES.includes(cleanW);
+    });
+
+    // Check immediate following window (e.g., "chest pain: none", "fever nahi hai", "headache is absent")
+    const followingSlice = text.slice(idx + phrase.length, idx + phrase.length + 25);
+    const firstPunctuation = followingSlice.search(/[.;!?]/);
+    const activeFollowing = firstPunctuation !== -1 ? followingSlice.slice(0, firstPunctuation) : followingSlice;
+    const followingWords = activeFollowing.trim().split(/\s+/).filter(Boolean).slice(0, 3);
+
+    const FOLLOWING_NEGATION_CUES = [
+      "none", "absent", "zero", "negative",
+      "nahi", "nahin", "na"
+    ];
+    const isFollowingNegated = followingWords.some((w) => {
+      const cleanW = w.replace(/[^a-z']/g, "");
+      return FOLLOWING_NEGATION_CUES.includes(cleanW);
+    });
+
+    if (!isPrecedingNegated && !isFollowingNegated) {
+      return true;
+    }
+
+    startIndex = idx + phrase.length;
+  }
+
+  return false;
+}
 
 export interface EmergencyRedFlagRule {
   id: string;
@@ -676,6 +768,11 @@ export const CERTIFIED_EMERGENCY_RULES: EmergencyRedFlagRule[] = [
       "chest pain with sweating",
       "chest pain and vomiting",
       "severe chest tightness",
+      "elephant on my chest",
+      "chest feels tight",
+      "tightness in chest",
+      "heavy chest pressure",
+      "pain in my chest spreading",
     ],
     clinicalSignificance: "Potential Acute Myocardial Infarction (STEMI/NSTEMI) or Unstable Angina.",
     emergencyAction: "CALL EMERGENCY SERVICES (911 / 999 / 112) OR PROCEED IMMEDIATELY TO THE NEAREST HOSPITAL EMERGENCY DEPARTMENT. Do not drive yourself. Rest quietly in a seated position while awaiting paramedics.",
@@ -691,6 +788,14 @@ export const CERTIFIED_EMERGENCY_RULES: EmergencyRedFlagRule[] = [
       "sudden loss of vision",
       "sudden severe worst headache of life",
       "thunderclap headache",
+      "face is droopy",
+      "drooping face",
+      "crooked smile",
+      "can't speak clearly",
+      "cant speak clearly",
+      "trouble talking",
+      "arm went numb",
+      "one side went weak",
     ],
     clinicalSignificance: "Potential Ischemic Stroke, Intracerebral Hemorrhage, or Subarachnoid Hemorrhage.",
     emergencyAction: "IMMEDIATE EMERGENCY CODE STROKE: Act F.A.S.T. (Face, Arms, Speech, Time). Call 911/emergency immediately. Time is brain — intravenous thrombolysis/thrombectomy windows require rapid emergency intervention.",
@@ -706,6 +811,11 @@ export const CERTIFIED_EMERGENCY_RULES: EmergencyRedFlagRule[] = [
       "gasping for air",
       "unable to speak in full sentences",
       "stridor",
+      "throat closing",
+      "can't breathe",
+      "cant breathe",
+      "suffocating",
+      "fighting for air",
     ],
     clinicalSignificance: "Potential Acute Severe Asthma, Anaphylaxis, Pulmonary Embolism, or Tension Pneumothorax.",
     emergencyAction: "EMERGENCY AIRWAY & BREATHING CRISIS: Seek emergency medical care immediately. If available and prescribed, use emergency rescue inhaler (Albuterol) or Epinephrine auto-injector (EpiPen) for anaphylaxis.",
@@ -717,14 +827,125 @@ export const CERTIFIED_EMERGENCY_RULES: EmergencyRedFlagRule[] = [
       "want to kill myself",
       "suicide",
       "ending my life",
+      "end my life",
       "self harm",
       "suicidal thoughts",
       "i don't want to live",
+      "want to die",
+      "better off dead",
+      "kill myself",
+      "hurt myself",
     ],
     clinicalSignificance: "Immediate Mental Health Crisis & Suicidal Ideation.",
     emergencyAction: "IMMEDIATE COMPASSIONATE CRISIS SUPPORT: You are not alone. Please connect immediately with the National Suicide and Crisis Lifeline by calling or texting 988 (US/Canada), 111 (UK), or reach out to your local emergency department or a trusted professional right now.",
   },
+  {
+    id: "red-anaphylaxis",
+    category: "Immunology / Acute Anaphylactic Reaction",
+    keywords: [
+      "swollen lips and breathing",
+      "swollen tongue",
+      "tongue swelling",
+      "throat closing up",
+      "throat feels swollen",
+      "hives and shortness of breath",
+      "allergic reaction difficulty breathing",
+    ],
+    clinicalSignificance: "Systemic IgE-Mediated Anaphylaxis with Airway Obstruction.",
+    emergencyAction: "ANAPHYLAXIS EMERGENCY: Administer intramuscular Epinephrine auto-injector (EpiPen 0.3mg adult / 0.15mg child) immediately into outer thigh and call emergency services without delay.",
+  },
+  {
+    id: "red-pediatric-distress",
+    category: "Pediatrics / Critical Infant or Child Red Flag",
+    keywords: [
+      "baby is unresponsive",
+      "floppy baby",
+      "blue baby",
+      "grunting breath infant",
+      "bulging fontanelle",
+      "non blanching rash child",
+      "purple spots baby",
+      "child struggling to breathe",
+    ],
+    clinicalSignificance: "Acute Pediatric Deterioration (Severe Sepsis, Meningococcemia, or Acute Respiratory Failure).",
+    emergencyAction: "PEDIATRIC RESUSCITATION EMERGENCY: Transport immediately to the nearest Pediatric Emergency Department or call emergency ambulance right now.",
+  },
 ];
+
+/**
+ * CLINICAL SAFETY DIRECTIVE:
+ * Bias explicitly toward over-triggering. In medical triage, a false positive (recommending emergency evaluation)
+ * is an acceptable clinical safeguard, whereas a false negative (failing to recognize a life-threatening acute event)
+ * is catastrophic.
+ *
+ * Evaluates both direct lay keywords and multi-component clinical combinations, strictly excluding negated matches.
+ */
+export function matchesEmergencyRule(rule: EmergencyRedFlagRule, cleanPrompt: string): boolean {
+  if (!cleanPrompt) return false;
+  const lower = cleanPrompt.toLowerCase();
+
+  // 1. Check exact lay keywords with negation filtering
+  for (const kw of rule.keywords) {
+    if (hasPositiveMatch(lower, kw)) {
+      return true;
+    }
+  }
+
+  // 2. Multi-component semantic evaluation per rule category
+  if (rule.id === "red-cardiac-acs") {
+    const cardiacTerms = [
+      "chest pain", "chest pressure", "tight chest", "chest tightness", "chest feels tight",
+      "heavy chest", "squeezing in my chest", "elephant on my chest", "pain in my chest",
+      "chest discomfort", "heart pain", "crushing chest", "tightness in chest", "seene me dard", "dil me dard"
+    ];
+    const radiationSites = ["left arm", "jaw", "neck", "shoulder", "back", "arm"];
+    const radiationActions = ["radiating", "radiates", "spreading", "spreads", "going down", "down to", "shoots to", "pain in my arm", "numb arm", "numbness in my arm", "arm went numb"];
+    const autonomicSigns = ["sweating", "cold sweat", "vomiting", "nausea", "dizziness", "shortness of breath", "struggling to breathe"];
+
+    const hasCardiac = cardiacTerms.some((t) => hasPositiveMatch(lower, t));
+    const hasRadiationSite = radiationSites.some((t) => hasPositiveMatch(lower, t));
+    const hasRadiationAction = radiationActions.some((t) => hasPositiveMatch(lower, t));
+    const hasAutonomic = autonomicSigns.some((t) => hasPositiveMatch(lower, t));
+
+    if (hasCardiac && (hasRadiationAction || (hasRadiationSite && (hasAutonomic || hasRadiationAction)) || hasAutonomic)) {
+      return true;
+    }
+  }
+
+  if (rule.id === "red-neuro-stroke") {
+    const faceTerms = ["facial droop", "drooping face", "face is droopy", "droopy face", "crooked smile", "mouth drooping", "one side of face", "face numb"];
+    const speechTerms = ["slurred speech", "slurring words", "can't speak clearly", "cant speak clearly", "speech is slurred", "trouble speaking", "trouble talking", "unable to speak", "difficulty speaking", "words are jumbled"];
+    const motorTerms = ["weak", "weakness", "numb", "numbness", "can't move", "cant move", "loss of movement", "went limp", "paralyzed", "loss of feeling", "dropped suddenly"];
+    const limbTerms = ["one side", "left side", "right side", "left arm", "right arm", "arm", "leg", "hand"];
+    const acuteNeuro = ["thunderclap headache", "worst headache of my life", "sudden loss of vision", "can't see out of one eye", "sudden blindness"];
+
+    if (faceTerms.some((t) => hasPositiveMatch(lower, t))) return true;
+    if (speechTerms.some((t) => hasPositiveMatch(lower, t))) return true;
+    if (acuteNeuro.some((t) => hasPositiveMatch(lower, t))) return true;
+
+    if (motorTerms.some((t) => hasPositiveMatch(lower, t)) && limbTerms.some((t) => hasPositiveMatch(lower, t))) {
+      return true;
+    }
+  }
+
+  if (rule.id === "red-resp-distress") {
+    const respTerms = ["can't breathe", "cant breathe", "struggling to breathe", "gasping for air", "fighting for air", "severe shortness of breath", "choking for air", "suffocating"];
+    const cyanosisTerms = ["blue lips", "blue face", "stridor", "throat closing up", "unable to speak"];
+    if (respTerms.some((t) => hasPositiveMatch(lower, t)) || cyanosisTerms.some((t) => hasPositiveMatch(lower, t))) {
+      return true;
+    }
+  }
+
+  if (rule.id === "red-anaphylaxis") {
+    const swellingTerms = ["lip swelling", "swollen lips", "tongue swelling", "swollen tongue", "throat swelling", "throat closing"];
+    const systemicTerms = ["breathing", "rash", "hives", "allergy", "allergic", "bee sting", "peanut"];
+    if (swellingTerms.some((t) => hasPositiveMatch(lower, t)) && systemicTerms.some((t) => hasPositiveMatch(lower, t))) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // ==========================================
 // 4. OUT-OF-SCOPE & PROMPT INJECTION GUARD FILTER
@@ -1011,18 +1232,29 @@ export function generateCertifiedClinicalQuestions(
 
 export function synthesizeCertifiedTriage(
   prompt: string,
-  specialty: string,
-  duration: string,
-  userConditions: string[],
-  userMedicines: string[],
+  specialty: string = "GENERAL",
+  duration: string = "1-3 days",
+  userConditions: string[] = [],
+  userMedicines: string[] = [],
   treatmentApproach: string = "Allopathic",
   answeredQuestions?: Record<string, string>,
+  ageGroup?: "adult" | "pediatric",
+  ageYears?: number,
 ): TriageResult {
   const lower = prompt.toLowerCase();
 
-  // 1. Check for Immediate Emergency Red Flags
+  // Detect pediatric status early across explicit params, questions, specialty, and text
+  const isPediatric =
+    ageGroup === "pediatric" ||
+    (typeof ageYears === "number" && ageYears < 18) ||
+    answeredQuestions?.ageGroup === "pediatric" ||
+    (answeredQuestions?.age && parseInt(answeredQuestions.age, 10) < 18) ||
+    specialty.toUpperCase() === "PEDIATRICS" ||
+    /\b(child|infant|toddler|baby|kid|pediatric|under 18|bacha|bachi)\b/i.test(prompt);
+
+  // 1. Check for Immediate Emergency Red Flags (Biased toward over-triggering; strictly excludes negated matches)
   for (const rule of CERTIFIED_EMERGENCY_RULES) {
-    if (rule.keywords.some((kw) => lower.includes(kw))) {
+    if (matchesEmergencyRule(rule, prompt)) {
       return {
         severityLevel: "CRITICAL",
         summary: `CRITICAL MEDICAL ALERT: The described symptoms (${rule.category}) meet certified emergency criteria requiring immediate physician intervention.`,
@@ -1042,10 +1274,11 @@ export function synthesizeCertifiedTriage(
           "Do NOT attempt self-treatment with OTC remedies.",
           rule.emergencyAction,
         ],
-        redFlagsToWatch: rule.keywords,
+        redFlagsToWatch: rule.keywords.slice(0, 6),
         questionsForDoctor: ["Emergency physician assessment required immediately."],
         disclaimer: MEDICAL_DISCLAIMER,
         isEmergencyAlert: true,
+        ageGroup: isPediatric ? "pediatric" : "adult",
       };
     }
   }
@@ -1074,16 +1307,16 @@ export function synthesizeCertifiedTriage(
       score += 3;
     }
 
-    // Primary symptoms match
+    // Primary symptoms match (strictly positive, non-negated; dominant diagnostic weight)
     for (const sym of cond.primarySymptoms) {
-      if (lower.includes(sym.toLowerCase())) {
-        score += 5;
+      if (hasPositiveMatch(lower, sym.toLowerCase())) {
+        score += 7;
       }
     }
 
-    // Secondary symptoms match
+    // Secondary symptoms match (strictly positive, non-negated)
     for (const sym of cond.secondarySymptoms) {
-      if (lower.includes(sym.toLowerCase())) {
+      if (hasPositiveMatch(lower, sym.toLowerCase())) {
         score += 2;
       }
     }
@@ -1109,11 +1342,17 @@ export function synthesizeCertifiedTriage(
 
   const secondaryMatch = matchedConditions[1]?.condition;
 
+  // Final pediatric check incorporating matched condition specialty
+  const finalIsPediatric = isPediatric || primaryMatch.specialty.toUpperCase() === "PEDIATRICS";
+
   // 4. Calculate Severity & Urgency
   let finalSeverity: SeverityLevel = primaryMatch.severityDefault;
   let recommendDoctor = true;
 
-  if (userSeverityAnswer.includes("Severe") || effectiveDuration.includes("More than 2 weeks")) {
+  if (finalIsPediatric) {
+    // Pediatric cases always mandate formal physician consultation
+    recommendDoctor = true;
+  } else if (userSeverityAnswer.includes("Severe") || effectiveDuration.includes("More than 2 weeks")) {
     finalSeverity = finalSeverity === "LOW" ? "MEDIUM" : "HIGH";
   } else if (userSeverityAnswer.includes("Mild") && primaryMatch.severityDefault === "LOW") {
     finalSeverity = "LOW";
@@ -1124,7 +1363,7 @@ export function synthesizeCertifiedTriage(
   const recommendedMeds: TriageResult["temporaryMedicines"] = [];
   const activeConditionsList = Array.from(effectiveConditions);
 
-  // Determine appropriate medication category based on symptoms
+  // Determine appropriate medication category based on non-negated symptoms
   let targetMeds: CertifiedMedication[] = [];
   const paracetamol = CERTIFIED_MEDICATIONS.find((m) => m.name.includes("Paracetamol"));
   const ibuprofen = CERTIFIED_MEDICATIONS.find((m) => m.name.includes("Ibuprofen"));
@@ -1132,19 +1371,36 @@ export function synthesizeCertifiedTriage(
   const ors = CERTIFIED_MEDICATIONS.find((m) => m.name.includes("Oral Rehydration"));
   const antacid = CERTIFIED_MEDICATIONS.find((m) => m.name.includes("Antacid"));
 
-  if (lower.includes("fever") || lower.includes("headache") || lower.includes("body ache") || lower.includes("pain")) {
+  const hasFeverOrPain = ["fever", "headache", "body ache", "pain", "sore", "dard"].some((s) => hasPositiveMatch(lower, s));
+  const hasRashOrAllergy = ["rash", "itch", "hives", "allergy", "khujli"].some((s) => hasPositiveMatch(lower, s));
+  const hasGI = ["diarrhea", "vomit", "stomach flu", "loose motion", "dast", "ulti"].some((s) => hasPositiveMatch(lower, s));
+  const hasAcid = ["heartburn", "acid", "reflux", "indigestion", "jalan"].some((s) => hasPositiveMatch(lower, s));
+
+  if (hasFeverOrPain) {
     targetMeds = [paracetamol, ibuprofen].filter((m): m is CertifiedMedication => Boolean(m));
-  } else if (lower.includes("rash") || lower.includes("itch") || lower.includes("hives") || lower.includes("allergy")) {
+  } else if (hasRashOrAllergy) {
     targetMeds = [antihistamine].filter((m): m is CertifiedMedication => Boolean(m));
-  } else if (lower.includes("diarrhea") || lower.includes("vomit") || lower.includes("stomach flu")) {
+  } else if (hasGI) {
     targetMeds = [ors].filter((m): m is CertifiedMedication => Boolean(m));
-  } else if (lower.includes("heartburn") || lower.includes("acid") || lower.includes("reflux") || lower.includes("indigestion")) {
+  } else if (hasAcid) {
     targetMeds = [antacid].filter((m): m is CertifiedMedication => Boolean(m));
   } else {
     targetMeds = [paracetamol].filter((m): m is CertifiedMedication => Boolean(m));
   }
 
   for (const med of targetMeds) {
+    // Pediatric safety gate: structurally block pediatric-unsafe medications (e.g. Aspirin)
+    if (finalIsPediatric && med.pediatricUnsafe) {
+      recommendedMeds.push({
+        name: med.name,
+        dosage: "DO NOT ADMINISTER (Contraindicated in Children)",
+        purpose: med.purpose,
+        warning: med.pediatricContraindicationWarning || "STRICT PEDIATRIC CONTRAINDICATION: Not safe for pediatric use.",
+        contraindicationAlert: med.pediatricContraindicationWarning || "Contraindicated in children and adolescents.",
+      });
+      continue;
+    }
+
     let hasContraindication = false;
     let contraindicationNote = "";
 
@@ -1162,6 +1418,14 @@ export function synthesizeCertifiedTriage(
         dosage: "CONTRAINDICATED for your clinical profile",
         purpose: med.purpose,
         contraindicationAlert: contraindicationNote,
+      });
+    } else if (finalIsPediatric) {
+      // Safe pediatric drug (e.g. Paracetamol, ORS) — never return fixed adult mg dosing
+      recommendedMeds.push({
+        name: med.name,
+        dosage: "Weight-based dosing required (10–15 mg/kg) — consult a pediatrician or pharmacist before administering",
+        purpose: med.purpose,
+        warning: "PEDIATRIC SAFETY: Never administer adult fixed-mg doses to children. Dosing must be strictly calculated per kilogram of body weight by a licensed pediatrician or pharmacist. Avoid all Aspirin products.",
       });
     } else {
       recommendedMeds.push({
@@ -1217,5 +1481,6 @@ export function synthesizeCertifiedTriage(
     ],
     questionsForDoctor: primaryMatch.questionsForDoctor,
     disclaimer: MEDICAL_DISCLAIMER,
+    ageGroup: finalIsPediatric ? "pediatric" : "adult",
   };
 }
