@@ -1,24 +1,40 @@
 "use client";
 
-import { Hourglass, Sparkles } from "lucide-react";
+import { Hourglass } from "lucide-react";
+
+import { ClinicalAvatar } from "./clinical-avatar";
 
 interface ChatEmptyStateProps {
   agentName: string;
+  specialty?: string;
   isModelAvailable?: boolean;
 }
 
 export function ChatEmptyState({
   agentName,
+  specialty = "GENERAL",
   isModelAvailable = true,
 }: ChatEmptyStateProps) {
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 text-center animate-in fade-in duration-500">
-      {/* Modern icon badge */}
-      <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-primary/30 bg-surface/80 text-primary shadow-lg backdrop-blur-xl">
+      {/* Modern interactive avatar badge */}
+      <div className="relative flex items-center justify-center">
         {isModelAvailable ? (
-          <Sparkles className="h-7 w-7 animate-pulse text-primary" />
+          <>
+            <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-primary/30 to-purple-500/20 blur-lg animate-pulse" />
+            <ClinicalAvatar
+              name={agentName}
+              specialty={specialty}
+              size={68}
+              isInteractive={true}
+              showStatus={true}
+              className="relative z-10 shadow-xl ring-4 ring-surface/80 hover:ring-primary/40 transition-all duration-300"
+            />
+          </>
         ) : (
-          <Hourglass className="h-7 w-7 text-text-secondary" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-border-custom bg-surface/80 text-text-secondary shadow-lg backdrop-blur-xl">
+            <Hourglass className="h-7 w-7" />
+          </div>
         )}
       </div>
 

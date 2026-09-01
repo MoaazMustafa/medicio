@@ -1,30 +1,20 @@
 "use client";
 
 import { Button, Chip, Dropdown, Separator, Tooltip } from "@heroui/react";
-import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowUp,
-  Baby,
-  Bone,
-  Bot,
-  Brain,
   Check,
   ChevronDown,
   ChevronRight,
   Clock,
   Copy,
-  Ear,
-  Eye,
-  HeartHandshake,
   HeartPulse,
   MapPin,
   Navigation,
   Plus,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
-  Stethoscope,
   Wind,
   X,
 } from "lucide-react";
@@ -36,6 +26,7 @@ import { usePatientContext } from "./patient-context";
 
 import { BookingCard } from "@/components/patient/chatbot/booking-card";
 import { ChatEmptyState } from "@/components/patient/chatbot/chat-empty-state";
+import { ClinicalAvatar } from "@/components/patient/chatbot/clinical-avatar";
 import { TriageCard } from "@/components/patient/chatbot/triage-card";
 import {
   ChatContainerContent,
@@ -47,22 +38,6 @@ import { Message, MessageAction, MessageActions, MessageContent } from "@/compon
 import { PromptInput, PromptInputAction, PromptInputActions, PromptInputTextarea } from "@/components/prompt-kit/prompt-input";
 import { ScrollButton } from "@/components/prompt-kit/scroll-button";
 import { cn } from "@/lib/utils";
-
-
-const AGENT_ICONS: Record<string, LucideIcon> = {
-  GENERAL: Bot,
-  DERMATOLOGY: Sparkles,
-  CARDIOLOGY: HeartPulse,
-  NEUROLOGY: Brain,
-  PEDIATRICS: Baby,
-  ORTHOPEDICS: Bone,
-  GYNECOLOGY: Stethoscope,
-  ENT: Ear,
-  OPHTHALMOLOGY: Eye,
-  PSYCHIATRY: HeartHandshake,
-  GASTROENTEROLOGY: Activity,
-  PULMONOLOGY: Wind,
-};
 
 const FALLBACK_AGENT = {
   specialty: "GENERAL",
@@ -175,7 +150,6 @@ export function PatientChatbot() {
   const agentOptions = agents.length > 0 ? agents : [FALLBACK_AGENT];
   const currentAgent = activeAgent ?? agentOptions.find((a) => a.specialty === activeAgentSpecialty) ?? agentOptions[0];
   const isModelAvailable = currentAgent.isEnabled && currentAgent.isTrained;
-  const ActiveIcon = AGENT_ICONS[currentAgent.specialty] ?? Stethoscope;
   const showEmptyState = !messages.some((m) => m.role === "user");
 
   return (
@@ -213,6 +187,7 @@ export function PatientChatbot() {
           <div className="flex h-full flex-col items-center justify-center">
             <ChatEmptyState
               agentName={currentAgent.displayName}
+              specialty={currentAgent.specialty}
               isModelAvailable={isModelAvailable}
             />
           </div>
@@ -226,7 +201,22 @@ export function PatientChatbot() {
                 return (
                   <Message key={msg.id} className={cn("w-full flex-col gap-1.5", isAssistant ? "items-start" : "items-end")}>
                     {isAssistant ? (
-                      <div className="group flex w-full flex-col gap-2.5">
+                      <div className="group flex w-full flex-col gap-2">
+                        {/* Assistant Avatar & Clinical Persona Header */}
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <ClinicalAvatar
+                            name={currentAgent.displayName}
+                            specialty={currentAgent.specialty}
+                            size={28}
+                            isInteractive={true}
+                            showStatus={isLastMessage}
+                            isThinking={isLoading && isLastMessage}
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-text-primary">{currentAgent.displayName}</span>
+                            <span className="text-[10px] text-text-secondary font-mono">Clinical AI</span>
+                          </div>
+                        </div>
                         {msg.responseType === "API_KEY_REQUIRED" ? (
                           <div className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-text-primary">
                             <MessageContent markdown className="w-full rounded-none bg-transparent p-0 text-text-primary">
@@ -606,9 +596,15 @@ export function PatientChatbot() {
                         size="sm"
                         variant="secondary"
                         aria-label="Select clinical specialist"
-                        className="h-8 rounded-full border border-border-custom bg-surface px-2.5 text-xs font-medium text-text-primary hover:bg-secondary gap-1.5 shadow-2xs"
+                        className="h-8 rounded-full border border-border-custom bg-surface px-2 text-xs font-medium text-text-primary hover:bg-secondary gap-1.5 shadow-2xs"
                       >
-                        <ActiveIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <ClinicalAvatar
+                          name={currentAgent.displayName}
+                          specialty={currentAgent.specialty}
+                          size={18}
+                          isInteractive={false}
+                          showStatus={false}
+                        />
                         <span className="max-w-24 sm:max-w-36 truncate">{currentAgent.displayName}</span>
                         <ChevronDown className="h-3 w-3 text-text-secondary shrink-0 opacity-70" />
                       </Button>
@@ -621,7 +617,6 @@ export function PatientChatbot() {
                         }}
                       >
                         {agentOptions.map((agent) => {
-                          const AgentIcon = AGENT_ICONS[agent.specialty] ?? Stethoscope;
                           const isAvailable = agent.isEnabled && agent.isTrained;
 
                           return (
@@ -632,7 +627,13 @@ export function PatientChatbot() {
                               className={cn(!isAvailable && "opacity-50 pointer-events-none")}
                             >
                               <div className="flex w-full items-center gap-2 text-xs">
-                                <AgentIcon className={cn("h-3.5 w-3.5 shrink-0", isAvailable ? "text-primary" : "text-text-secondary")} />
+                                <ClinicalAvatar
+                                  name={agent.displayName}
+                                  specialty={agent.specialty}
+                                  size={22}
+                                  isInteractive={false}
+                                  showStatus={false}
+                                />
                                 <span className="truncate">{agent.displayName}</span>
                                 {isAvailable ? (
                                   <span aria-hidden className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
