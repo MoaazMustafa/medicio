@@ -17,8 +17,17 @@ export function ChatEmptyState({
 }: ChatEmptyStateProps) {
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-4 text-center animate-in fade-in duration-500">
+      {/* Gemini-Style Fluid Aurora - ONLY behind empty state greeting heading */}
+      {isModelAvailable && (
+        <div className="gemini-greeting-aurora">
+          <div className="aurora-node-1" />
+          <div className="aurora-node-2" />
+          <div className="aurora-node-3" />
+        </div>
+      )}
+
       {/* Modern interactive avatar badge */}
-      <div className="relative flex items-center justify-center">
+      <div className="relative z-10 flex items-center justify-center">
         {isModelAvailable ? (
           <>
             <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-primary/30 to-purple-500/20 blur-lg animate-pulse" />

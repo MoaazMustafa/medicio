@@ -154,23 +154,8 @@ export function PatientChatbot() {
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-background-custom">
-      {/* Gemini-Style Fluid Ambient Aurora - Top Subheader */}
-      <div className="gemini-top-aurora">
-        <div className="aurora-top-node-1" />
-        <div className="aurora-top-node-2" />
-      </div>
-
-      {/* Gemini-Style Fluid Ambient Aurora - Behind Chat Bar */}
-      <div className="gemini-bottom-aurora">
-        <div className="aurora-node-1" />
-        <div className="aurora-node-2" />
-        <div className="aurora-node-3" />
-      </div>
-
-      {/* Foreground Content with relative z-10 */}
-      <div className="relative z-10 flex h-full w-full flex-col overflow-hidden">
-        {/* Sleek Minimal Top Action Strip */}
-        <div className="flex h-10 shrink-0 items-center justify-end px-3 pt-2 sm:px-5">
+      {/* Sleek Minimal Top Action Strip */}
+      <div className="flex h-10 shrink-0 items-center justify-end px-3 pt-2 sm:px-5">
           <Tooltip delay={100}>
             <Tooltip.Trigger>
               <Button
@@ -686,7 +671,6 @@ export function PatientChatbot() {
             </p>
           </div>
         </div>
-      </div>
     </div>
   );
 }

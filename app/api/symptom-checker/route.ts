@@ -43,12 +43,28 @@ const GREETING_KEYWORDS = [
   "salam",
   "assalam",
   "asalam",
+  "assalamualikum",
+  "assalamualaikum",
+  "assalamoalaikum",
+  "assalamalaikum",
+  "asalamualaikum",
+  "aslamualikum",
+  "aslamoalikum",
+  "aslamalaikum",
   "assalam o alaikum",
   "asalam alaikum",
+  "aslam alaikum",
+  "walaikum assalam",
+  "walaikumassalam",
+  "wsalam",
+  "aoa",
+  "slm",
   "kese ho",
   "kaise ho",
   "kya hal hai",
   "kya haal hai",
+  "how are you",
+  "how r u",
 ];
 
 const PLEASANTRY_KEYWORDS = [
@@ -103,9 +119,18 @@ function isRomanUrdu(text: string): boolean {
 }
 
 function isSimpleGreeting(promptText: string): boolean {
-  const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
-  const words = clean.split(/\s+/).filter(Boolean);
-  return (words.length <= 3 && words.some((w) => GREETING_KEYWORDS.includes(w))) || GREETING_KEYWORDS.includes(clean);
+  const clean = promptText.trim().toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+  const normalized = clean.replace(/\s+/g, " ").trim();
+  const words = normalized.split(" ").filter(Boolean);
+
+  const isSalam =
+    /^(?:a?s+al+a+m.*|aoa|slm|w+a?s+al+a+m.*)$/i.test(normalized) ||
+    words.some((w) => /^(?:a?s+al+a+m.*|aoa|slm)$/i.test(w));
+
+  return (
+    (words.length <= 4 && (isSalam || words.some((w) => GREETING_KEYWORDS.includes(w)))) ||
+    GREETING_KEYWORDS.includes(normalized)
+  );
 }
 
 function isSimplePleasantry(promptText: string): boolean {
@@ -689,6 +714,12 @@ async function callLiveLLMApi(
     const systemInstruction = `You are a certified Clinical AI Intake and Triage Specialist for the Medicio Platform.
 You adhere strictly to certified global clinical decision protocols: World Health Organization (WHO), UK National Health Service (NHS 111), and NICE Guidelines.
 
+0. **PURE GREETING RULE (NO PREMATURE CLINICAL QUESTIONING)**:
+   If the patient's message is solely a greeting, pleasantry, or opening (e.g. "assalamualikum", "salam", "hello", "hi", "how are you", "kese ho") without describing physical symptoms:
+   - Reply with ONLY a concise, warm 1-sentence greeting (e.g. "Walaikum Assalam! Main aapki sehat ke hawale se kis tarah madad kar sakta hoon?" or "Hello! How can I help you with your health today?").
+   - DO NOT begin intake questioning or clinical interrogation (do NOT ask "kab shuru hui", reasons, triggers, or severity).
+   - Set "suggestedQuickReplies" to [] (DO NOT suggest symptom duration chips on a greeting).
+
 COMPREHENSIVE 10-STEP ADAPTIVE CLINICAL INTAKE PROTOCOL:
 1. **Ultra-Concise Conversational Tone (Strict Limit: 1-3 Sentences per Turn)**: Keep conversational replies short, empathetic, direct, and natural. NEVER write long essays or walls of text during intake counter-questioning.
 2. **Mandatory 10-Step Sequential Clearance Checklist (Minimum 10 Turns Required)**:
@@ -947,19 +978,21 @@ export async function POST(request: NextRequest) {
     // 3. GREETING & PLEASANTRY CHECK
     if (isSimpleGreeting(trimmedPrompt)) {
       const hasHistory = Array.isArray(history) && history.length > 0;
-      const greetingMessage = isUrdu
+      const isUrduGreeting = isUrdu || /salam|aoa|kese|kaise|hal/i.test(trimmedPrompt);
+      const greetingMessage = isUrduGreeting
         ? hasHistory
-          ? "Assalam o Alaikum! Main aapki mazeed kya madad kar sakta hoon? Agar aapko koi aur takleef hai to batayein, ya naya session shuru karne ke liye '+' button dabayein."
-          : `Assalam o Alaikum! Main Medicio AI Clinical Assistant (${agent.displayName}) hoon. Main aapki sehat ke hawalay se kis tarah madad kar sakta hoon? Barah-e-karam apni takleef ya alamaat batayein.`
+          ? "Walaikum Assalam! Main aapki mazeed kya madad kar sakta hoon?"
+          : "Walaikum Assalam! Main aapki sehat ke hawale se kis tarah madad kar sakta hoon?"
         : hasHistory
-        ? `Hello! How can I assist you further? If you're experiencing any other symptoms or have questions regarding your assessment, let me know. You can also click the '+' button in the top bar to start a fresh triage session.`
-        : `Hello! I am your Medicio AI Clinical Assistant (${agent.displayName}). How can I assist with your health today? Please describe your symptoms or physical concerns to begin guided clinical triage.`;
+        ? "Hello! How can I assist you further with your health?"
+        : "Hello! How can I help you with your health today?";
 
       return NextResponse.json({
         success: true,
         responseType: "GREETING",
         content: greetingMessage,
         conversationId: conversationId || null,
+        suggestedQuickReplies: [],
       });
     }
 
