@@ -954,13 +954,20 @@ export function matchesEmergencyRule(rule: EmergencyRedFlagRule, cleanPrompt: st
     const cardiacTerms = [
       "chest pain", "chest pressure", "tight chest", "chest tightness", "chest feels tight",
       "heavy chest", "squeezing in my chest", "elephant on my chest", "pain in my chest",
-      "chest discomfort", "heart pain", "crushing chest", "tightness in chest", "seene me dard", "dil me dard"
+      "chest discomfort", "heart pain", "crushing chest", "tightness in chest", "heavy tightness",
+      "seene me dard", "dil me dard"
     ];
     const radiationSites = ["left arm", "jaw", "neck", "shoulder", "back", "arm"];
-    const radiationActions = ["radiating", "radiates", "spreading", "spreads", "going down", "down to", "shoots to", "pain in my arm", "numb arm", "numbness in my arm", "arm went numb"];
+    const radiationActions = [
+      "radiating", "radiates", "spreading", "spreads", "going down", "down to",
+      "shoots to", "pain in my arm", "numb arm", "numbness in my arm", "arm went numb", "went numb", "numb"
+    ];
     const autonomicSigns = ["sweating", "cold sweat", "vomiting", "nausea", "dizziness", "shortness of breath", "struggling to breathe"];
 
-    const hasCardiac = cardiacTerms.some((t) => hasPositiveMatch(lower, t));
+    const hasDirectCardiac = cardiacTerms.some((t) => hasPositiveMatch(lower, t));
+    const hasCompositeCardiac = hasPositiveMatch(lower, "chest") && (hasPositiveMatch(lower, "tight") || hasPositiveMatch(lower, "tightness") || hasPositiveMatch(lower, "heavy") || hasPositiveMatch(lower, "pressure") || hasPositiveMatch(lower, "pain"));
+    const hasCardiac = hasDirectCardiac || hasCompositeCardiac;
+
     const hasRadiationSite = radiationSites.some((t) => hasPositiveMatch(lower, t));
     const hasRadiationAction = radiationActions.some((t) => hasPositiveMatch(lower, t));
     const hasAutonomic = autonomicSigns.some((t) => hasPositiveMatch(lower, t));
@@ -987,8 +994,14 @@ export function matchesEmergencyRule(rule: EmergencyRedFlagRule, cleanPrompt: st
   }
 
   if (rule.id === "red-resp-distress") {
-    const respTerms = ["can't breathe", "cant breathe", "struggling to breathe", "gasping for air", "fighting for air", "severe shortness of breath", "choking for air", "suffocating"];
-    const cyanosisTerms = ["blue lips", "blue face", "stridor", "throat closing up", "unable to speak"];
+    const respTerms = [
+      "can't breathe", "cant breathe", "struggling to breathe", "catch my breath",
+      "gasping for air", "fighting for air", "severe shortness of breath", "choking for air", "suffocating"
+    ];
+    const cyanosisTerms = [
+      "blue lips", "turning blue", "turned blue", "lips are turning blue", "lips turning blue",
+      "blue face", "cyanosis", "stridor", "throat closing up", "unable to speak"
+    ];
     if (respTerms.some((t) => hasPositiveMatch(lower, t)) || cyanosisTerms.some((t) => hasPositiveMatch(lower, t))) {
       return true;
     }

@@ -1415,6 +1415,8 @@ export async function POST(request: NextRequest) {
       },
     ];
 
+    const intelligentTitle = makeConversationTitle(trimmedPrompt, agentSpecialty, liveResult.triageResult);
+
     if (savedConversationId) {
       const existingConv = await prisma.aIConversation.findUnique({
         where: { id: savedConversationId },
@@ -1431,15 +1433,33 @@ export async function POST(request: NextRequest) {
 
         await prisma.aIConversation.update({
           where: { id: savedConversationId },
-          data: { messages: JSON.stringify(updatedMsgs) },
+          data: {
+            messages: JSON.stringify(updatedMsgs),
+            title:
+              liveResult.triageResult?.possibleConditions?.[0]?.condition
+                ? intelligentTitle
+                : existingConv.title || intelligentTitle,
+          },
         });
+      } else {
+        // Client supplied a new conversationId (e.g. pre-generated UUID) that does not exist in DB yet
+        const newConv = await prisma.aIConversation.create({
+          data: {
+            id: savedConversationId,
+            userId: session?.userId || null,
+            conversationType: agentSpecialty !== "GENERAL" ? "SPECIALTY_AGENT" : "SYMPTOM_CHECKER",
+            title: intelligentTitle,
+            messages: JSON.stringify(conversationMessages),
+          },
+        });
+        savedConversationId = newConv.id;
       }
     } else {
       const newConv = await prisma.aIConversation.create({
         data: {
           userId: session?.userId || null,
           conversationType: agentSpecialty !== "GENERAL" ? "SPECIALTY_AGENT" : "SYMPTOM_CHECKER",
-          title: makeConversationTitle(trimmedPrompt),
+          title: intelligentTitle,
           messages: JSON.stringify(conversationMessages),
         },
       });
