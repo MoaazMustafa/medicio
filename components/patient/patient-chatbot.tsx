@@ -192,6 +192,12 @@ export function PatientChatbot() {
                   const isAssistant = msg.role === "assistant";
                   const isLastMessage = index === messages.length - 1;
 
+                  const msgAgent =
+                    (msg.specialty && agentOptions.find((a) => a.specialty.toUpperCase() === msg.specialty?.toUpperCase())) ||
+                    (msg.agentName
+                      ? { displayName: msg.agentName, specialty: msg.specialty || "GENERAL", isEnabled: true, isTrained: true, description: "", suggestedQuestions: [], attachedDoctorCount: 0 }
+                      : currentAgent);
+
                   return (
                     <Message key={msg.id} className={cn("w-full flex-col gap-1.5", isAssistant ? "items-start" : "items-end")}>
                       {isAssistant ? (
@@ -199,15 +205,15 @@ export function PatientChatbot() {
                           {/* Assistant Avatar & Clinical Persona Header */}
                           <div className="flex items-center gap-2 mb-0.5">
                             <ClinicalAvatar
-                              name={currentAgent.displayName}
-                              specialty={currentAgent.specialty}
+                              name={msgAgent.displayName}
+                              specialty={msgAgent.specialty}
                               size={28}
                               isInteractive={true}
                               showStatus={isLastMessage}
                               isThinking={isLoading && isLastMessage}
                             />
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-semibold text-text-primary">{currentAgent.displayName}</span>
+                              <span className="text-xs font-semibold text-text-primary">{msgAgent.displayName}</span>
                               <span className="text-[10px] text-text-secondary font-mono">Clinical AI</span>
                             </div>
                           </div>

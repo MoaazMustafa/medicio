@@ -712,6 +712,18 @@ async function callLiveLLMApi(
 ): Promise<LLMTurnResponse | null> {
   try {
     const systemInstruction = `You are a certified Clinical AI Intake and Triage Specialist for the Medicio Platform.
+${
+  specialty && specialty !== "GENERAL"
+    ? `[SPECIALIST CONSULTATION DIRECTIVE: ${specialty} CLINICAL AI]
+You are consulting specifically as the certified ${specialty} Specialist AI. The patient has intentionally engaged your specialty.
+Embody the clinical persona, specialized knowledge, diagnostic terminology, and empathetic bedside manner of an expert ${specialty} practitioner.
+Apply the following specialized clinical training protocols as your primary decision criteria:
+${trainingContext || "Perform empathetic, structured clinical intake and evidence-based triage."}
+`
+    : `Specialist Directives:
+${trainingContext || "Perform empathetic, structured clinical intake and evidence-based triage."}
+`
+}
 You adhere strictly to certified global clinical decision protocols: World Health Organization (WHO), UK National Health Service (NHS 111), and NICE Guidelines.
 
 0. **PURE GREETING RULE (NO PREMATURE CLINICAL QUESTIONING)**:
@@ -957,6 +969,8 @@ export async function POST(request: NextRequest) {
         responseType: "MODEL_UNAVAILABLE",
         content: `${modelName} is currently updating its certified clinical training protocols. Please switch to General AI Triage or another active specialist model.`,
         conversationId: conversationId || null,
+        agentSpecialty,
+        agentName: modelName,
       });
     }
 
@@ -970,6 +984,8 @@ export async function POST(request: NextRequest) {
         responseType: "OUT_OF_SCOPE",
         content: outOfScopeCheck.apologyMessage,
         conversationId: conversationId || null,
+        agentSpecialty,
+        agentName: agent?.displayName || "Clinical AI",
       });
     }
 
@@ -993,6 +1009,8 @@ export async function POST(request: NextRequest) {
         content: greetingMessage,
         conversationId: conversationId || null,
         suggestedQuickReplies: [],
+        agentSpecialty,
+        agentName: agent?.displayName || "Clinical AI",
       });
     }
 
@@ -1004,6 +1022,8 @@ export async function POST(request: NextRequest) {
           ? "Bohot shukriya! Apna khayal rakhein, ehtiyati tadabeer par amal karein, aur agar takleef barhe to foran doctor se rujoo karein."
           : "You're very welcome! Please take care, follow your care precautions, and don't hesitate to book a slot with a registered doctor if your symptoms change or worsen.",
         conversationId: conversationId || null,
+        agentSpecialty,
+        agentName: agent?.displayName || "Clinical AI",
       });
     }
 
@@ -1448,6 +1468,8 @@ export async function POST(request: NextRequest) {
       success: true,
       responseType: liveResult.isComplete ? "TRIAGE_COMPLETE" : "CONVERSATION_TURN",
       conversationId: savedConversationId,
+      agentSpecialty,
+      agentName: agent?.displayName || "General AI Triage",
       isLiveAIUsed: true,
       isComplete: liveResult.isComplete,
       content: liveResult.messageContent,

@@ -93,6 +93,8 @@ export interface ChatMessage {
   recommendedPharmacies?: RecommendedPharmacy[];
   recommendedLabs?: RecommendedLab[];
   bookingResult?: AppointmentBookingData;
+  specialty?: string;
+  agentName?: string;
 }
 
 export interface SpecialistAgentInfo {
@@ -390,6 +392,9 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         | "BOOKING_AUTH_REQUIRED"
         | "SERVER_ERROR" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : data.error ? "SERVER_ERROR" : "API_KEY_REQUIRED");
 
+      const currentSpecialty = data.agentSpecialty || activeAgentSpecialty;
+      const currentAgentName = data.agentName || activeAgent?.displayName || "Clinical AI";
+
       if (respType === "SERVER_ERROR") {
         const botMessage: ChatMessage = {
           id: `bot-${Date.now()}`,
@@ -397,6 +402,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           content: data.error || data.content || "An issue occurred while communicating with the AI service. Please try again.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "SERVER_ERROR",
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
 
         setPendingClarificationMsg(null);
@@ -410,6 +417,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
             "**API Key Required**: Please configure `GEMINI_API_KEY` in your `.env` file to activate the live AI conversational clinical assistant.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "API_KEY_REQUIRED",
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
 
         setPendingClarificationMsg(null);
@@ -423,6 +432,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
             "I apologize, but I am specialized strictly in medical intake and healthcare triage. Please share any physical symptoms or health concerns you have.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "OUT_OF_SCOPE",
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
 
         setPendingClarificationMsg(null);
@@ -436,6 +447,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
             "This specialist model is currently updating its certified training protocols. Please switch to General AI Triage or another active specialist model.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "MODEL_UNAVAILABLE",
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
 
         setPendingClarificationMsg(null);
@@ -448,6 +461,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "GREETING",
           suggestedQuickReplies: data.suggestedQuickReplies || [],
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
         setPendingClarificationMsg(null);
         setMessages((prev) => [...prev, botMessage]);
@@ -460,6 +475,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: "CONVERSATION_TURN",
           suggestedQuickReplies: data.suggestedQuickReplies || [],
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
         setPendingClarificationMsg(null);
         setMessages((prev) => [...prev, botMessage]);
@@ -475,6 +492,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           responseType: respType,
           bookingResult: data.bookingResult,
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
         setPendingClarificationMsg(null);
         setMessages((prev) => [...prev, botMessage]);
@@ -501,6 +520,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           recommendedDoctors: doctors,
           recommendedPharmacies: pharmacies,
           recommendedLabs: labs,
+          specialty: currentSpecialty,
+          agentName: currentAgentName,
         };
 
         setMessages((prev) => [...prev, botMessage]);
