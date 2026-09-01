@@ -9,6 +9,7 @@
 		"start": "next start",
 		"lint": "eslint --fix",
 		"typecheck": "tsc --noEmit",
+		"test:triage": "npx tsx tests/clinical-triage.test.ts",
 		"prisma:generate": "prisma generate",
 		"db:push": "prisma db push",
 		"postinstall": "prisma generate"
