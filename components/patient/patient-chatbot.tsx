@@ -325,6 +325,22 @@ export function PatientChatbot() {
                           </MessageContent>
                         )}
 
+                        {msg.suggestedQuickReplies && msg.suggestedQuickReplies.length > 0 && isLastMessage && !isLoading && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {msg.suggestedQuickReplies.map((reply, rIdx) => (
+                              <Button
+                                key={rIdx}
+                                className="h-auto rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                                size="sm"
+                                variant="secondary"
+                                onPress={() => sendMessage(reply)}
+                              >
+                                {reply}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+
                         {msg.bookingResult && (
                           <BookingCard
                             booking={msg.bookingResult}
