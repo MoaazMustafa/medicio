@@ -79,16 +79,27 @@ const PLEASANTRY_KEYWORDS = [
 
 function isRomanUrdu(text: string): boolean {
   const lower = text.toLowerCase();
-  const urduWords = [
+  const words = lower.split(/[^a-z0-9]+/);
+
+  const distinctUrduWords = [
     "mujhe", "mera", "meri", "mere", "hai", "hain", "kya", "kyun", "kab", "kese", "kaise",
-    "ho", "raha", "rahi", "rahey", "dard", "sar", "pait", "bukhar", "khansi", "gala",
-    "se", "ko", "par", "mein", "me", "doctor", "dikha", "milna", "batao", "bataen",
-    "shukriya", "theek", "thik", "thek", "salam", "karna", "krna", "chahiye", "chaheay",
-    "dawa", "dawaii", "goli", "khana", "peena", "bohot", "boht", "zyada", "ziada", "kam",
-    "subah", "subha", "dopahar", "dophar", "shaam", "sham", "raat", "kal", "aaj", "baje", "bje",
-    "bachon", "bacha", "aurat", "khawateen", "dil", "jild", "chamri", "haddi", "jor"
+    "raha", "rahi", "rahey", "bukhar", "khansi", "batao", "bataen",
+    "shukriya", "theek", "thik", "thek", "chahiye", "chaheay", "dawaii",
+    "bohot", "boht", "zyada", "ziada", "subah", "subha", "dopahar", "dophar",
+    "shaam", "baje", "bje", "bachon", "khawateen", "chamri", "krna"
   ];
-  return urduWords.some((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+
+  const standardUrduWords = [
+    "dard", "sar", "pait", "gala", "ko", "par", "mein", "main", "dikha", "milna",
+    "salam", "karna", "dawa", "goli", "khana", "peena", "sham", "raat", "kal", "aaj",
+    "bacha", "aurat", "dil", "jild", "haddi", "jor"
+  ];
+
+  const distinctCount = distinctUrduWords.filter((w) => words.includes(w)).length;
+  if (distinctCount >= 1) return true;
+
+  const standardCount = standardUrduWords.filter((w) => words.includes(w)).length;
+  return standardCount >= 2;
 }
 
 function isSimpleGreeting(promptText: string): boolean {

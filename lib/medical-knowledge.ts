@@ -727,32 +727,142 @@ export const CERTIFIED_EMERGENCY_RULES: EmergencyRedFlagRule[] = [
 ];
 
 // ==========================================
-// 4. OUT-OF-SCOPE & APOLOGY INTENT FILTER
+// 4. OUT-OF-SCOPE & PROMPT INJECTION GUARD FILTER
 // ==========================================
 
-const NON_MEDICAL_PATTERNS = [
-  /what is the capital of/i,
-  /who is the president/i,
-  /write (a|me) (poem|story|essay|code|script|song)/i,
-  /weather in/i,
-  /tell me a joke/i,
-  /crypto|bitcoin|ethereum/i,
-  /sports score|football|cricket/i,
-  /recipe for/i,
-  /movie recommendations/i,
-  /translate (this|into)/i,
+/**
+ * Adversarial Prompt Injection & Jailbreak Attack Patterns.
+ * Prevents system override, roleplay escapes, and safety directive bypasses.
+ */
+const PROMPT_INJECTION_PATTERNS: RegExp[] = [
+  // 1. Directive / System Prompt Overrides
+  /(ignore|disregard|forget|bypass|override|cancel) (all |any |previous |prior |above |system )?(instructions|prompts|rules|system|directives|safety|constraints|guidelines)/i,
+  /(new|updated|override) (rule|system prompt|instruction|directive|mode):/i,
+  /system (update|override|reboot|shutdown|reset|prompt)/i,
+
+  // 2. Jailbreak Modes & Persona Escapes
+  /\b(developer mode|dan mode|jailbreak|unrestricted mode|god mode|chaos mode|root mode)\b/i,
+  /act as (a |an )?(unrestricted|general|different|coding|helpful|evil|non-medical) (ai|bot|assistant|person|developer|programmer|system)/i,
+  /pretend (to be|you are|you have no)/i,
+  /roleplay as/i,
+  /you are no longer (a|an)? (clinical|medical|ai|triage)/i,
+  /from now on,? (you|your|we)/i,
+
+  // 3. System Prompt Delimiters & Meta-Prompt Injections
+  /<\/?(system|instruction|prompt|context|override|admin|root)>/i,
+  /\[(system|instruction|developer|override|admin|root)\]/i,
+  /^(system|user|assistant|developer|admin):/im,
+  /decode (this|base64|hex|rot13|cipher):/i,
+  /execute (this|the following) (code|command|script|instruction):/i,
 ];
 
-export function checkOutOfScopeQuery(prompt: string): { isOutOfScope: boolean; apologyMessage?: string } {
-  const clean = prompt.trim();
+/**
+ * Categorized Non-Medical Domain & Off-Topic Intent Patterns.
+ */
+const NON_MEDICAL_DOMAINS: { category: string; patterns: RegExp[] }[] = [
+  {
+    category: "Software Engineering & IT",
+    patterns: [
+      /(write|give|create|generate|show|make|build|debug|fix|explain) (a |me |us )?(code|program|script|function|algorithm|app|class|component|website|database query|sql|html|css)/i,
+      /(code|program|coding|script) in (c|c\+\+|python|java|javascript|js|ts|typescript|html|css|cpp|php|sql|rust|go|c#|ruby|swift|assembly)/i,
+      /\b(c|c\+\+|python|java|javascript|cpp|rust|golang|php|swift|kotlin) (code|program|script|function|snippet|compiler|syntax|bug)\b/i,
+      /how to (code|program|compile|debug|git push|deploy|install|configure)/i,
+    ],
+  },
+  {
+    category: "General Knowledge, Physics & Mathematics",
+    patterns: [
+      /what is the (capital|population|gdp|currency|area) of/i,
+      /who (is|was) (the president|the prime minister|the king|the CEO|the author|the founder)/i,
+      /solve (this|the) (equation|math|algebra|calculus|physics|integral|derivative|trigonometry)/i,
+      /\b(weather|temperature|forecast) in\b/i,
+      /history of (the|a)|when was (the|a) (war|built|founded|invented)/i,
+    ],
+  },
+  {
+    category: "Creative Content & Entertainment",
+    patterns: [
+      /(write|compose|generate) (a |me )?(poem|story|essay|song|rap|script|novel|haiku|joke)/i,
+      /movie|film|tv show|music|album (recommendations|reviews|list)/i,
+      /recipe (for|to make)|how to (cook|bake|make) (a |some )?(pizza|cake|dish|food)/i,
+      /sports score|match update|football|cricket|nba|premier league|world cup/i,
+      /tell me a (joke|riddle|fun fact)/i,
+    ],
+  },
+  {
+    category: "Finance, Crypto & Business",
+    patterns: [
+      /\b(crypto|bitcoin|ethereum|btc|eth|solana|stock market|share price|trading strategy|forex)\b/i,
+      /how to (make money|invest|trade|start a business|get rich)/i,
+    ],
+  },
+];
 
-  for (const pattern of NON_MEDICAL_PATTERNS) {
+/**
+ * Medical Keywords Whitelist for Safety Override.
+ * Prevents false positives when a patient query mentions general words alongside legitimate medical symptoms.
+ */
+const MEDICAL_WHITELIST_TERMS = [
+  "symptom", "pain", "fever", "cough", "headache", "chest", "stomach", "rash",
+  "dizzy", "nausea", "vomit", "blood", "pressure", "heart", "breath", "doctor",
+  "medicine", "pill", "infection", "swelling", "disease", "treatment", "clinic",
+  "hospital", "prescription", "allergy", "bukhar", "khansi", "dard", "sar", "pait"
+];
+
+export interface OutOfScopeCheckResult {
+  isOutOfScope: boolean;
+  isPromptInjection?: boolean;
+  apologyMessage?: string;
+  matchedCategory?: string;
+}
+
+/**
+ * Enhanced Clinical Out-of-Scope & Security Filter.
+ * Evaluates input prompts against adversarial injection attacks and off-topic domain matchers.
+ */
+export function checkOutOfScopeQuery(prompt: string): OutOfScopeCheckResult {
+  if (!prompt || typeof prompt !== "string") {
+    return { isOutOfScope: false };
+  }
+
+  // 1. Sanitize & Normalize Input
+  const clean = prompt
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove zero-width hidden characters
+    .replace(/\s+/g, " ");
+
+  // 2. Check for Prompt Injection / Jailbreak Attacks
+  for (const pattern of PROMPT_INJECTION_PATTERNS) {
     if (pattern.test(clean)) {
       return {
         isOutOfScope: true,
+        isPromptInjection: true,
+        matchedCategory: "Prompt Injection Security Violation",
         apologyMessage:
-          "I apologize, but as the Medicio Clinical AI Assistant, my capabilities are strictly focused on healthcare triage, clinical symptom intake, and specialist doctor referrals. I am unable to assist with non-medical requests such as general trivia, creative writing, or off-topic queries. Please describe any physical symptoms, health concerns, or medical questions you may have, and I will be glad to assist you.",
+          "Security Disclaimer: Medicio AI operates strictly as a certified clinical intake and triage assistant. System instructions, safety guidelines, and clinical boundaries cannot be bypassed or overridden. Please share any physical symptoms or health concerns for guided triage.",
       };
+    }
+  }
+
+  // 3. Check for Categorized Non-Medical Intent Patterns
+  for (const domain of NON_MEDICAL_DOMAINS) {
+    for (const pattern of domain.patterns) {
+      if (pattern.test(clean)) {
+        // Exception Guard: If prompt also contains explicit medical symptom context, allow evaluation
+        const lower = clean.toLowerCase();
+        const hasMedicalTerm = MEDICAL_WHITELIST_TERMS.some((term) => lower.includes(term));
+
+        // Only block if no legitimate medical term is present
+        if (!hasMedicalTerm) {
+          return {
+            isOutOfScope: true,
+            isPromptInjection: false,
+            matchedCategory: domain.category,
+            apologyMessage:
+              "I apologize, but as the Medicio Clinical AI Assistant, my capabilities are strictly focused on healthcare triage, clinical symptom intake, and specialist doctor referrals. I am unable to assist with non-medical requests such as software engineering, general trivia, or creative writing. Please describe any physical symptoms, health concerns, or medical questions you may have, and I will be glad to assist you.",
+          };
+        }
+      }
     }
   }
 
