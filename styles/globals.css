@@ -239,97 +239,130 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Gemini Animated Ambient Aurora Background
+   Gemini-Style Animated Fluid Aurora Glows (Header & Chat Dock)
 --------------------------------------------------------------------------- */
 
-@keyframes gemini-aurora-shift-1 {
+@keyframes gemini-fluid-shift-1 {
   0% {
-    transform: translate(-10%, -10%) scale(1) rotate(0deg);
+    transform: translate(0%, 0%) scale(1) rotate(0deg);
   }
   33% {
-    transform: translate(15%, 10%) scale(1.2) rotate(120deg);
+    transform: translate(10%, -6%) scale(1.15) rotate(120deg);
   }
   66% {
-    transform: translate(-15%, 20%) scale(0.85) rotate(240deg);
+    transform: translate(-8%, 8%) scale(0.94) rotate(240deg);
   }
   100% {
-    transform: translate(-10%, -10%) scale(1) rotate(360deg);
+    transform: translate(0%, 0%) scale(1) rotate(360deg);
   }
 }
 
-@keyframes gemini-aurora-shift-2 {
+@keyframes gemini-fluid-shift-2 {
   0% {
-    transform: translate(15%, 15%) scale(1.1) rotate(0deg);
+    transform: translate(0%, 0%) scale(1) rotate(0deg);
   }
   33% {
-    transform: translate(-20%, -10%) scale(0.9) rotate(-120deg);
+    transform: translate(-12%, 6%) scale(1.1) rotate(-120deg);
   }
   66% {
-    transform: translate(10%, -20%) scale(1.25) rotate(-240deg);
+    transform: translate(8%, -8%) scale(1.2) rotate(-240deg);
   }
   100% {
-    transform: translate(15%, 15%) scale(1.1) rotate(-360deg);
+    transform: translate(0%, 0%) scale(1) rotate(-360deg);
   }
 }
 
-@keyframes gemini-aurora-shift-3 {
-  0% {
-    transform: translate(0, 15%) scale(0.95);
-  }
-  50% {
-    transform: translate(-15%, -15%) scale(1.25);
-  }
-  100% {
-    transform: translate(0, 15%) scale(0.95);
-  }
-}
-
-.gemini-ambient-canvas {
+/* Bottom Aurora - Anchored behind chat bar, smoothly fading up into conversation */
+.gemini-bottom-aurora {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 290px;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.75) 45%, transparent 100%);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.75) 45%, transparent 100%);
 }
 
-.gemini-glow-orb-1 {
+.gemini-bottom-aurora .aurora-node-1 {
   position: absolute;
-  top: 5%;
-  left: 15%;
-  width: 680px;
-  height: 680px;
+  bottom: -40px;
+  left: 18%;
+  width: 540px;
+  height: 260px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(78, 130, 238, 0.22) 0%, rgba(78, 130, 238, 0.05) 45%, transparent 70%);
-  filter: blur(100px);
-  animation: gemini-aurora-shift-1 20s ease-in-out infinite;
+  background: radial-gradient(ellipse at center, rgba(45, 212, 191, 0.45) 0%, rgba(20, 184, 166, 0.20) 45%, transparent 70%);
+  filter: blur(55px);
+  animation: gemini-fluid-shift-1 16s ease-in-out infinite;
   will-change: transform;
 }
 
-.gemini-glow-orb-2 {
+.gemini-bottom-aurora .aurora-node-2 {
   position: absolute;
-  top: 20%;
-  right: 10%;
-  width: 640px;
-  height: 640px;
+  bottom: -50px;
+  right: 15%;
+  width: 560px;
+  height: 260px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(155, 114, 207, 0.18) 0%, rgba(155, 114, 207, 0.04) 45%, transparent 70%);
-  filter: blur(105px);
-  animation: gemini-aurora-shift-2 24s ease-in-out infinite;
+  background: radial-gradient(ellipse at center, rgba(14, 165, 233, 0.42) 0%, rgba(6, 182, 212, 0.18) 45%, transparent 70%);
+  filter: blur(60px);
+  animation: gemini-fluid-shift-2 20s ease-in-out infinite;
   will-change: transform;
 }
 
-.gemini-glow-orb-3 {
+.gemini-bottom-aurora .aurora-node-3 {
   position: absolute;
-  bottom: 10%;
-  left: 25%;
-  width: 600px;
-  height: 600px;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 220px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.16) 0%, rgba(45, 212, 191, 0.03) 45%, transparent 70%);
-  filter: blur(110px);
-  animation: gemini-aurora-shift-3 28s ease-in-out infinite;
+  background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.22) 0%, rgba(20, 184, 166, 0.14) 50%, transparent 75%);
+  filter: blur(50px);
+  animation: gemini-fluid-shift-1 22s ease-in-out infinite reverse;
+  will-change: transform;
+}
+
+/* Top Aurora - Anchored under upper subheader, smoothly fading down */
+.gemini-top-aurora {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 160px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+}
+
+.gemini-top-aurora .aurora-top-node-1 {
+  position: absolute;
+  top: -40px;
+  left: 28%;
+  width: 480px;
+  height: 180px;
+  border-radius: 9999px;
+  background: radial-gradient(ellipse at center, rgba(45, 212, 191, 0.38) 0%, rgba(14, 165, 233, 0.18) 45%, transparent 70%);
+  filter: blur(48px);
+  animation: gemini-fluid-shift-1 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+.gemini-top-aurora .aurora-top-node-2 {
+  position: absolute;
+  top: -50px;
+  right: 22%;
+  width: 500px;
+  height: 180px;
+  border-radius: 9999px;
+  background: radial-gradient(ellipse at center, rgba(14, 165, 233, 0.35) 0%, rgba(99, 102, 241, 0.15) 45%, transparent 70%);
+  filter: blur(52px);
+  animation: gemini-fluid-shift-2 22s ease-in-out infinite;
   will-change: transform;
 }
 
