@@ -570,6 +570,64 @@ export const CERTIFIED_CONDITIONS: CertifiedCondition[] = [
 // 2. CERTIFIED MEDICATION & CONTRAINDICATION DATABASE
 // ==========================================
 
+export const CANONICAL_COMORBIDITY_VOCABULARY = [
+  "HYPERTENSION",
+  "DIABETES",
+  "ASTHMA_COPD",
+  "PEPTIC_ULCER_GI_BLEED",
+  "KIDNEY_DISEASE",
+  "LIVER_DISEASE",
+  "HEART_FAILURE",
+  "PREGNANCY",
+] as const;
+
+export type CanonicalComorbidity = typeof CANONICAL_COMORBIDITY_VOCABULARY[number];
+
+export const COMORBIDITY_SYNONYM_MAP: Record<string, CanonicalComorbidity> = {
+  "hypertension": "HYPERTENSION",
+  "high blood pressure": "HYPERTENSION",
+  "bp": "HYPERTENSION",
+  "diabetes": "DIABETES",
+  "diabetes mellitus": "DIABETES",
+  "sugar": "DIABETES",
+  "asthma": "ASTHMA_COPD",
+  "copd": "ASTHMA_COPD",
+  "respiratory": "ASTHMA_COPD",
+  "peptic ulcer": "PEPTIC_ULCER_GI_BLEED",
+  "peptic ulcer disease": "PEPTIC_ULCER_GI_BLEED",
+  "ulcer": "PEPTIC_ULCER_GI_BLEED",
+  "active gi bleed": "PEPTIC_ULCER_GI_BLEED",
+  "acid reflux": "PEPTIC_ULCER_GI_BLEED",
+  "kidney disease": "KIDNEY_DISEASE",
+  "renal": "KIDNEY_DISEASE",
+  "severe renal impairment": "KIDNEY_DISEASE",
+  "liver disease": "LIVER_DISEASE",
+  "hepatic": "LIVER_DISEASE",
+  "chronic alcoholism": "LIVER_DISEASE",
+  "heart disease": "HEART_FAILURE",
+  "heart failure": "HEART_FAILURE",
+  "cardiac history": "HEART_FAILURE",
+  "pregnancy": "PREGNANCY",
+  "pregnant": "PREGNANCY",
+};
+
+/**
+ * Normalizes free-text comorbidity strings and question options into canonical enum tokens.
+ */
+export function normalizeComorbidities(rawList: string[]): Set<CanonicalComorbidity> {
+  const normalized = new Set<CanonicalComorbidity>();
+  for (const raw of rawList) {
+    if (!raw) continue;
+    const lower = raw.toLowerCase().trim();
+    for (const [synonym, canonical] of Object.entries(COMORBIDITY_SYNONYM_MAP)) {
+      if (lower.includes(synonym)) {
+        normalized.add(canonical);
+      }
+    }
+  }
+  return normalized;
+}
+
 export const CERTIFIED_MEDICATIONS: CertifiedMedication[] = [
   {
     name: "Paracetamol (Acetaminophen)",
@@ -1038,6 +1096,20 @@ export interface OutOfScopeCheckResult {
 }
 
 /**
+ * Strict Non-Medical Commands & Directives.
+ * Explicit generative commands (code generation, creative writing, solving equations, trivia)
+ * that are ALWAYS out of scope and cannot be bypassed simply by appending a medical keyword.
+ */
+const STRICT_NON_MEDICAL_COMMANDS: RegExp[] = [
+  /\b(write|give|create|generate|show|make|build|debug|fix|explain|code)\b.*?\b(python|javascript|typescript|c\+\+|cpp|golang|rust|sql|html|css|code|script|function|program|app|algorithm|regex)\b/i,
+  /\b(write|give|create|generate|show|make|build|debug|fix|explain)\b.*?\b(code|program|script|function|algorithm|app|website|sql|database query)\b/i,
+  /\b(write|compose|generate|tell)\b.*?\b(poem|story|essay|song|rap|novel|haiku|joke|riddle|pun)\b/i,
+  /\b(solve|calculate|evaluate)\b.*?\b(equation|math|integral|derivative|algebra|calculus|physics)\b/i,
+  /\b(what is the capital of|who is the president of|who won the match|sports score|match update)\b/i,
+  /\b(how to make money|how to buy bitcoin|how to trade crypto|trading strategy|stock price)\b/i,
+];
+
+/**
  * Enhanced Clinical Out-of-Scope & Security Filter.
  * Evaluates input prompts against adversarial injection attacks and off-topic domain matchers.
  */
@@ -1065,16 +1137,33 @@ export function checkOutOfScopeQuery(prompt: string): OutOfScopeCheckResult {
     }
   }
 
-  // 3. Check for Categorized Non-Medical Intent Patterns
+  // 3. Check for Strict Non-Medical Imperative Commands (Cannot be bypassed by compound or trailing symptoms)
+  for (const strictPattern of STRICT_NON_MEDICAL_COMMANDS) {
+    if (strictPattern.test(clean)) {
+      return {
+        isOutOfScope: true,
+        isPromptInjection: false,
+        matchedCategory: "Direct Non-Medical Directive",
+        apologyMessage:
+          "I apologize, but as the Medicio Clinical AI Assistant, my capabilities are strictly focused on healthcare triage, clinical symptom intake, and specialist doctor referrals. I am unable to assist with non-medical requests such as software engineering, general trivia, or creative writing. Please describe any physical symptoms, health concerns, or medical questions you may have, and I will be glad to assist you.",
+      };
+    }
+  }
+
+  // 4. Check for Categorized Non-Medical Intent Patterns
   for (const domain of NON_MEDICAL_DOMAINS) {
     for (const pattern of domain.patterns) {
       if (pattern.test(clean)) {
-        // Exception Guard: If prompt also contains explicit medical symptom context, allow evaluation
-        const lower = clean.toLowerCase();
-        const hasMedicalTerm = MEDICAL_WHITELIST_TERMS.some((term) => lower.includes(term));
+        // Exception Guard: If prompt is a genuine medical symptom presentation that happens to contain a general word
+        const sentences = clean.split(/[.;!?\n]+/).map((s) => s.trim()).filter(Boolean);
+        const nonMedicalSentence = sentences.find((s) => pattern.test(s));
 
-        // Only block if no legitimate medical term is present
-        if (!hasMedicalTerm) {
+        const sentenceHasMedical = nonMedicalSentence
+          ? MEDICAL_WHITELIST_TERMS.some((term) => nonMedicalSentence.toLowerCase().includes(term))
+          : false;
+
+        // Block if the non-medical request is standalone or not part of a legitimate symptom description
+        if (!sentenceHasMedical) {
           return {
             isOutOfScope: true,
             isPromptInjection: false,
@@ -1283,7 +1372,7 @@ export function synthesizeCertifiedTriage(
     }
   }
 
-  // 2. Extract comorbidities from answers or state
+  // 2. Extract and normalize comorbidities from answers or state
   const effectiveConditions = new Set<string>(userConditions);
   if (answeredQuestions?.comorbidities) {
     answeredQuestions.comorbidities.split(",").forEach((c) => effectiveConditions.add(c.trim()));
@@ -1295,73 +1384,7 @@ export function synthesizeCertifiedTriage(
 
   const effectiveDuration = answeredQuestions?.duration || duration || "1-3 days";
   const userSeverityAnswer = answeredQuestions?.severity || "";
-
-  // 3. Match against Certified Conditions Ontology
-  const matchedConditions: { condition: CertifiedCondition; score: number }[] = [];
-
-  for (const cond of CERTIFIED_CONDITIONS) {
-    let score = 0;
-
-    // Specialty alignment
-    if (cond.specialty.toUpperCase() === specialty.toUpperCase()) {
-      score += 3;
-    }
-
-    // Primary symptoms match (strictly positive, non-negated; dominant diagnostic weight)
-    for (const sym of cond.primarySymptoms) {
-      if (hasPositiveMatch(lower, sym.toLowerCase())) {
-        score += 7;
-      }
-    }
-
-    // Secondary symptoms match (strictly positive, non-negated)
-    for (const sym of cond.secondarySymptoms) {
-      if (hasPositiveMatch(lower, sym.toLowerCase())) {
-        score += 2;
-      }
-    }
-
-    // Comorbidity alignment
-    for (const comorb of cond.riskComorbidities) {
-      if ([...effectiveConditions].some((c) => c.toLowerCase().includes(comorb.toLowerCase()))) {
-        score += 2;
-      }
-    }
-
-    if (score > 0) {
-      matchedConditions.push({ condition: cond, score });
-    }
-  }
-
-  matchedConditions.sort((a, b) => b.score - a.score);
-
-  // If no direct match, take closest default from specialty or general
-  const primaryMatch = matchedConditions[0]?.condition ||
-    CERTIFIED_CONDITIONS.find((c) => c.specialty.toUpperCase() === specialty.toUpperCase()) ||
-    CERTIFIED_CONDITIONS[0];
-
-  const secondaryMatch = matchedConditions[1]?.condition;
-
-  // Final pediatric check incorporating matched condition specialty
-  const finalIsPediatric = isPediatric || primaryMatch.specialty.toUpperCase() === "PEDIATRICS";
-
-  // 4. Calculate Severity & Urgency
-  let finalSeverity: SeverityLevel = primaryMatch.severityDefault;
-  let recommendDoctor = true;
-
-  if (finalIsPediatric) {
-    // Pediatric cases always mandate formal physician consultation
-    recommendDoctor = true;
-  } else if (userSeverityAnswer.includes("Severe") || effectiveDuration.includes("More than 2 weeks")) {
-    finalSeverity = finalSeverity === "LOW" ? "MEDIUM" : "HIGH";
-  } else if (userSeverityAnswer.includes("Mild") && primaryMatch.severityDefault === "LOW") {
-    finalSeverity = "LOW";
-    recommendDoctor = false;
-  }
-
-  // 5. Select Safe OTC Medications & Screen Contraindications
-  const recommendedMeds: TriageResult["temporaryMedicines"] = [];
-  const activeConditionsList = Array.from(effectiveConditions);
+  const normalizedComorbidities = normalizeComorbidities(Array.from(effectiveConditions));
 
   // Determine appropriate medication category based on non-negated symptoms
   let targetMeds: CertifiedMedication[] = [];
@@ -1388,6 +1411,158 @@ export function synthesizeCertifiedTriage(
     targetMeds = [paracetamol].filter((m): m is CertifiedMedication => Boolean(m));
   }
 
+  // 3. Match against Certified Conditions Ontology with strict inclusion floor
+  const matchedConditions: { condition: CertifiedCondition; score: number }[] = [];
+
+  for (const cond of CERTIFIED_CONDITIONS) {
+    let score = 0;
+    let hasPrimaryHit = false;
+
+    // Specialty alignment
+    if (cond.specialty.toUpperCase() === specialty.toUpperCase()) {
+      score += 3;
+    }
+
+    // Primary symptoms match (strictly positive, non-negated; dominant diagnostic weight)
+    for (const sym of cond.primarySymptoms) {
+      if (hasPositiveMatch(lower, sym.toLowerCase())) {
+        score += 7;
+        hasPrimaryHit = true;
+      }
+    }
+
+    // Secondary symptoms match (strictly positive, non-negated)
+    for (const sym of cond.secondarySymptoms) {
+      if (hasPositiveMatch(lower, sym.toLowerCase())) {
+        score += 2;
+      }
+    }
+
+    // Comorbidity alignment
+    for (const comorb of cond.riskComorbidities) {
+      const isComorbMatch = Array.from(normalizedComorbidities).some((c) =>
+        comorb.toUpperCase().includes(c) || c.includes(comorb.toUpperCase())
+      );
+      if (isComorbMatch) {
+        score += 1;
+      }
+    }
+
+    // INCLUSION FLOOR: Require at least one primary symptom match OR total score >= 7
+    if (hasPrimaryHit || score >= 7) {
+      matchedConditions.push({ condition: cond, score });
+    }
+  }
+
+  matchedConditions.sort((a, b) => b.score - a.score);
+
+  // 4. INCONCLUSIVE FALLBACK: Handle queries where no condition scores above inclusion floor
+  if (matchedConditions.length === 0) {
+    const suggestedSpecialtyClean = specialty !== "GENERAL"
+      ? specialty.charAt(0) + specialty.slice(1).toLowerCase()
+      : "General Physician";
+
+    const nonSpecificSummary = `The provided symptoms are insufficient or non-specific to determine a probable clinical condition for "${prompt}". Duration: ${effectiveDuration}.`;
+
+    // Process temporary medications safely
+    const recommendedMeds: TriageResult["temporaryMedicines"] = [];
+    for (const med of targetMeds) {
+      if (isPediatric && med.pediatricUnsafe) continue;
+
+      let hasContraindication = false;
+      let contraindicationNote = "";
+
+      for (const [condKey, warningText] of Object.entries(med.contraindicationWarnings)) {
+        const isDirectMatch = Array.from(effectiveConditions).some((c) => c.toLowerCase().includes(condKey.toLowerCase()));
+        const isNormalizedMatch = Array.from(normalizedComorbidities).some((nc) => {
+          const canonicalKey = COMORBIDITY_SYNONYM_MAP[condKey.toLowerCase()] || condKey.toUpperCase();
+          return nc === canonicalKey;
+        });
+
+        if (isDirectMatch || isNormalizedMatch) {
+          hasContraindication = true;
+          contraindicationNote = warningText;
+          break;
+        }
+      }
+
+      if (hasContraindication) {
+        recommendedMeds.push({
+          name: med.name,
+          dosage: "CONTRAINDICATED for your clinical profile",
+          purpose: med.purpose,
+          contraindicationAlert: contraindicationNote,
+        });
+      } else if (isPediatric) {
+        recommendedMeds.push({
+          name: med.name,
+          dosage: "Weight-based dosing required (10–15 mg/kg) — consult a pediatrician or pharmacist before administering",
+          purpose: med.purpose,
+          warning: "PEDIATRIC SAFETY: Never administer adult fixed-mg doses to children. Dosing must be strictly calculated per kilogram of body weight by a licensed pediatrician or pharmacist. Avoid all Aspirin products.",
+        });
+      } else {
+        recommendedMeds.push({
+          name: med.name,
+          dosage: med.standardDosage,
+          purpose: med.purpose,
+          warning: med.generalWarnings,
+        });
+      }
+    }
+
+    return {
+      severityLevel: "LOW",
+      summary: nonSpecificSummary,
+      clinicalImpression: "Inconclusive non-specific clinical presentation. Please provide additional symptom details (exact anatomical location, severity, duration, or accompanying signs) or consult a healthcare practitioner for formal evaluation.",
+      possibleConditions: [],
+      recommendDoctor: true,
+      suggestedSpecialty: suggestedSpecialtyClean,
+      temporaryMedicines: recommendedMeds,
+      precautions: [
+        "Monitor symptoms closely for any new or evolving signs.",
+        "Maintain adequate fluid hydration and get restorative rest.",
+        "Seek immediate emergency medical care if acute red flags develop (severe chest pressure, breathing difficulty, sudden neurological deficits).",
+      ],
+      redFlagsToWatch: [
+        "Fever exceeding 39°C (102.2°F) or unresponsive to antipyretics for >48h",
+        "Sudden shortness of breath, chest pressure, or radiating thoracic discomfort",
+        "Inability to tolerate oral fluids or severe persistent vomiting",
+        "Sudden neurological deficits (facial droop, speech change, vision loss)",
+      ],
+      questionsForDoctor: [
+        "What in-person clinical examination or diagnostic tests are indicated for these symptoms?",
+      ],
+      disclaimer: MEDICAL_DISCLAIMER,
+      isInconclusive: true,
+      ageGroup: isPediatric ? "pediatric" : "adult",
+    };
+  }
+
+  // Direct condition match established
+  const primaryMatch = matchedConditions[0].condition;
+  const secondaryMatch = matchedConditions[1]?.condition;
+
+  // Final pediatric check incorporating matched condition specialty
+  const finalIsPediatric = isPediatric || primaryMatch.specialty.toUpperCase() === "PEDIATRICS";
+
+  // 5. Calculate Severity & Urgency
+  let finalSeverity: SeverityLevel = primaryMatch.severityDefault;
+  let recommendDoctor = true;
+
+  if (finalIsPediatric) {
+    // Pediatric cases always mandate formal physician consultation
+    recommendDoctor = true;
+  } else if (userSeverityAnswer.includes("Severe") || effectiveDuration.includes("More than 2 weeks")) {
+    finalSeverity = finalSeverity === "LOW" ? "MEDIUM" : "HIGH";
+  } else if (userSeverityAnswer.includes("Mild") && primaryMatch.severityDefault === "LOW") {
+    finalSeverity = "LOW";
+    recommendDoctor = false;
+  }
+
+  // 6. Select Safe OTC Medications & Screen Contraindications via Canonical Vocabulary
+  const recommendedMeds: TriageResult["temporaryMedicines"] = [];
+  const activeConditionsList = Array.from(effectiveConditions);
+
   for (const med of targetMeds) {
     // Pediatric safety gate: structurally block pediatric-unsafe medications (e.g. Aspirin)
     if (finalIsPediatric && med.pediatricUnsafe) {
@@ -1405,7 +1580,13 @@ export function synthesizeCertifiedTriage(
     let contraindicationNote = "";
 
     for (const [condKey, warningText] of Object.entries(med.contraindicationWarnings)) {
-      if (activeConditionsList.some((c) => c.toLowerCase().includes(condKey.toLowerCase()))) {
+      const isDirectMatch = activeConditionsList.some((c) => c.toLowerCase().includes(condKey.toLowerCase()));
+      const isNormalizedMatch = Array.from(normalizedComorbidities).some((nc) => {
+        const canonicalKey = COMORBIDITY_SYNONYM_MAP[condKey.toLowerCase()] || condKey.toUpperCase();
+        return nc === canonicalKey;
+      });
+
+      if (isDirectMatch || isNormalizedMatch) {
         hasContraindication = true;
         contraindicationNote = warningText;
         break;
@@ -1442,7 +1623,7 @@ export function synthesizeCertifiedTriage(
     {
       condition: primaryMatch.name,
       icd11Code: primaryMatch.icd11Code,
-      likelihood: matchedConditions[0]?.score > 6 ? "High" : "Moderate",
+      likelihood: matchedConditions[0].score > 6 ? "High" : "Moderate",
       description: primaryMatch.description,
       sourceGuideline: primaryMatch.sourceGuideline,
     },
