@@ -184,8 +184,14 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
   const [treatmentApproach, setTreatmentApproach] = useState<string>("Allopathic");
   const [isIntakeAttached, setIsIntakeAttached] = useState<boolean>(false);
 
+  const [conversationId, setConversationId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const urlId = new URLSearchParams(window.location.search).get("id");
+      if (urlId) return urlId;
+    }
+    return generateChatId();
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [conversationId, setConversationId] = useState<string>(() => generateChatId());
   const [lastUserPrompt, setLastUserPrompt] = useState<string>("");
   const [pendingClarificationMsg, setPendingClarificationMsg] = useState<ChatMessage | null>(null);
 
@@ -241,12 +247,11 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: m.timestamp
             ? new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          responseType: m.responseType,
-          triageResult: m.triageResult,
-          recommendedDoctors: m.recommendedDoctors,
-          recommendedPharmacies: m.recommendedPharmacies,
-          recommendedLabs: m.recommendedLabs,
-          bookingResult: m.bookingResult,
+          responseType: m.responseType || (m.triageResult ? "TRIAGE_COMPLETE" : "CONVERSATION_TURN"),
+          triageResult: m.triageResult || undefined,
+          suggestedQuickReplies: m.suggestedQuickReplies || undefined,
+          specialty: m.specialty || undefined,
+          agentName: m.agentName || undefined,
         }));
 
         setMessages(formattedChatMessages);
@@ -255,8 +260,8 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           setAgentSpecialty(conv.conversationType);
         }
 
-        const lastBotMsg = parsedMsgs.slice().reverse().find((m) => m.role === "assistant" && m.triageResult);
-        if (lastBotMsg && lastBotMsg.triageResult) {
+        const lastBotMsg = [...parsedMsgs].reverse().find((m) => m.role === "assistant" && m.triageResult);
+        if (lastBotMsg?.triageResult) {
           setLatestTriage(lastBotMsg.triageResult);
           if (lastBotMsg.recommendedDoctors) setLatestDoctors(lastBotMsg.recommendedDoctors);
           if (lastBotMsg.recommendedPharmacies) setLatestPharmacies(lastBotMsg.recommendedPharmacies);
@@ -279,6 +284,12 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchAgents();
     fetchHistorySessions();
+    if (typeof window !== "undefined") {
+      const urlId = new URLSearchParams(window.location.search).get("id");
+      if (urlId) {
+        loadHistorySession(urlId);
+      }
+    }
   }, []);
 
   const requestDeviceLocation = async () => {
