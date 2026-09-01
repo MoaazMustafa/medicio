@@ -83,7 +83,8 @@ export interface ChatMessage {
     | "API_KEY_REQUIRED"
     | "BOOKING_PREVIEW"
     | "BOOKING_CONFIRMED"
-    | "BOOKING_AUTH_REQUIRED";
+    | "BOOKING_AUTH_REQUIRED"
+    | "SERVER_ERROR";
   clarificationQuestions?: ClarificationQuestion[];
   suggestedQuickReplies?: string[];
   userAnswers?: Record<string, string>;
@@ -226,14 +227,32 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           timestamp: m.timestamp
             ? new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: m.responseType,
           triageResult: m.triageResult,
+          recommendedDoctors: m.recommendedDoctors,
+          recommendedPharmacies: m.recommendedPharmacies,
+          recommendedLabs: m.recommendedLabs,
+          bookingResult: m.bookingResult,
         }));
 
         setMessages(formattedChatMessages);
 
+        if (conv.conversationType && conv.conversationType !== "SYMPTOM_CHECKER") {
+          setAgentSpecialty(conv.conversationType);
+        }
+
         const lastBotMsg = parsedMsgs.slice().reverse().find((m) => m.role === "assistant" && m.triageResult);
         if (lastBotMsg && lastBotMsg.triageResult) {
           setLatestTriage(lastBotMsg.triageResult);
+          if (lastBotMsg.recommendedDoctors) setLatestDoctors(lastBotMsg.recommendedDoctors);
+          if (lastBotMsg.recommendedPharmacies) setLatestPharmacies(lastBotMsg.recommendedPharmacies);
+          if (lastBotMsg.recommendedLabs) setLatestLabs(lastBotMsg.recommendedLabs);
+          if (lastBotMsg.triageResult.suggestedSpecialty) {
+            const normalized = lastBotMsg.triageResult.suggestedSpecialty.toUpperCase().replace(/\s+/g, "_");
+            if (agents.some((a) => a.specialty === normalized)) {
+              setAgentSpecialty(normalized);
+            }
+          }
         }
       }
     } catch (err) {
@@ -310,6 +329,10 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
       const historyPayload = messages.map((m) => ({
         role: m.role,
         content: m.content,
+        responseType: m.responseType,
+        triageResult: m.triageResult,
+        bookingResult: m.bookingResult,
+        recommendedDoctors: m.recommendedDoctors,
       }));
 
       const response = await fetch("/api/symptom-checker", {
@@ -331,6 +354,7 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
           coordinates: userCoordinates,
           locationName,
           radiusKm: searchRadiusKm,
+          timezoneOffset: new Date().getTimezoneOffset(),
           history: historyPayload,
         }),
       });
@@ -351,9 +375,21 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         | "API_KEY_REQUIRED"
         | "BOOKING_PREVIEW"
         | "BOOKING_CONFIRMED"
-        | "BOOKING_AUTH_REQUIRED" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : "API_KEY_REQUIRED");
+        | "BOOKING_AUTH_REQUIRED"
+        | "SERVER_ERROR" = data.responseType || (data.success ? "TRIAGE_COMPLETE" : data.error ? "SERVER_ERROR" : "API_KEY_REQUIRED");
 
-      if (respType === "API_KEY_REQUIRED") {
+      if (respType === "SERVER_ERROR") {
+        const botMessage: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content: data.error || data.content || "An issue occurred while communicating with the AI service. Please try again.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          responseType: "SERVER_ERROR",
+        };
+
+        setPendingClarificationMsg(null);
+        setMessages((prev) => [...prev, botMessage]);
+      } else if (respType === "API_KEY_REQUIRED") {
         const botMessage: ChatMessage = {
           id: `bot-${Date.now()}`,
           role: "assistant",

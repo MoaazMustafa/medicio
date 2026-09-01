@@ -441,7 +441,7 @@ export async function ensureSpecialistDoctors(db: PrismaClient): Promise<void> {
           data: {
             email: doc.email,
             name: doc.name,
-            passwordHash: "$2b$10$demoHashedPasswordDummyValuePlaceholderForSeed12345",
+            passwordHash: "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
             role: "DOCTOR",
             isVerified: true,
           },

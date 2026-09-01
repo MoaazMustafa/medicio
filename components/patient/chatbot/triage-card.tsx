@@ -23,14 +23,14 @@ import type {
   TriageResult,
 } from "@/components/patient/patient-context";
 
-export function getSeverityColor(severity?: string): "danger" | "warning" | "accent" | "success" | "default" {
+export function getSeverityColor(severity?: string): "danger" | "warning" | "success" | "default" {
   switch (severity) {
     case "CRITICAL":
       return "danger";
     case "HIGH":
       return "warning";
     case "MEDIUM":
-      return "accent";
+      return "warning";
     case "LOW":
       return "success";
     default:

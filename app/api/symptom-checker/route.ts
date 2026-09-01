@@ -364,7 +364,7 @@ function checkMedicalContextInHistory(history: any[]): {
   return { hasContext: hasSymptoms };
 }
 
-function parseBookingDateTime(promptText: string): Date {
+function parseBookingDateTime(promptText: string, timezoneOffsetMinutes?: number): Date {
   const lower = promptText.toLowerCase();
   const now = new Date();
   const target = new Date(now);
@@ -398,9 +398,12 @@ function parseBookingDateTime(promptText: string): Date {
 
   // Parse time
   const time12Match = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje|bje)/i);
+  let hour = 10;
+  let minute = 0;
+
   if (time12Match) {
-    let hour = parseInt(time12Match[1], 10);
-    const minute = time12Match[2] ? parseInt(time12Match[2], 10) : 0;
+    hour = parseInt(time12Match[1], 10);
+    minute = time12Match[2] ? parseInt(time12Match[2], 10) : 0;
     const meridian = time12Match[3].toLowerCase();
     if (meridian === "pm" && hour < 12) hour += 12;
     if (meridian === "am" && hour === 12) hour = 0;
@@ -415,17 +418,22 @@ function parseBookingDateTime(promptText: string): Date {
     ) {
       hour += 12;
     }
-    target.setHours(hour, minute, 0, 0);
   } else if (lower.includes("morning") || lower.includes("subah") || lower.includes("subha")) {
-    target.setHours(10, 0, 0, 0);
+    hour = 10;
   } else if (lower.includes("afternoon") || lower.includes("dopahar") || lower.includes("dophar")) {
-    target.setHours(14, 0, 0, 0);
+    hour = 14;
   } else if (lower.includes("evening") || lower.includes("shaam") || lower.includes("sham")) {
-    target.setHours(17, 0, 0, 0);
+    hour = 17;
   } else if (lower.includes("night") || lower.includes("raat")) {
-    target.setHours(20, 0, 0, 0);
-  } else {
-    target.setHours(10, 0, 0, 0);
+    hour = 20;
+  }
+
+  target.setHours(hour, minute, 0, 0);
+
+  if (typeof timezoneOffsetMinutes === "number" && !isNaN(timezoneOffsetMinutes)) {
+    const serverOffset = now.getTimezoneOffset();
+    const diffMinutes = serverOffset - timezoneOffsetMinutes;
+    target.setMinutes(target.getMinutes() + diffMinutes);
   }
 
   return target;
@@ -466,6 +474,7 @@ async function resolveDoctorForBooking(
       targetSpecialty.toLowerCase().includes(d.specialty.toLowerCase()),
     );
     if (specMatch) return specMatch;
+    if (explicitSpec) return null;
   }
 
   // C. Match doctor mentioned in recent history
@@ -816,6 +825,7 @@ export async function POST(request: NextRequest) {
       coordinates,
       locationName,
       radiusKm = 10,
+      timezoneOffset,
       history = [],
     } = body;
 
@@ -925,7 +935,7 @@ export async function POST(request: NextRequest) {
       // STEP 1: If user says "Confirm" or is confirming a previous preview
       if (isConfirming) {
         const targetDoctor = await resolveDoctorForBooking(trimmedPrompt, agentSpecialty, history);
-        const scheduledDateTime = parseBookingDateTime(trimmedPrompt);
+        const scheduledDateTime = parseBookingDateTime(trimmedPrompt, timezoneOffset);
 
         if (targetDoctor) {
           const formattedDate = scheduledDateTime.toLocaleDateString(undefined, {
@@ -1106,7 +1116,7 @@ export async function POST(request: NextRequest) {
 
       // STEP 5: Doctor AND Date/Time are identified -> Show PREVIEW & CONFIRMATION Card
       if (targetDoctor) {
-        const scheduledDateTime = parseBookingDateTime(trimmedPrompt);
+        const scheduledDateTime = parseBookingDateTime(trimmedPrompt, timezoneOffset);
         const formattedDate = scheduledDateTime.toLocaleDateString(undefined, {
           weekday: "short",
           month: "short",
@@ -1200,7 +1210,9 @@ export async function POST(request: NextRequest) {
     if (!liveResult) {
       return NextResponse.json({
         success: false,
-        error: "Live AI model was unable to process the request. Please check your API key and connection.",
+        responseType: "SERVER_ERROR",
+        error: "The AI model encountered a temporary issue. Please check your API key or try again in a moment.",
+        conversationId: conversationId || null,
       }, { status: 502 });
     }
 

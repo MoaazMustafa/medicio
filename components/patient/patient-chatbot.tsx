@@ -161,7 +161,7 @@ export function PatientChatbot() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background-custom">
       {/* Sub-header: agent picker + session actions */}
-      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-custom bg-surface/60 px-3 backdrop-blur-lg sm:px-4">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-custom bg-surface/60 px-3 backdrop-blur-lg sm:px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
             <ActiveIcon className="h-4 w-4" />
@@ -291,7 +291,7 @@ export function PatientChatbot() {
             </Tooltip.Content>
           </Tooltip>
         </div>
-      </header>
+      </div>
 
       {/* Conversation stream */}
       <div className="relative flex-1 overflow-hidden">
@@ -484,16 +484,16 @@ export function PatientChatbot() {
                     const isActive = conversationId === session.id;
 
                     return (
-                      <button
+                      <Button
                         key={session.id}
                         className={cn(
-                          "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors",
+                          "h-auto w-full flex-row items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors whitespace-normal",
                           isActive
                             ? "border-primary/40 bg-primary/10 text-text-primary"
                             : "border-border-custom bg-background-custom/50 hover:border-primary/40",
                         )}
-                        type="button"
-                        onClick={() => {
+                        variant="secondary"
+                        onPress={() => {
                           loadHistorySession(session.id);
                           setIsHistoryOpen(false);
                         }}
@@ -513,7 +513,7 @@ export function PatientChatbot() {
                         >
                           {session.severityLevel}
                         </Chip>
-                      </button>
+                      </Button>
                     );
                   })
                 )}
