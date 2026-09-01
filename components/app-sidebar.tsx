@@ -172,10 +172,21 @@ function isRouteActive(href: string, pathname: string): boolean {
 export function AppSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const items = navForRole(role);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return pathname === "/chatbot" || (window.innerWidth >= 768 && window.innerWidth < 1024);
+    }
+    return false;
+  });
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
-  // Auto-collapse sidebar on tablet screen widths to preserve main workspace space
+  // Auto-collapse sidebar on /chatbot route or tablet screen widths to maximize workspace
+  useEffect(() => {
+    if (pathname === "/chatbot") {
+      setIsCollapsed(true);
+    }
+  }, [pathname]);
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768 && window.innerWidth < 1024) {

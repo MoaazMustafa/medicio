@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Chip, Input, Label, ListBox, Modal, Select, Tooltip } from "@heroui/react";
+import { Button, Chip, Dropdown, Separator, Tooltip } from "@heroui/react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -10,23 +10,24 @@ import {
   Bot,
   Brain,
   Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
   Copy,
   Ear,
   Eye,
-  FileText,
   HeartHandshake,
   HeartPulse,
-  History,
   MapPin,
   Navigation,
   Plus,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
   Wind,
   X,
 } from "lucide-react";
-import NextLink from "next/link";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -35,7 +36,7 @@ import { usePatientContext } from "./patient-context";
 
 import { BookingCard } from "@/components/patient/chatbot/booking-card";
 import { ChatEmptyState } from "@/components/patient/chatbot/chat-empty-state";
-import { getSeverityColor, TriageCard } from "@/components/patient/chatbot/triage-card";
+import { TriageCard } from "@/components/patient/chatbot/triage-card";
 import {
   ChatContainerContent,
   ChatContainerRoot,
@@ -98,10 +99,10 @@ export function PatientChatbot() {
     preExistingConditions,
     currentMedicines,
     treatmentApproach,
+    isIntakeAttached,
+    setIsIntakeAttached,
+    clearIntakeParameters,
     isLoading,
-    conversationId,
-    historySessions,
-    userCoordinates,
     locationName,
     searchRadiusKm,
     isLocating,
@@ -115,7 +116,6 @@ export function PatientChatbot() {
     requestDeviceLocation,
     sendMessage,
     resetChat,
-    fetchHistorySessions,
     loadHistorySession,
   } = usePatientContext();
 
@@ -123,9 +123,29 @@ export function PatientChatbot() {
   const sessionParam = searchParams.get("session");
 
   const [inputPrompt, setInputPrompt] = useState<string>("");
-  const [isIntakeOpen, setIsIntakeOpen] = useState<boolean>(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  const handleIntakeSelect = (key: string) => {
+    if (key.startsWith("dur_")) {
+      setDuration(key.replace("dur_", ""));
+      setIsIntakeAttached(true);
+    } else if (key.startsWith("cond_")) {
+      const val = key.replace("cond_", "");
+      setPreExistingConditions(val === "None" ? "" : val);
+      setIsIntakeAttached(true);
+    } else if (key.startsWith("approach_")) {
+      setTreatmentApproach(key.replace("approach_", ""));
+      setIsIntakeAttached(true);
+    } else if (key.startsWith("radius_")) {
+      setSearchRadiusKm(Number(key.replace("radius_", "")));
+      setIsIntakeAttached(true);
+    } else if (key === "action_gps") {
+      requestDeviceLocation();
+      setIsIntakeAttached(true);
+    } else if (key === "action_clear") {
+      clearIntakeParameters();
+    }
+  };
 
   useEffect(() => {
     if (sessionParam) {
@@ -160,141 +180,35 @@ export function PatientChatbot() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background-custom">
-      {/* Sub-header: agent picker + session actions */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-custom bg-surface/60 px-3 backdrop-blur-lg sm:px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-            <ActiveIcon className="h-4 w-4" />
-          </div>
-          <Select
-            aria-label="Select AI specialist model"
-            className="w-48 sm:w-56"
-            selectedKey={currentAgent.specialty}
-            onSelectionChange={(key: React.Key | null) => {
-              if (key) setAgentSpecialty(String(key));
-            }}
-          >
-            <Select.Trigger className="h-9 w-full border-0 bg-transparent text-xs font-semibold shadow-none">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover className="min-w-64">
-              <ListBox>
-                {agentOptions.map((agent) => {
-                  const AgentIcon = AGENT_ICONS[agent.specialty] ?? Stethoscope;
-                  const isAvailable = agent.isEnabled && agent.isTrained;
-
-                  return (
-                    <ListBox.Item
-                      key={agent.specialty}
-                      id={agent.specialty}
-                      isDisabled={!isAvailable}
-                      textValue={agent.displayName}
-                    >
-                      <Label className="flex w-full items-center gap-2 text-xs">
-                        <AgentIcon className={cn("h-3.5 w-3.5 shrink-0", isAvailable ? "text-primary" : "text-text-secondary")} />
-                        <span className="truncate">{agent.displayName}</span>
-                        {isAvailable ? (
-                          <span aria-hidden className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                        ) : (
-                          <Chip className="ml-auto shrink-0 text-[9px] font-mono font-bold uppercase" size="sm" variant="soft">
-                            Soon
-                          </Chip>
-                        )}
-                      </Label>
-                    </ListBox.Item>
-                  );
-                })}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Tooltip delay={100}>
-            <Tooltip.Trigger>
-              <Button
-                aria-label="Current location and search radius"
-                className="hidden rounded-full text-xs font-medium sm:flex"
-                size="sm"
-                variant={locationName ? "primary" : "secondary"}
-                onPress={() => setIsIntakeOpen(true)}
-              >
-                <MapPin className={cn("h-3.5 w-3.5", isLocating && "animate-spin")} />
-                <span className="max-w-28 truncate">
-                  {locationName || "Set Location"}
-                </span>
-                <Chip className="ml-0.5 text-[9px] font-mono" size="sm" variant="soft">
-                  {searchRadiusKm}km
-                </Chip>
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
-              {userCoordinates ? `Searching within ${searchRadiusKm} km of ${locationName}` : "Click to detect your device GPS location"}
-            </Tooltip.Content>
-          </Tooltip>
-
-          <Tooltip delay={100}>
-            <Tooltip.Trigger>
-              <Button
-                isIconOnly
-                aria-label="Past sessions"
-                className="rounded-full"
-                size="sm"
-                variant="secondary"
-                onPress={() => {
-                  fetchHistorySessions();
-                  setIsHistoryOpen(true);
-                }}
-              >
-                <History className="h-4 w-4" />
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
-              Past sessions ({historySessions.length})
-            </Tooltip.Content>
-          </Tooltip>
-
-          <Tooltip delay={100}>
-            <Tooltip.Trigger>
-              <Button
-                isIconOnly
-                aria-label="Intake settings"
-                className="rounded-full"
-                size="sm"
-                variant="secondary"
-                onPress={() => setIsIntakeOpen(true)}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
-              Intake settings
-            </Tooltip.Content>
-          </Tooltip>
-
-          <Tooltip delay={100}>
-            <Tooltip.Trigger>
-              <Button
-                isIconOnly
-                aria-label="New chat"
-                className="rounded-full"
-                size="sm"
-                variant="secondary"
-                onPress={resetChat}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
-              New chat
-            </Tooltip.Content>
-          </Tooltip>
-        </div>
+      {/* Sleek Minimal Top Action Strip */}
+      <div className="flex h-10 shrink-0 items-center justify-end px-3 pt-2 sm:px-5">
+        <Tooltip delay={100}>
+          <Tooltip.Trigger>
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label="Start new chat"
+              className="h-7 rounded-full text-xs font-medium gap-1.5 px-2.5 shadow-2xs"
+              onPress={resetChat}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Chat</span>
+            </Button>
+          </Tooltip.Trigger>
+          <Tooltip.Content className="px-2 py-1 text-xs" placement="bottom">
+            Start a new session
+          </Tooltip.Content>
+        </Tooltip>
       </div>
 
-      {/* Conversation stream */}
+      {/* Conversation stream with moving Gemini ambient background */}
       <div className="relative flex-1 overflow-hidden">
+        {/* Gemini animated moving ambient aurora background */}
+        <div className="gemini-ambient-canvas">
+          <div className="gemini-glow-orb-1" />
+          <div className="gemini-glow-orb-2" />
+          <div className="gemini-glow-orb-3" />
+        </div>
         {showEmptyState ? (
           <div className="flex h-full flex-col items-center justify-center">
             <ChatEmptyState
@@ -413,7 +327,7 @@ export function PatientChatbot() {
       <div className="shrink-0 px-3 pt-1 pb-3 sm:px-4 sm:pb-4">
         <div className="mx-auto w-full max-w-3xl">
           <PromptInput
-            className="w-full rounded-3xl border-border-custom bg-surface p-2 pt-1 shadow-sm"
+            className="w-full rounded-3xl border border-border-custom bg-surface/90 p-2.5 shadow-md backdrop-blur-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300"
             disabled={!isModelAvailable}
             isLoading={isLoading}
             value={inputPrompt}
@@ -422,7 +336,7 @@ export function PatientChatbot() {
           >
             <div className="flex flex-col">
               <PromptInputTextarea
-                className="min-h-[44px] pt-3 pl-2.5 text-sm"
+                className="min-h-[44px] pt-1 pl-2 text-sm"
                 placeholder={
                   isModelAvailable
                     ? SPECIALTY_PLACEHOLDERS[currentAgent.specialty] || "Describe your symptoms (e.g. 'I've had a headache for 2 days')…"
@@ -430,36 +344,329 @@ export function PatientChatbot() {
                 }
               />
 
-              <PromptInputActions className="flex w-full items-center justify-between gap-2 pt-1.5">
-                <PromptInputAction tooltip="Intake settings — duration, conditions, medications">
-                  <Button
-                    className="h-8 rounded-full border border-border-custom bg-transparent px-3 text-[11px] font-medium text-text-secondary"
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => setIsIntakeOpen(true)}
-                  >
-                    <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                    {duration} · {treatmentApproach}
-                  </Button>
-                </PromptInputAction>
+              <PromptInputActions className="flex w-full items-center justify-between gap-2 pt-2">
+                {/* Left: Plus dropdown to select intake parameters (Gemini tools menu style) + attached tag */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Dropdown>
+                    <Dropdown.Trigger>
+                      <Button
+                        isIconOnly
+                        aria-label="Clinical intake options"
+                        className="h-8 w-8 min-w-8 rounded-full border border-border-custom bg-surface hover:bg-secondary text-text-secondary hover:text-text-primary shadow-2xs"
+                        size="sm"
+                        variant="secondary"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </Dropdown.Trigger>
+                    <Dropdown.Popover className="min-w-64 rounded-2xl border border-border-custom bg-surface/95 p-1.5 shadow-2xl backdrop-blur-2xl" placement="top start">
+                      <Dropdown.Menu
+                        aria-label="Clinical intake parameters"
+                        onAction={(key) => handleIntakeSelect(String(key))}
+                      >
+                        {/* Submenu 1: Symptom Duration */}
+                        <Dropdown.SubmenuTrigger>
+                          <Dropdown.Item id="sub_duration" textValue="Symptom Duration">
+                            <div className="flex w-full items-center gap-2 text-xs">
+                              <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <span className="font-medium">Symptom Duration</span>
+                              {duration && isIntakeAttached && (
+                                <span className="ml-auto max-w-20 truncate text-[10px] text-primary font-mono">{duration}</span>
+                              )}
+                              <ChevronRight className="ml-auto h-3.5 w-3.5 text-text-secondary shrink-0 opacity-70" />
+                            </div>
+                          </Dropdown.Item>
+                          <Dropdown.Popover className="min-w-60 rounded-2xl border border-border-custom bg-surface/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+                            <Dropdown.Menu onAction={(key) => handleIntakeSelect(String(key))}>
+                              <Dropdown.Item id="dur_Less than 24 hours" textValue="Less than 24 hours">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span>Less than 24 hours (Acute)</span>
+                                  {duration === "Less than 24 hours" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="dur_1-3 days" textValue="1 - 3 days">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span>1 – 3 days (Recent)</span>
+                                  {duration === "1-3 days" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="dur_1-2 weeks" textValue="1 - 2 weeks">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span>1 – 2 weeks (Persistent)</span>
+                                  {duration === "1-2 weeks" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="dur_More than 1 month" textValue="More than 1 month">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span>More than 1 month (Chronic)</span>
+                                  {duration === "More than 1 month" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown.SubmenuTrigger>
 
-                <PromptInputAction tooltip={isLoading ? "Analyzing…" : "Send message"}>
-                  <Button
-                    isIconOnly
-                    aria-label="Send message"
-                    className="h-9 w-9 min-w-9 rounded-full"
-                    isDisabled={!inputPrompt.trim() || isLoading || !isModelAvailable}
-                    size="sm"
-                    variant="primary"
-                    onPress={handleSend}
-                  >
-                    {isLoading ? (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4" />
-                    )}
-                  </Button>
-                </PromptInputAction>
+                        {/* Submenu 2: Medical Background */}
+                        <Dropdown.SubmenuTrigger>
+                          <Dropdown.Item id="sub_conditions" textValue="Medical Background">
+                            <div className="flex w-full items-center gap-2 text-xs">
+                              <HeartPulse className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                              <span className="font-medium">Medical Background</span>
+                              {preExistingConditions && isIntakeAttached && (
+                                <span className="ml-auto max-w-20 truncate text-[10px] text-primary font-mono">{preExistingConditions}</span>
+                              )}
+                              <ChevronRight className="ml-auto h-3.5 w-3.5 text-text-secondary shrink-0 opacity-70" />
+                            </div>
+                          </Dropdown.Item>
+                          <Dropdown.Popover className="min-w-64 rounded-2xl border border-border-custom bg-surface/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+                            <Dropdown.Menu onAction={(key) => handleIntakeSelect(String(key))}>
+                              <Dropdown.Item id="cond_Cardiovascular / High BP" textValue="Cardiovascular / High BP">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <HeartPulse className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                                  <span>Cardiovascular / High BP</span>
+                                  {preExistingConditions.includes("Cardiovascular") && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="cond_Diabetes / Metabolic" textValue="Diabetes / Metabolic">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Activity className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                  <span>Diabetes / Metabolic</span>
+                                  {preExistingConditions.includes("Diabetes") && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="cond_Asthma / Respiratory" textValue="Asthma / Respiratory">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Wind className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                                  <span>Asthma / Respiratory</span>
+                                  {preExistingConditions.includes("Asthma") && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="cond_None" textValue="No Chronic Illnesses">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                  <span>No Chronic Conditions</span>
+                                  {preExistingConditions === "" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown.SubmenuTrigger>
+
+                        {/* Submenu 3: Treatment Approach */}
+                        <Dropdown.SubmenuTrigger>
+                          <Dropdown.Item id="sub_approach" textValue="Treatment Approach">
+                            <div className="flex w-full items-center gap-2 text-xs">
+                              <ShieldCheck className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                              <span className="font-medium">Treatment Approach</span>
+                              {treatmentApproach && isIntakeAttached && (
+                                <span className="ml-auto max-w-20 truncate text-[10px] text-primary font-mono">{treatmentApproach}</span>
+                              )}
+                              <ChevronRight className="ml-auto h-3.5 w-3.5 text-text-secondary shrink-0 opacity-70" />
+                            </div>
+                          </Dropdown.Item>
+                          <Dropdown.Popover className="min-w-60 rounded-2xl border border-border-custom bg-surface/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+                            <Dropdown.Menu onAction={(key) => handleIntakeSelect(String(key))}>
+                              <Dropdown.Item id="approach_Allopathic" textValue="Allopathic Conventional">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <ShieldCheck className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                                  <span>Allopathic (Conventional)</span>
+                                  {treatmentApproach === "Allopathic" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="approach_Homeopathic" textValue="Homeopathic Natural">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                  <span>Homeopathic (Natural)</span>
+                                  {treatmentApproach === "Homeopathic" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="approach_Tibb" textValue="Tibb Greco-Arabic">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <ShieldCheck className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                  <span>Tibb (Greco-Arabic)</span>
+                                  {treatmentApproach === "Tibb" && isIntakeAttached && (
+                                    <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </div>
+                              </Dropdown.Item>
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown.SubmenuTrigger>
+
+                        {/* Submenu 4: Provider Search Radius & GPS */}
+                        <Dropdown.SubmenuTrigger>
+                          <Dropdown.Item id="sub_radius" textValue="Provider Location & Radius">
+                            <div className="flex w-full items-center gap-2 text-xs">
+                              <MapPin className="h-3.5 w-3.5 text-text-secondary shrink-0" />
+                              <span className="font-medium">Provider Radius</span>
+                              <span className="ml-auto max-w-16 truncate text-[10px] text-text-secondary font-mono">{searchRadiusKm} km</span>
+                              <ChevronRight className="ml-auto h-3.5 w-3.5 text-text-secondary shrink-0 opacity-70" />
+                            </div>
+                          </Dropdown.Item>
+                          <Dropdown.Popover className="min-w-60 rounded-2xl border border-border-custom bg-surface/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+                            <Dropdown.Menu onAction={(key) => handleIntakeSelect(String(key))}>
+                              <Dropdown.Item id="action_gps" textValue="Detect Device GPS">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <Navigation className={cn("h-3.5 w-3.5 text-primary shrink-0", isLocating && "animate-spin")} />
+                                  <span>{isLocating ? "Locating..." : locationName ? `Location: ${locationName}` : "Detect Device GPS"}</span>
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="radius_10" textValue="10 km Radius">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <MapPin className="h-3.5 w-3.5 text-text-secondary shrink-0" />
+                                  <span>Provider Radius: 10 km</span>
+                                  {searchRadiusKm === 10 && <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="radius_25" textValue="25 km Radius">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <MapPin className="h-3.5 w-3.5 text-text-secondary shrink-0" />
+                                  <span>Provider Radius: 25 km</span>
+                                  {searchRadiusKm === 25 && <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />}
+                                </div>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="radius_50" textValue="50 km Radius">
+                                <div className="flex w-full items-center gap-2 text-xs">
+                                  <MapPin className="h-3.5 w-3.5 text-text-secondary shrink-0" />
+                                  <span>Provider Radius: 50 km</span>
+                                  {searchRadiusKm === 50 && <Check className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />}
+                                </div>
+                              </Dropdown.Item>
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown.SubmenuTrigger>
+
+                        {/* Clear & Detach if attached */}
+                        {isIntakeAttached && (
+                          <>
+                            <Separator />
+                            <Dropdown.Item id="action_clear" textValue="Clear and detach" variant="danger">
+                              <div className="flex w-full items-center gap-2 text-xs text-danger">
+                                <X className="h-3.5 w-3.5 shrink-0" />
+                                <span>Clear & Detach Parameters</span>
+                              </div>
+                            </Dropdown.Item>
+                          </>
+                        )}
+                      </Dropdown.Menu>
+                    </Dropdown.Popover>
+                  </Dropdown>
+
+                  {isIntakeAttached && (
+                    <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 pl-2.5 pr-1.5 py-1 text-xs font-medium text-primary animate-in fade-in zoom-in-95 duration-150">
+                      <SlidersHorizontal className="h-3 w-3 shrink-0 text-primary" />
+                      <span className="max-w-28 sm:max-w-44 truncate text-[11px] font-medium">
+                        {duration} {preExistingConditions ? `· ${preExistingConditions}` : `· ${treatmentApproach}`}
+                      </span>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="secondary"
+                        aria-label="Detach intake parameters"
+                        className="h-4 w-4 min-w-4 rounded-full p-0 bg-transparent hover:bg-primary/20 text-primary border-0"
+                        onPress={() => {
+                          clearIntakeParameters();
+                        }}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Specialist Model Picker (Flash v style) + Send Button */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Dropdown>
+                    <Dropdown.Trigger>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label="Select clinical specialist"
+                        className="h-8 rounded-full border border-border-custom bg-surface px-2.5 text-xs font-medium text-text-primary hover:bg-secondary gap-1.5 shadow-2xs"
+                      >
+                        <ActiveIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="max-w-24 sm:max-w-36 truncate">{currentAgent.displayName}</span>
+                        <ChevronDown className="h-3 w-3 text-text-secondary shrink-0 opacity-70" />
+                      </Button>
+                    </Dropdown.Trigger>
+                    <Dropdown.Popover className="min-w-64">
+                      <Dropdown.Menu
+                        aria-label="Select specialist model"
+                        onAction={(key) => {
+                          if (key) setAgentSpecialty(String(key));
+                        }}
+                      >
+                        {agentOptions.map((agent) => {
+                          const AgentIcon = AGENT_ICONS[agent.specialty] ?? Stethoscope;
+                          const isAvailable = agent.isEnabled && agent.isTrained;
+
+                          return (
+                            <Dropdown.Item
+                              key={agent.specialty}
+                              id={agent.specialty}
+                              textValue={agent.displayName}
+                              className={cn(!isAvailable && "opacity-50 pointer-events-none")}
+                            >
+                              <div className="flex w-full items-center gap-2 text-xs">
+                                <AgentIcon className={cn("h-3.5 w-3.5 shrink-0", isAvailable ? "text-primary" : "text-text-secondary")} />
+                                <span className="truncate">{agent.displayName}</span>
+                                {isAvailable ? (
+                                  <span aria-hidden className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                                ) : (
+                                  <Chip className="ml-auto shrink-0 text-[9px] font-mono font-bold uppercase" size="sm" variant="soft">
+                                    Soon
+                                  </Chip>
+                                )}
+                              </div>
+                            </Dropdown.Item>
+                          );
+                        })}
+                      </Dropdown.Menu>
+                    </Dropdown.Popover>
+                  </Dropdown>
+
+                  <PromptInputAction tooltip={isLoading ? "Analyzing…" : "Send message"}>
+                    <Button
+                      isIconOnly
+                      aria-label="Send message"
+                      className="h-8 w-8 min-w-8 rounded-full bg-primary text-surface shadow-xs hover:opacity-90 transition-opacity"
+                      isDisabled={!inputPrompt.trim() || isLoading || !isModelAvailable}
+                      size="sm"
+                      variant="primary"
+                      onPress={handleSend}
+                    >
+                      {isLoading ? (
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <ArrowUp className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </PromptInputAction>
+                </div>
               </PromptInputActions>
             </div>
           </PromptInput>
@@ -469,236 +676,6 @@ export function PatientChatbot() {
           </p>
         </div>
       </div>
-
-      {/* Past sessions modal */}
-      {isHistoryOpen && (
-        <Modal.Root isOpen={isHistoryOpen} onOpenChange={() => setIsHistoryOpen(false)}>
-          <Modal.Backdrop className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md outline-none animate-in fade-in">
-            <Modal.Dialog className="pointer-events-auto flex h-fit max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl border border-border-custom bg-surface p-6 shadow-2xl outline-none">
-              <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-text-primary">
-                  <History className="h-4 w-4 text-primary" /> Past triage sessions
-                </h3>
-                <Modal.CloseTrigger className="p-1 text-text-secondary hover:text-text-primary">
-                  <X className="h-4 w-4" />
-                </Modal.CloseTrigger>
-              </Modal.Header>
-
-              <Modal.Body className="flex flex-col gap-2.5 py-2 text-xs text-text-primary">
-                {historySessions.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-text-secondary">
-                    No past sessions found. Start a new triage conversation!
-                  </div>
-                ) : (
-                  historySessions.map((session) => {
-                    const dateStr = new Date(session.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-                    const isActive = conversationId === session.id;
-
-                    return (
-                      <Button
-                        key={session.id}
-                        className={cn(
-                          "h-auto w-full flex-row items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors whitespace-normal",
-                          isActive
-                            ? "border-primary/40 bg-primary/10 text-text-primary"
-                            : "border-border-custom bg-background-custom/50 hover:border-primary/40",
-                        )}
-                        variant="secondary"
-                        onPress={() => {
-                          loadHistorySession(session.id);
-                          setIsHistoryOpen(false);
-                        }}
-                      >
-                        <div className="flex max-w-[75%] flex-col gap-1">
-                          <span className="truncate text-xs font-bold text-text-primary">
-                            {session.title || session.symptomPrompt}
-                          </span>
-                          <span className="truncate text-[11px] text-text-secondary">
-                            {session.suggestedSpecialty} · <span className="font-mono">{dateStr}</span>
-                          </span>
-                        </div>
-                        <Chip
-                          className="text-[9px] font-mono font-bold"
-                          color={getSeverityColor(session.severityLevel)}
-                          variant="soft"
-                        >
-                          {session.severityLevel}
-                        </Chip>
-                      </Button>
-                    );
-                  })
-                )}
-              </Modal.Body>
-
-              <Modal.Footer className="flex items-center justify-between border-t border-border-custom pt-4">
-                <NextLink href="/ai-records">
-                  <Button className="text-xs font-semibold" size="sm" variant="secondary">
-                    <FileText className="mr-1 h-3.5 w-3.5 text-primary" /> View all records
-                  </Button>
-                </NextLink>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onPress={() => {
-                    resetChat();
-                    setIsHistoryOpen(false);
-                  }}
-                >
-                  Start new session
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Backdrop>
-        </Modal.Root>
-      )}
-
-      {/* Intake parameters modal */}
-      {isIntakeOpen && (
-        <Modal.Root isOpen={isIntakeOpen} onOpenChange={() => setIsIntakeOpen(false)}>
-          <Modal.Backdrop className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md outline-none animate-in fade-in">
-            <Modal.Dialog className="pointer-events-auto flex h-fit max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl border border-border-custom bg-surface p-6 shadow-2xl outline-none">
-              <Modal.Header className="flex items-center justify-between border-b border-border-custom pb-3">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-text-primary">
-                  <SlidersHorizontal className="h-4 w-4 text-primary" /> Patient intake parameters
-                </h3>
-                <Modal.CloseTrigger className="p-1 text-text-secondary hover:text-text-primary">
-                  <X className="h-4 w-4" />
-                </Modal.CloseTrigger>
-              </Modal.Header>
-
-              <Modal.Body className="flex flex-col gap-4 py-2 text-xs text-text-primary">
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-secondary">Symptom duration</Label>
-                  <Select
-                    aria-label="Symptom duration"
-                    className="w-full"
-                    selectedKey={duration}
-                    onSelectionChange={(key: React.Key | null) => {
-                      if (key) setDuration(String(key));
-                    }}
-                  >
-                    <Select.Trigger className="w-full">
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        {["Less than 24 hours", "1-3 days", "1 week", "More than 2 weeks"].map((opt) => (
-                          <ListBox.Item key={opt} id={opt} textValue={opt}>
-                            <Label>{opt}</Label>
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-secondary">Major pre-existing conditions</Label>
-                  <Input
-                    placeholder="e.g. Diabetes, Hypertension, Asthma"
-                    value={preExistingConditions}
-                    onChange={(e) => setPreExistingConditions(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-secondary">Current active medications</Label>
-                  <Input
-                    placeholder="e.g. Paracetamol, Metformin 500mg"
-                    value={currentMedicines}
-                    onChange={(e) => setCurrentMedicines(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-semibold text-text-secondary">Preferred treatment approach</Label>
-                  <Select
-                    aria-label="Preferred treatment approach"
-                    className="w-full"
-                    selectedKey={treatmentApproach}
-                    onSelectionChange={(key: React.Key | null) => {
-                      if (key) setTreatmentApproach(String(key));
-                    }}
-                  >
-                    <Select.Trigger className="w-full">
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        <ListBox.Item id="Allopathic" textValue="Allopathic / Conventional">
-                          <Label>Allopathic / Conventional</Label>
-                        </ListBox.Item>
-                        <ListBox.Item id="Homeopathic" textValue="Homeopathic">
-                          <Label>Homeopathic</Label>
-                        </ListBox.Item>
-                        <ListBox.Item id="Tibb" textValue="Tibb / Traditional Greco-Arabic">
-                          <Label>Tibb / Traditional Greco-Arabic</Label>
-                        </ListBox.Item>
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-1.5 border-t border-border-custom pt-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-text-secondary">Location & Provider Radius</Label>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-[11px]"
-                      onPress={requestDeviceLocation}
-                    >
-                      <Navigation className={cn("h-3 w-3 text-primary", isLocating && "animate-spin")} />
-                      {isLocating ? "Locating..." : "Use Device GPS"}
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="City or Area (optional)"
-                      value={locationName}
-                      onChange={(e) => setLocationName(e.target.value)}
-                    />
-                    <Select
-                      aria-label="Provider Search Radius"
-                      selectedKey={String(searchRadiusKm)}
-                      onSelectionChange={(key: React.Key | null) => {
-                        if (key) setSearchRadiusKm(Number(key));
-                      }}
-                    >
-                      <Select.Trigger className="w-full">
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          {[5, 10, 25, 50, 100].map((km) => (
-                            <ListBox.Item key={km} id={String(km)} textValue={`${km} km Radius`}>
-                              <Label>{km} km Radius</Label>
-                            </ListBox.Item>
-                          ))}
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
-                  </div>
-                </div>
-              </Modal.Body>
-
-              <Modal.Footer className="flex items-center justify-end gap-3 border-t border-border-custom pt-4">
-                <Button size="sm" variant="primary" onPress={() => setIsIntakeOpen(false)}>
-                  Save intake parameters
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Backdrop>
-        </Modal.Root>
-      )}
     </div>
   );
 }

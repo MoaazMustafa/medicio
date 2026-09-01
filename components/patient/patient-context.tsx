@@ -139,6 +139,10 @@ interface PatientContextType {
   searchRadiusKm: number;
   isLocating: boolean;
 
+  isIntakeAttached: boolean;
+  setIsIntakeAttached(val: boolean): void;
+  clearIntakeParameters(): void;
+
   setAgentSpecialty(specialty: string): void;
   setDuration(duration: string): void;
   setPreExistingConditions(val: string): void;
@@ -155,6 +159,13 @@ interface PatientContextType {
   loadHistorySession(id: string): Promise<void>;
 }
 
+function generateChatId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
 export function PatientProvider({ children }: { children: React.ReactNode }) {
@@ -169,9 +180,10 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
   const [preExistingConditions, setPreExistingConditions] = useState<string>("");
   const [currentMedicines, setCurrentMedicines] = useState<string>("");
   const [treatmentApproach, setTreatmentApproach] = useState<string>("Allopathic");
+  const [isIntakeAttached, setIsIntakeAttached] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string>(() => generateChatId());
   const [lastUserPrompt, setLastUserPrompt] = useState<string>("");
   const [pendingClarificationMsg, setPendingClarificationMsg] = useState<ChatMessage | null>(null);
 
@@ -341,14 +353,14 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           prompt: promptText.trim(),
           agentSpecialty: activeAgentSpecialty,
-          duration,
-          preExistingConditions: preExistingConditions
+          duration: isIntakeAttached ? duration : undefined,
+          preExistingConditions: isIntakeAttached && preExistingConditions
             ? preExistingConditions.split(",").map((s) => s.trim()).filter(Boolean)
             : [],
-          currentMedicines: currentMedicines
+          currentMedicines: isIntakeAttached && currentMedicines
             ? currentMedicines.split(",").map((s) => s.trim()).filter(Boolean)
             : [],
-          treatmentApproach,
+          treatmentApproach: isIntakeAttached ? treatmentApproach : "Allopathic",
           answeredQuestions,
           conversationId,
           coordinates: userCoordinates,
@@ -512,16 +524,40 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
     await sendMessage(lastUserPrompt, answers);
   };
 
+  const clearIntakeParameters = () => {
+    setPreExistingConditions("");
+    setCurrentMedicines("");
+    setDuration("1-3 days");
+    setTreatmentApproach("Allopathic");
+    setIsIntakeAttached(false);
+  };
+
   const resetChat = () => {
     setMessages([]);
-    setConversationId(null);
     setLatestTriage(null);
     setLatestDoctors([]);
     setLatestPharmacies([]);
     setLatestLabs([]);
     setPendingClarificationMsg(null);
     setLastUserPrompt("");
+    const newId = generateChatId();
+    setConversationId(newId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("id", newId);
+      window.history.replaceState({}, "", url.toString());
+    }
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && conversationId) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("id") !== conversationId) {
+        url.searchParams.set("id", conversationId);
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [conversationId]);
 
   return (
     <PatientContext.Provider
@@ -534,6 +570,9 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         preExistingConditions,
         currentMedicines,
         treatmentApproach,
+        isIntakeAttached,
+        setIsIntakeAttached,
+        clearIntakeParameters,
         isLoading,
         conversationId,
         latestTriage,
