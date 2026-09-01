@@ -527,11 +527,59 @@ export async function getAgentWithDoctors(
   return { agent, attachedDoctors };
 }
 
-export function makeConversationTitle(promptText: string): string {
-  const clean = promptText.replace(/\s+/g, " ").trim();
-  if (clean.length <= 60) return clean;
+export function makeConversationTitle(
+  promptText: string,
+  specialty?: string,
+  triageResult?: { possibleConditions?: { condition: string }[] } | null
+): string {
+  if (!promptText) return "Clinical Triage Session";
 
-  const cut = clean.slice(0, 60);
-  const lastSpace = cut.lastIndexOf(" ");
-  return `${cut.slice(0, lastSpace > 30 ? lastSpace : 60)}\u2026`;
+  // 1. If triage result has identified conditions, synthesize clinical condition title
+  if (triageResult?.possibleConditions && triageResult.possibleConditions.length > 0) {
+    const topCond = triageResult.possibleConditions[0].condition;
+    if (
+      topCond &&
+      !topCond.toLowerCase().includes("viral upper respiratory") &&
+      !topCond.toLowerCase().includes("general medical query")
+    ) {
+      const cleanCond = topCond.replace(/\s*\([^)]*\)/g, "").trim();
+      return `${cleanCond} Triage`;
+    }
+  }
+
+  // 2. Specialty-directed clinical summaries
+  const clean = promptText.replace(/\s+/g, " ").trim();
+  const lower = clean.toLowerCase();
+
+  if (lower.includes("chest") && (lower.includes("pain") || lower.includes("tight") || lower.includes("pressure") || lower.includes("heavy"))) {
+    return "Chest Pain & Cardiac Triage";
+  }
+  if (lower.includes("headache") || lower.includes("migraine") || lower.includes("sar dard")) {
+    return lower.includes("fever") ? "Headache & Fever Triage" : "Cephalea / Headache Assessment";
+  }
+  if (lower.includes("fever") || lower.includes("bukhar") || lower.includes("temperature")) {
+    return lower.includes("cough") ? "Fever & Respiratory Triage" : "Acute Febrile Illness Intake";
+  }
+  if (lower.includes("stomach") || lower.includes("abdomen") || lower.includes("pait") || lower.includes("cramp")) {
+    return "Abdominal & Gastro Triage";
+  }
+  if (lower.includes("rash") || lower.includes("skin") || lower.includes("itch") || lower.includes("khujli")) {
+    return "Dermatology & Rash Assessment";
+  }
+  if (lower.includes("back pain") || lower.includes("joint") || lower.includes("knee") || lower.includes("neck")) {
+    return "Musculoskeletal Pain Intake";
+  }
+  if (lower.includes("child") || lower.includes("baby") || lower.includes("pediatric") || specialty === "PEDIATRICS") {
+    return "Pediatric Clinical Consultation";
+  }
+
+  if (specialty && specialty !== "GENERAL") {
+    const specTitle = specialty.charAt(0) + specialty.slice(1).toLowerCase();
+    const shortTopic = clean.split(/\s+/).slice(0, 3).join(" ");
+    return `${specTitle}: ${shortTopic.charAt(0).toUpperCase() + shortTopic.slice(1)}`;
+  }
+
+  const words = clean.split(/\s+/).slice(0, 5).join(" ");
+  const capitalized = words.charAt(0).toUpperCase() + words.slice(1);
+  return capitalized.length <= 40 ? capitalized : `${capitalized.slice(0, 37)}\u2026`;
 }
